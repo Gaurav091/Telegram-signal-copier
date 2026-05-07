@@ -5,7 +5,7 @@ from dataclasses import asdict, dataclass
 from telegram_signal_copier.adapters.bridge import FileBridgeExecutor
 from telegram_signal_copier.config import AppConfig
 from telegram_signal_copier.models import ExecutionResult, TelegramSignalMessage, TradeCommand
-from telegram_signal_copier.services.image_processor import ImageProcessor
+from telegram_signal_copier.services.image_processor import ImageProcessor, ImageProcessingResult
 from telegram_signal_copier.services.risk_engine import RiskEngine, ValidationDecision
 from telegram_signal_copier.services.signal_parser import ParseResult, SignalParser
 
@@ -41,9 +41,22 @@ class CopierPipeline:
         self.executor = executor
 
     def process_message(self, message: TelegramSignalMessage) -> PipelineOutcome:
-        image_result = self.image_processor.extract_signal_context(message.image_path)
-        parse_result = self.signal_parser.parse(message, image_text=image_result.extracted_text)
-        parse_result.signal.notes.extend(image_result.notes)
+        # Heuristic-first: avoid AI calls when heuristic already extracted clear fields
+        combined_text = message.combined_text()
+        heuristic = self.signal_parser._heuristic_parse(message, combined_text)
+        heuristic_complete = bool(
+            heuristic.side and (
+                heuristic.entry_price is not None or heuristic.stop_loss is not None or bool(heuristic.take_profits)
+            )
+        )
+
+        if heuristic_complete:
+            parse_result = ParseResult(signal=heuristic, used_ai=False)
+            image_result = ImageProcessingResult(extracted_text="", notes=[])
+        else:
+            image_result = self.image_processor.extract_signal_context(message.image_path, existing_text=combined_text)
+            parse_result = self.signal_parser.parse(message, image_text=image_result.extracted_text)
+            parse_result.signal.notes.extend(image_result.notes)
 
         decision = self.risk_engine.evaluate(parse_result.signal)
         execution_result: ExecutionResult | None = None

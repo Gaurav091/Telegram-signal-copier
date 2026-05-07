@@ -85,6 +85,11 @@ class AppConfig:
     nvidia_base_url: str = "https://api.ngc.nvidia.com/v2"
     cerebras_api_key: str | None = None
     cerebras_base_url: str = "https://api.cerebras.net/v1"
+    # AI usage tuning
+    ai_max_requests_per_minute: int = 60
+    ai_provider_cooldown_seconds: int = 60
+    ai_provider_max_cooldown_seconds: int = 3600
+    ai_cache_ttl_seconds: int = 300
 
     @classmethod
     def from_env(cls, project_root: Path | None = None) -> "AppConfig":
@@ -111,6 +116,10 @@ class AppConfig:
             nvidia_base_url=os.getenv("NVIDIA_BASE_URL", "https://api.nvidia.com/v1"),
             cerebras_api_key=os.getenv("CEREBRAS_API_KEY"),
             cerebras_base_url=os.getenv("CEREBRAS_BASE_URL", "https://api.cerebras.net/v1"),
+            ai_max_requests_per_minute=int(os.getenv("AI_MAX_REQUESTS_PER_MINUTE", "60")),
+            ai_provider_cooldown_seconds=int(os.getenv("AI_PROVIDER_COOLDOWN_SECONDS", "60")),
+            ai_provider_max_cooldown_seconds=int(os.getenv("AI_PROVIDER_MAX_COOLDOWN_SECONDS", "3600")),
+            ai_cache_ttl_seconds=int(os.getenv("AI_CACHE_TTL_SECONDS", "300")),
             minimum_confidence=float(os.getenv("MINIMUM_CONFIDENCE", "0.70")),
             default_volume=float(os.getenv("DEFAULT_VOLUME", "0.10")),
             allowed_symbols=_csv_env("ALLOWED_SYMBOLS", "XAUUSD,EURUSD,GBPUSD,USDJPY"),

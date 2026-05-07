@@ -227,6 +227,7 @@ You said API keys will be available. Minimum configuration should include:
 
 - Telegram credentials
 - AI provider API key
+  - Optionally configure multiple providers and fallbacks using the `.env` keys documented below.
 - OCR provider key if external OCR is used
 - MCP server connection settings for MT5
 - MT5 account or terminal connection details
@@ -280,6 +281,29 @@ Phase 1 should focus on:
 ```powershell
 python -m telegram_signal_copier login
 ```
+
+## AI Providers and OCR Setup
+
+- Supported AI providers: OpenAI-compatible primary provider plus optional fallbacks (Cloudflare, NVIDIA, Cerebras).
+- Configure provider keys and base URLs in `.env` (see `.env.example`).
+- Important: fallbacks must be real OpenAI-compatible endpoints or use the provider-specific adapter settings; invalid endpoints will fail and be skipped.
+
+Local OCR (recommended as fallback):
+
+- Install system Tesseract engine (OS packages):
+  - Windows: install Tesseract and ensure `tesseract.exe` on PATH
+  - Linux: `sudo apt install tesseract-ocr`
+- Python packages: `pillow` and `pytesseract` (added to `requirements.txt`).
+
+AI tuning variables (in `.env`):
+
+- `AI_MAX_REQUESTS_PER_MINUTE`: Global token-bucket cap to protect provider quota.
+- `AI_PROVIDER_COOLDOWN_SECONDS`: Base cooldown applied on a provider failure.
+- `AI_PROVIDER_MAX_COOLDOWN_SECONDS`: Maximum cooldown when failures escalate.
+- `AI_CACHE_TTL_SECONDS`: Time in seconds to cache identical prompt+image responses.
+
+If you plan to use local OCR as a fallback, ensure `pytesseract` and the Tesseract binary are installed before running the service.
+
 
 This will prompt for the Telegram OTP on first sign-in and save the session locally.
 

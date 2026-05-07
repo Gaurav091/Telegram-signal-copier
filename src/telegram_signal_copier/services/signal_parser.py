@@ -27,9 +27,22 @@ class SignalParser:
         self.config = config
         self.ai_client = ai_client
 
-    def parse(self, message: TelegramSignalMessage, image_text: str = "") -> ParseResult:
+    def parse(self, message: TelegramSignalMessage, image_text: str = "", image_ai_payload: dict | None = None) -> ParseResult:
         combined_text = "\n".join(part for part in [message.raw_text, image_text] if part).strip()
         heuristic = self._heuristic_parse(message, combined_text)
+
+        # If image analysis already produced a structured AI payload, reuse it
+        if image_ai_payload is not None:
+            try:
+                ai_signal = self._from_ai_payload(message, combined_text, image_ai_payload)
+                merged = self._merge_signals(ai_signal, heuristic)
+                merged = self._fill_missing_levels_from_chart(merged, message)
+                return ParseResult(signal=merged, used_ai=True)
+            except Exception as exc:
+                heuristic.notes.append(f"AI image payload processing failed; using heuristic fallback: {exc}")
+                return ParseResult(signal=heuristic, used_ai=False)
+
+        # Otherwise, if AI client is configured, call it
         if self.ai_client:
             try:
                 payload = self.ai_client.parse_signal(combined_text or "Analyze this signal", image_path=message.image_path)
@@ -40,6 +53,7 @@ class SignalParser:
             except Exception as exc:
                 heuristic.notes.append(f"AI parse failed, used heuristic fallback: {exc}")
                 return ParseResult(signal=heuristic, used_ai=False)
+
         return ParseResult(signal=heuristic, used_ai=False)
 
     def _fill_missing_levels_from_chart(self, signal: ParsedSignal, message: TelegramSignalMessage) -> ParsedSignal:
