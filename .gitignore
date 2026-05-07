@@ -1,0 +1,11 @@
+.env
+*.session
+*.pyc
+__pycache__/
+.pytest_cache/
+.venv/
+venv/
+bridge/inbox/*.cmd
+bridge/outbox/*.result
+bridge/inbox/*.json
+bridge/outbox/*.json

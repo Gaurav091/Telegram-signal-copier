@@ -1,0 +1,30 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "telegram-signal-copier"
+version = "0.1.0"
+description = "Telegram trading signal copier with AI parsing and MT5 EA execution bridge"
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = []
+
+[project.scripts]
+telegram-signal-copier = "telegram_signal_copier.main:main"
+telegram-signal-copier-mcp = "telegram_signal_copier.mcp_server:main"
+
+[project.optional-dependencies]
+telegram = ["telethon>=1.36.0"]
+mcp = ["mcp[cli]>=1.2.0", "telethon>=1.36.0"]
+dev = ["pytest>=8.3.0"]
+
+[tool.setuptools]
+package-dir = {"" = "src"}
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+pythonpath = ["src"]
+testpaths = ["tests"]

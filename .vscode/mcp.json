@@ -1,0 +1,19 @@
+{
+  "servers": {
+    "telegramDesktop": {
+      "type": "stdio",
+      "command": "C:/Users/HP/AppData/Local/Programs/Python/Python314/python.exe",
+      "args": [
+        "-m",
+        "telegram_signal_copier.mcp_server"
+      ],
+      "env": {
+        "PYTHONPATH": "${workspaceFolder}/src"
+      },
+      "envFile": "${workspaceFolder}/.env",
+      "dev": {
+        "watch": "${workspaceFolder}/src/**/*.py"
+      }
+    }
+  }
+}

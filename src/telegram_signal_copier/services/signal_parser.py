@@ -1,0 +1,305 @@
+from __future__ import annotations
+
+import re
+from dataclasses import dataclass
+from typing import Any
+
+from telegram_signal_copier.adapters.openai_client import OpenAIClient
+from telegram_signal_copier.config import AppConfig
+from telegram_signal_copier.models import ParsedSignal, TelegramSignalMessage
+
+
+PRICE_PATTERN = re.compile(r"\b\d{1,6}(?:\.\d{1,5})?\b")
+SL_PATTERN = re.compile(r"(?:SL|STOP\s*LOSS)\s*[:=@-]?\s*(\d{1,6}(?:\.\d{1,5})?)", re.IGNORECASE)
+TP_PATTERN = re.compile(r"(?:TP\d*|TAKE\s*PROFIT\s*\d*)\s*[:=@-]?\s*(\d{1,6}(?:\.\d{1,5})?)", re.IGNORECASE)
+ENTRY_PATTERN = re.compile(r"(?:ENTRY|AT|BUY|SELL)\s*[:=@-]?\s*(\d{1,6}(?:\.\d{1,5})?)", re.IGNORECASE)
+AT_SYMBOL_PATTERN = re.compile(r"@\s*(\d{1,6}(?:\.\d{1,5})?)", re.IGNORECASE)
+
+
+@dataclass(slots=True)
+class ParseResult:
+    signal: ParsedSignal
+    used_ai: bool
+
+
+class SignalParser:
+    def __init__(self, config: AppConfig, ai_client: OpenAIClient | None) -> None:
+        self.config = config
+        self.ai_client = ai_client
+
+    def parse(self, message: TelegramSignalMessage, image_text: str = "") -> ParseResult:
+        combined_text = "\n".join(part for part in [message.raw_text, image_text] if part).strip()
+        heuristic = self._heuristic_parse(message, combined_text)
+        if self.ai_client:
+            try:
+                payload = self.ai_client.parse_signal(combined_text or "Analyze this signal", image_path=message.image_path)
+                ai_signal = self._from_ai_payload(message, combined_text, payload)
+                merged = self._merge_signals(ai_signal, heuristic)
+                merged = self._fill_missing_levels_from_chart(merged, message)
+                return ParseResult(signal=merged, used_ai=True)
+            except Exception as exc:
+                heuristic.notes.append(f"AI parse failed, used heuristic fallback: {exc}")
+                return ParseResult(signal=heuristic, used_ai=False)
+        return ParseResult(signal=heuristic, used_ai=False)
+
+    def _fill_missing_levels_from_chart(self, signal: ParsedSignal, message: TelegramSignalMessage) -> ParsedSignal:
+        if not message.image_path:
+            return signal
+        needs_sl = signal.stop_loss is None
+        needs_tp = not signal.take_profits
+        if not needs_sl and not needs_tp:
+            return signal
+        if not self.ai_client:
+            return signal
+        try:
+            levels = self.ai_client.extract_chart_levels(
+                image_path=message.image_path,
+                symbol=signal.symbol,
+                side=signal.side,
+                entry_price=signal.entry_price,
+            )
+            chart_sl = self._maybe_float(levels.get("stop_loss"))
+            raw_tps = levels.get("take_profits") or []
+            if not isinstance(raw_tps, list):
+                raw_tps = []
+            chart_tps = [float(v) for v in raw_tps if v not in (None, "")]
+            chart_confidence = max(0.0, min(1.0, float(levels.get("confidence") or 0)))
+
+            if chart_confidence < 0.50:
+                signal.notes.append(
+                    f"Chart level extraction confidence too low ({chart_confidence:.2f}), skipped"
+                )
+                return signal
+
+            filled: list[str] = []
+            if needs_sl and chart_sl is not None:
+                signal = ParsedSignal(
+                    source_group=signal.source_group,
+                    message_id=signal.message_id,
+                    symbol=signal.symbol,
+                    side=signal.side,
+                    order_type=signal.order_type,
+                    entry_price=signal.entry_price,
+                    entry_range_low=signal.entry_range_low,
+                    entry_range_high=signal.entry_range_high,
+                    stop_loss=chart_sl,
+                    take_profits=signal.take_profits,
+                    confidence=signal.confidence,
+                    raw_text=signal.raw_text,
+                    image_used=True,
+                    requires_review=True,
+                    parser_name=signal.parser_name,
+                    notes=signal.notes,
+                )
+                filled.append(f"SL {chart_sl} (from chart)")
+            if needs_tp and chart_tps:
+                signal = ParsedSignal(
+                    source_group=signal.source_group,
+                    message_id=signal.message_id,
+                    symbol=signal.symbol,
+                    side=signal.side,
+                    order_type=signal.order_type,
+                    entry_price=signal.entry_price,
+                    entry_range_low=signal.entry_range_low,
+                    entry_range_high=signal.entry_range_high,
+                    stop_loss=signal.stop_loss,
+                    take_profits=chart_tps,
+                    confidence=signal.confidence,
+                    raw_text=signal.raw_text,
+                    image_used=True,
+                    requires_review=True,
+                    parser_name=signal.parser_name,
+                    notes=signal.notes,
+                )
+                filled.append(f"TPs {chart_tps} (from chart)")
+            if filled:
+                signal.notes.append(f"Chart image supplemented missing levels: {', '.join(filled)}")
+        except Exception as exc:
+            signal.notes.append(f"Chart level extraction failed: {exc}")
+        return signal
+
+    def _merge_signals(self, ai_signal: ParsedSignal, heuristic_signal: ParsedSignal) -> ParsedSignal:
+        allowed_symbols = {symbol.upper() for symbol in self.config.allowed_symbols}
+        symbol = ai_signal.symbol or heuristic_signal.symbol
+        if symbol and allowed_symbols and symbol not in allowed_symbols and heuristic_signal.symbol in allowed_symbols:
+            symbol = heuristic_signal.symbol
+
+        confidence = ai_signal.confidence if ai_signal.confidence > 0 else heuristic_signal.confidence
+        notes = list(ai_signal.notes)
+        for note in heuristic_signal.notes:
+            if note not in notes:
+                notes.append(note)
+        if ai_signal.confidence <= 0 and heuristic_signal.confidence > 0:
+            notes.append("AI confidence missing, reused heuristic confidence")
+
+        merged = ParsedSignal(
+            source_group=ai_signal.source_group,
+            message_id=ai_signal.message_id,
+            symbol=symbol,
+            side=ai_signal.side or heuristic_signal.side,
+            order_type=ai_signal.order_type or heuristic_signal.order_type,
+            entry_price=ai_signal.entry_price if ai_signal.entry_price is not None else heuristic_signal.entry_price,
+            entry_range_low=ai_signal.entry_range_low if ai_signal.entry_range_low is not None else heuristic_signal.entry_range_low,
+            entry_range_high=ai_signal.entry_range_high if ai_signal.entry_range_high is not None else heuristic_signal.entry_range_high,
+            stop_loss=ai_signal.stop_loss if ai_signal.stop_loss is not None else heuristic_signal.stop_loss,
+            take_profits=ai_signal.take_profits or heuristic_signal.take_profits,
+            confidence=confidence,
+            raw_text=ai_signal.raw_text,
+            image_used=ai_signal.image_used or heuristic_signal.image_used,
+            requires_review=ai_signal.requires_review,
+            parser_name="openai+heuristic",
+            notes=notes,
+        )
+        return merged
+
+    def _from_ai_payload(
+        self,
+        message: TelegramSignalMessage,
+        combined_text: str,
+        payload: dict[str, Any],
+    ) -> ParsedSignal:
+        raw_take_profits = payload.get("take_profits") or []
+        if not isinstance(raw_take_profits, list):
+            raw_take_profits = []
+        take_profits = [float(value) for value in raw_take_profits if value not in (None, "")]
+        notes = payload.get("notes") or []
+        if isinstance(notes, str):
+            notes = [notes]
+        confidence = self._maybe_float(payload.get("confidence"))
+        return ParsedSignal(
+            source_group=message.source_group,
+            message_id=message.message_id,
+            symbol=self._normalize_symbol(payload.get("symbol")),
+            side=self._normalize_side(payload.get("side")),
+            order_type=str(payload.get("order_type") or "MARKET").upper(),
+            entry_price=self._maybe_float(payload.get("entry_price")),
+            entry_range_low=self._maybe_float(payload.get("entry_range_low")),
+            entry_range_high=self._maybe_float(payload.get("entry_range_high")),
+            stop_loss=self._maybe_float(payload.get("stop_loss")),
+            take_profits=take_profits,
+            confidence=max(0.0, min(1.0, confidence if confidence is not None else 0.0)),
+            raw_text=combined_text,
+            image_used=bool(message.image_path),
+            requires_review=False,
+            parser_name="openai",
+            notes=[str(note) for note in notes],
+        )
+
+    def _heuristic_parse(self, message: TelegramSignalMessage, combined_text: str) -> ParsedSignal:
+        upper_text = combined_text.upper()
+        symbol = self._detect_symbol(upper_text)
+        side = self._normalize_side("BUY" if "BUY" in upper_text or "LONG" in upper_text else "SELL" if "SELL" in upper_text or "SHORT" in upper_text else None)
+        order_type = self._detect_order_type(upper_text)
+        entry_price = self._first_float(ENTRY_PATTERN.findall(upper_text))
+        if entry_price is None:
+            entry_price = self._first_float(AT_SYMBOL_PATTERN.findall(upper_text))
+        stop_loss = self._first_float(SL_PATTERN.findall(upper_text))
+        take_profits = [float(value) for value in TP_PATTERN.findall(upper_text)]
+
+        if not take_profits:
+            numbers = [float(value) for value in PRICE_PATTERN.findall(upper_text)]
+            protected = {value for value in [entry_price, stop_loss] if value is not None}
+            take_profits = [value for value in numbers if value not in protected][1:3]
+
+        fields_found = sum(
+            1
+            for item in [symbol, side, order_type, entry_price, stop_loss, take_profits[0] if take_profits else None]
+            if item not in (None, "")
+        )
+        confidence = min(0.95, 0.25 + fields_found * 0.12)
+        notes: list[str] = []
+        if message.image_path:
+            notes.append("Image attached; heuristic parser may need AI vision for full accuracy")
+
+        return ParsedSignal(
+            source_group=message.source_group,
+            message_id=message.message_id,
+            symbol=symbol,
+            side=side,
+            order_type=order_type,
+            entry_price=entry_price,
+            stop_loss=stop_loss,
+            take_profits=take_profits,
+            confidence=confidence,
+            raw_text=combined_text,
+            image_used=bool(message.image_path),
+            parser_name="heuristic",
+            notes=notes,
+        )
+
+    def _detect_symbol(self, upper_text: str) -> str | None:
+        aliases = {
+            "GOLD": "XAUUSD",
+            "XAU": "XAUUSD",
+            "EU": "EURUSD",
+            "GU": "GBPUSD",
+            "UJ": "USDJPY",
+            "DOW": "US30",
+            "DJ30": "US30",
+            "DOWJONES": "US30",
+            "US 30": "US30",
+            "NDX": "NAS100",
+            "NASDAQ": "NAS100",
+            "NAS 100": "NAS100",
+            "NQ": "NAS100",
+        }
+        for alias, symbol in aliases.items():
+            if re.search(rf"\b{re.escape(alias)}\b", upper_text):
+                return symbol
+        for symbol in self.config.allowed_symbols:
+            normalized = symbol.upper()
+            if normalized in upper_text:
+                return normalized
+        match = re.search(r"\b[A-Z]{6,10}\b", upper_text)
+        return match.group(0) if match else None
+
+    @staticmethod
+    def _detect_order_type(upper_text: str) -> str:
+        for candidate in ["BUY LIMIT", "SELL LIMIT", "BUY STOP", "SELL STOP"]:
+            if candidate in upper_text:
+                return candidate.replace(" ", "_")
+        return "MARKET"
+
+    @staticmethod
+    def _first_float(values: list[str]) -> float | None:
+        return float(values[0]) if values else None
+
+    @staticmethod
+    def _maybe_float(value: Any) -> float | None:
+        if value in (None, ""):
+            return None
+        try:
+            return float(value)
+        except (TypeError, ValueError):
+            return None
+
+    @staticmethod
+    def _normalize_side(value: Any) -> str | None:
+        if value is None:
+            return None
+        normalized = str(value).strip().upper()
+        if normalized == "LONG":
+            return "BUY"
+        if normalized == "SHORT":
+            return "SELL"
+        return normalized if normalized in {"BUY", "SELL"} else None
+
+    @staticmethod
+    def _normalize_symbol(value: Any) -> str | None:
+        if value in (None, ""):
+            return None
+        normalized = str(value).strip().upper()
+        aliases = {
+            "GOLD": "XAUUSD",
+            "XAU": "XAUUSD",
+            "EU": "EURUSD",
+            "GU": "GBPUSD",
+            "UJ": "USDJPY",
+            "DOW": "US30",
+            "DJ30": "US30",
+            "DOWJONES": "US30",
+            "NDX": "NAS100",
+            "NASDAQ": "NAS100",
+            "NQ": "NAS100",
+        }
+        return aliases.get(normalized, normalized)

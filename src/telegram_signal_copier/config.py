@@ -1,0 +1,175 @@
+from __future__ import annotations
+
+import os
+from dataclasses import dataclass
+from pathlib import Path
+
+
+SOURCE_SPEC_SEPARATOR = "::"
+
+
+def _load_dotenv(dotenv_path: Path) -> None:
+    if not dotenv_path.exists():
+        return
+    for raw_line in dotenv_path.read_text(encoding="utf-8").splitlines():
+        line = raw_line.strip()
+        if not line or line.startswith("#") or "=" not in line:
+            continue
+        key, value = line.split("=", 1)
+        key = key.strip()
+        value = value.strip()
+        if value and len(value) >= 2 and value[0] == value[-1] and value[0] in {'"', "'"}:
+            value = value[1:-1]
+        os.environ[key] = value
+
+
+def _csv_env(name: str, default: str = "") -> list[str]:
+    raw = os.getenv(name, default)
+    return [item.strip() for item in raw.split(",") if item.strip()]
+
+
+def _parse_source_spec(value: str) -> tuple[str, str]:
+    label, separator, identifier = value.partition(SOURCE_SPEC_SEPARATOR)
+    if separator:
+        normalized_identifier = identifier.strip()
+        normalized_label = label.strip() or normalized_identifier
+        return normalized_label, normalized_identifier
+    normalized = value.strip()
+    return normalized, normalized
+
+
+def _bool_env(name: str, default: bool = False) -> bool:
+    raw = os.getenv(name)
+    if raw is None:
+        return default
+    return raw.strip().lower() in {"1", "true", "yes", "on"}
+
+
+def _default_bridge_root(project_root: Path) -> Path:
+    if os.name == "nt":
+        appdata = Path(os.getenv("APPDATA", Path.home() / "AppData" / "Roaming"))
+        return appdata / "MetaQuotes" / "Terminal" / "Common" / "Files" / "TelegramSignalCopierBridge"
+    return project_root / "bridge"
+
+
+@dataclass(slots=True)
+class AppConfig:
+    project_root: Path
+    bridge_inbox_dir: Path
+    bridge_outbox_dir: Path
+    telegram_api_id: str | None
+    telegram_api_hash: str | None
+    telegram_phone_number: str | None
+    telegram_session_name: str
+    telegram_sources: list[str]
+    openai_api_key: str | None
+    openai_model: str
+    openai_base_url: str
+    minimum_confidence: float
+    default_volume: float
+    allowed_symbols: list[str]
+    dry_run: bool
+    approval_required_below: float
+    poll_interval_seconds: float
+    # optional telegram fields
+    telegram_bot_token: str | None = None
+    telegram_username: str | None = None
+    telegram_user_id: str | None = None
+    telegram_first_name: str | None = None
+    # optional AI provider fallbacks
+    cloudflare_account_id: str | None = None
+    cloudflare_api_token: str | None = None
+    cloudflare_base_url: str = "https://api.cloudflare.com/client/v4"
+    nvidia_cloudname: str | None = None
+    nvidia_api_key: str | None = None
+    nvidia_base_url: str = "https://api.ngc.nvidia.com/v2"
+    cerebras_api_key: str | None = None
+    cerebras_base_url: str = "https://api.cerebras.net/v1"
+
+    @classmethod
+    def from_env(cls, project_root: Path | None = None) -> "AppConfig":
+        root = project_root or Path(__file__).resolve().parents[2]
+        _load_dotenv(root / ".env")
+        bridge_root = Path(os.getenv("MT5_BRIDGE_DIR", _default_bridge_root(root)))
+        return cls(
+            project_root=root,
+            bridge_inbox_dir=bridge_root / "inbox",
+            bridge_outbox_dir=bridge_root / "outbox",
+            telegram_api_id=os.getenv("TELEGRAM_API_ID"),
+            telegram_api_hash=os.getenv("TELEGRAM_API_HASH"),
+            telegram_phone_number=os.getenv("TELEGRAM_PHONE_NUMBER"),
+            telegram_session_name=os.getenv("TELEGRAM_SESSION_NAME", "telegram-signal-copier"),
+            telegram_sources=_csv_env("TELEGRAM_SOURCES"),
+            openai_api_key=os.getenv("OPENAI_API_KEY"),
+            openai_model=os.getenv("OPENAI_MODEL", "gpt-4.1-mini"),
+            openai_base_url=os.getenv("OPENAI_BASE_URL", "https://api.openai.com/v1"),
+            cloudflare_account_id=os.getenv("CLOUDFLARE_ACCOUNT_ID"),
+            cloudflare_api_token=os.getenv("CLOUDFLARE_API_TOKEN"),
+            cloudflare_base_url=os.getenv("CLOUDFLARE_BASE_URL", "https://api.cloudflare.com/client/v4"),
+            nvidia_cloudname=os.getenv("NVIDIA_CLOUDNAME"),
+            nvidia_api_key=os.getenv("NVIDIA_API_KEY"),
+            nvidia_base_url=os.getenv("NVIDIA_BASE_URL", "https://api.nvidia.com/v1"),
+            cerebras_api_key=os.getenv("CEREBRAS_API_KEY"),
+            cerebras_base_url=os.getenv("CEREBRAS_BASE_URL", "https://api.cerebras.net/v1"),
+            minimum_confidence=float(os.getenv("MINIMUM_CONFIDENCE", "0.70")),
+            default_volume=float(os.getenv("DEFAULT_VOLUME", "0.10")),
+            allowed_symbols=_csv_env("ALLOWED_SYMBOLS", "XAUUSD,EURUSD,GBPUSD,USDJPY"),
+            dry_run=_bool_env("DRY_RUN", True),
+            approval_required_below=float(os.getenv("APPROVAL_REQUIRED_BELOW", "0.85")),
+            poll_interval_seconds=float(os.getenv("POLL_INTERVAL_SECONDS", "2.0")),
+            telegram_bot_token=os.getenv("TELEGRAM_BOT_TOKEN"),
+            telegram_username=os.getenv("TELEGRAM_USERNAME"),
+            telegram_user_id=os.getenv("TELEGRAM_USER_ID"),
+            telegram_first_name=os.getenv("TELEGRAM_FIRST_NAME"),
+        )
+
+    def ensure_runtime_dirs(self) -> None:
+        self.bridge_inbox_dir.mkdir(parents=True, exist_ok=True)
+        self.bridge_outbox_dir.mkdir(parents=True, exist_ok=True)
+
+    @property
+    def telegram_source_mappings(self) -> list[tuple[str, str]]:
+        mappings: list[tuple[str, str]] = []
+        for source in self.telegram_sources:
+            label, identifier = _parse_source_spec(source)
+            if identifier:
+                mappings.append((label, identifier))
+        return mappings
+
+    @property
+    def telegram_source_labels(self) -> list[str]:
+        return [label for label, _ in self.telegram_source_mappings]
+
+    @property
+    def telegram_source_identifiers(self) -> list[str]:
+        return [identifier for _, identifier in self.telegram_source_mappings]
+
+    @property
+    def telegram_ready(self) -> bool:
+        return bool(self.telegram_api_id and self.telegram_api_hash and self.telegram_source_identifiers)
+
+    @property
+    def telegram_login_ready(self) -> bool:
+        return bool(self.telegram_api_id and self.telegram_api_hash and (self.telegram_phone_number or self.telegram_bot_token))
+
+    @property
+    def ai_ready(self) -> bool:
+        return bool(
+            self.openai_api_key
+            or self.cloudflare_api_token
+            or self.nvidia_api_key
+            or self.cerebras_api_key
+        )
+
+    @property
+    def ai_providers(self) -> list[dict[str, str]]:
+        providers: list[dict[str, str]] = []
+        if self.openai_api_key:
+            providers.append({"name": "primary", "api_key": self.openai_api_key, "base_url": self.openai_base_url})
+        if self.cloudflare_api_token:
+            providers.append({"name": "cloudflare", "api_key": self.cloudflare_api_token, "base_url": self.cloudflare_base_url})
+        if self.nvidia_api_key:
+            providers.append({"name": "nvidia", "api_key": self.nvidia_api_key, "base_url": self.nvidia_base_url})
+        if self.cerebras_api_key:
+            providers.append({"name": "cerebras", "api_key": self.cerebras_api_key, "base_url": self.cerebras_base_url})
+        return providers
