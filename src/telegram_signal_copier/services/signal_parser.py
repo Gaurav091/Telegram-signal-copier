@@ -27,6 +27,17 @@ class SignalParser:
         self.config = config
         self.ai_client = ai_client
 
+    @staticmethod
+    def _strip_broker_suffix(symbol: str | None) -> str | None:
+        if not symbol:
+            return None
+        s = str(symbol).strip().upper()
+        # common broker suffix patterns, e.g. XAUUSDm or XAUUSD.M -> strip trailing 'M' or '.M' or '-M'
+        for suf in ('.M', '-M', 'M'):
+            if s.endswith(suf):
+                return s[: -len(suf)]
+        return s
+
     def parse(self, message: TelegramSignalMessage, image_text: str = "", image_ai_payload: dict | None = None) -> ParseResult:
         combined_text = "\n".join(part for part in [message.raw_text, image_text] if part).strip()
         heuristic = self._heuristic_parse(message, combined_text)
@@ -45,7 +56,14 @@ class SignalParser:
         # Otherwise, if AI client is configured, call it
         if self.ai_client:
             try:
-                payload = self.ai_client.parse_signal(combined_text or "Analyze this signal", image_path=message.image_path)
+                extra = message.effective_image_paths()
+                primary = extra[0] if extra else message.image_path
+                rest = extra[1:] if len(extra) > 1 else None
+                payload = self.ai_client.parse_signal(
+                    combined_text or "Analyze this signal",
+                    image_path=primary,
+                    all_image_paths=rest,
+                )
                 ai_signal = self._from_ai_payload(message, combined_text, payload)
                 merged = self._merge_signals(ai_signal, heuristic)
                 merged = self._fill_missing_levels_from_chart(merged, message)
@@ -133,9 +151,12 @@ class SignalParser:
         return signal
 
     def _merge_signals(self, ai_signal: ParsedSignal, heuristic_signal: ParsedSignal) -> ParsedSignal:
-        allowed_symbols = {symbol.upper() for symbol in self.config.allowed_symbols}
+        # Use merged allowed symbols (includes dynamic additions). Accept broker suffix variants like 'M'.
+        allowed_bases = {self._strip_broker_suffix(symbol) for symbol in (self.config.merged_allowed_symbols or [])}
         symbol = ai_signal.symbol or heuristic_signal.symbol
-        if symbol and allowed_symbols and symbol not in allowed_symbols and heuristic_signal.symbol in allowed_symbols:
+        symbol_base = self._strip_broker_suffix(symbol)
+        heuristic_base = self._strip_broker_suffix(heuristic_signal.symbol)
+        if symbol and allowed_bases and (symbol_base not in allowed_bases) and heuristic_signal.symbol and heuristic_base in allowed_bases:
             symbol = heuristic_signal.symbol
 
         confidence = ai_signal.confidence if ai_signal.confidence > 0 else heuristic_signal.confidence
@@ -260,12 +281,19 @@ class SignalParser:
         for alias, symbol in aliases.items():
             if re.search(rf"\b{re.escape(alias)}\b", upper_text):
                 return symbol
-        for symbol in self.config.allowed_symbols:
-            normalized = symbol.upper()
+        # match configured allowed symbols or their common broker-suffix variants in the text
+        for symbol in self.config.merged_allowed_symbols:
+            normalized = str(symbol).upper()
             if normalized in upper_text:
                 return normalized
-        match = re.search(r"\b[A-Z]{6,10}\b", upper_text)
-        return match.group(0) if match else None
+            # broker variants like trailing 'M'
+            if (normalized + 'M') in upper_text or (normalized + '.M') in upper_text:
+                return normalized
+        # Fallback: only accept tokens that contain digits (e.g. NAS100, US30)
+        # or end with a common currency/code suffix (e.g. USD, EUR, JPY, XAU)
+        # This avoids matching generic words like 'ACTIVE' from headers.
+        match = re.search(r"\b([A-Z0-9]{3,10}(?:\d+|USD|EUR|JPY|GBP|AUD|CAD|NZD|CHF|XAU|XAG))\b", upper_text)
+        return match.group(1) if match else None
 
     @staticmethod
     def _detect_order_type(upper_text: str) -> str:

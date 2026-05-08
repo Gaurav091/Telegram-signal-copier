@@ -3,6 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 
 from telegram_signal_copier.config import AppConfig
+import logging
 from telegram_signal_copier.models import ParsedSignal
 
 
@@ -29,14 +30,37 @@ class RiskEngine:
         self.config = config
         self._seen_signatures: set[str] = set()
 
+    @staticmethod
+    def _strip_broker_suffix(symbol: str | None) -> str | None:
+        if not symbol:
+            return None
+        s = str(symbol).strip().upper()
+        for suf in ('.M', '-M', 'M'):
+            if s.endswith(suf):
+                return s[: -len(suf)]
+        return s
+
     def evaluate(self, signal: ParsedSignal) -> ValidationDecision:
         reasons: list[str] = []
         if not signal.symbol:
             reasons.append("Missing symbol")
         if not signal.side:
             reasons.append("Missing side")
-        if signal.symbol and signal.symbol not in {symbol.upper() for symbol in self.config.allowed_symbols}:
-            reasons.append(f"Symbol {signal.symbol} not allowed")
+        merged = list(self.config.merged_allowed_symbols or [])
+        allowed_bases = {self._strip_broker_suffix(s) for s in merged}
+        sig = signal.symbol.strip().upper() if signal.symbol else ""
+        sig_base = self._strip_broker_suffix(sig)
+        if sig and sig_base not in allowed_bases:
+            # attempt auto-add when enabled (use base symbol without broker suffix)
+            if getattr(self.config, "auto_add_new_symbols", False):
+                added = self.config.add_dynamic_symbol(sig_base)
+                if added:
+                    logging.getLogger(__name__).info("Auto-added new symbol: %s", sig_base)
+                    allowed_bases.add(sig_base)
+                else:
+                    reasons.append(f"Symbol {signal.symbol} not allowed")
+            else:
+                reasons.append(f"Symbol {signal.symbol} not allowed")
         if signal.stop_loss is None:
             reasons.append("Missing stop loss")
         if not signal.take_profits:

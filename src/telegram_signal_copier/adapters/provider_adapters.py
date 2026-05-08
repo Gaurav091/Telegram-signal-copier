@@ -29,11 +29,80 @@ class ProviderAdapter:
         with request.urlopen(http_request, timeout=60) as response:
             return json.loads(response.read().decode("utf-8"))
 
+    def probe(self) -> bool:
+        """Lightweight probe to validate API base_url and api_key. Tries a few common endpoints.
+
+        Returns True on a successful HTTP 200 response, False otherwise.
+        """
+        candidates = [f"{self.base_url}/v1/models", f"{self.base_url}/models", f"{self.base_url}"]
+        for url in candidates:
+            try:
+                headers = {}
+                if self.api_key:
+                    headers["Authorization"] = f"Bearer {self.api_key}"
+                req = request.Request(url, headers=headers, method="GET")
+                with request.urlopen(req, timeout=10) as resp:
+                    if resp.getcode() == 200:
+                        return True
+            except Exception:
+                continue
+        return False
+
 
 class OpenAIAdapter(ProviderAdapter):
     @property
     def supports_vision(self) -> bool:
         return True
+
+
+class GroqAdapter(OpenAIAdapter):
+    @property
+    def supports_vision(self) -> bool:
+        # Treat Groq as OpenAI-compatible and capable of vision when configured with v1 base url
+        return True
+
+    def translate_payload(self, path: str, payload: dict[str, Any]) -> dict[str, Any]:
+        """Provider-specific payload translation for Groq.
+
+        Current behavior: for chat/completions endpoints, if `messages` present,
+        convert to a simple `input` field by joining message contents. This
+        helps when the provider expects prompt-like input instead of a
+        chat-structured payload. Keep as a best-effort non-destructive
+        translation.
+        """
+        try:
+            if "messages" in payload and ("completions" in path or "chat" in path):
+                parts: list[str] = []
+                for m in payload.get("messages", []):
+                    if isinstance(m, dict):
+                        cont = m.get("content")
+                        if isinstance(cont, str):
+                            parts.append(cont)
+                        elif isinstance(cont, list):
+                            # join image/text mixed content
+                            for item in cont:
+                                if isinstance(item, dict) and item.get("type") == "text":
+                                    parts.append(item.get("text", ""))
+                if parts:
+                    new = dict(payload)
+                    new.pop("messages", None)
+                    new["input"] = "\n\n".join(parts)
+                    return new
+        except Exception:
+            pass
+        return payload
+
+    def post(self, path: str, payload: dict[str, Any]) -> dict[str, Any]:
+        # Allow base_url to include /v1; simply join base_url + path which covers most deployments
+        payload = self.translate_payload(path, payload)
+        url = f"{self.base_url}{path}"
+        body = json.dumps(payload).encode("utf-8")
+        headers = {"Content-Type": "application/json"}
+        if self.api_key:
+            headers["Authorization"] = f"Bearer {self.api_key}"
+        http_request = request.Request(url, data=body, headers=headers, method="POST")
+        with request.urlopen(http_request, timeout=60) as response:
+            return json.loads(response.read().decode("utf-8"))
 
 
 class CloudflareAdapter(ProviderAdapter):
@@ -80,4 +149,6 @@ def get_adapter(name: str, api_key: str | None, base_url: str, config: AppConfig
         return NvidiaAdapter(name, api_key, base_url, config)
     if key == "cerebras" or "cerebras" in (base_url or ""):
         return CerebrasAdapter(name, api_key, base_url, config)
+    if key == "groq" or "groq" in (base_url or ""):
+        return GroqAdapter(name, api_key, base_url, config)
     return ProviderAdapter(name, api_key, base_url, config)

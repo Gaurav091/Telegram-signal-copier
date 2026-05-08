@@ -8,6 +8,8 @@ from contextlib import suppress
 from dataclasses import asdict
 from datetime import UTC, datetime
 from pathlib import Path
+import logging
+from logging.handlers import RotatingFileHandler
 
 from telegram_signal_copier.adapters.bridge import FileBridgeExecutor
 from telegram_signal_copier.adapters.openai_client import OpenAIClient
@@ -85,6 +87,28 @@ def _write_source_map(config: AppConfig) -> None:
     _safe_write_text(source_map_path, "\n".join(lines) + "\n")
 
 
+def configure_logging(config: AppConfig) -> None:
+    logs_dir = config.project_root / "logs"
+    try:
+        logs_dir.mkdir(parents=True, exist_ok=True)
+    except Exception:
+        pass
+    log_file = logs_dir / "telegram_signal_copier.log"
+    root = logging.getLogger()
+    if not root.handlers:
+        root.setLevel(logging.INFO)
+        fmt = logging.Formatter("%(asctime)s [%(levelname)s] %(message)s")
+        sh = logging.StreamHandler()
+        sh.setFormatter(fmt)
+        root.addHandler(sh)
+        try:
+            fh = RotatingFileHandler(str(log_file), maxBytes=5 * 1024 * 1024, backupCount=3)
+            fh.setFormatter(fmt)
+            root.addHandler(fh)
+        except Exception:
+            root.exception("Failed to create file log handler")
+
+
 async def _run_status_heartbeat(config: AppConfig, status: dict[str, object]) -> None:
     interval = max(1.0, min(config.poll_interval_seconds, 5.0))
     while True:
@@ -102,8 +126,93 @@ def build_pipeline(config: AppConfig) -> CopierPipeline:
         image_processor=ImageProcessor(ai_client=ai_client),
         signal_parser=SignalParser(config=config, ai_client=ai_client),
         risk_engine=RiskEngine(config=config),
-        executor=FileBridgeExecutor(config.bridge_inbox_dir, config.bridge_outbox_dir),
+        executor=FileBridgeExecutor(
+            config.bridge_inbox_dir,
+            config.bridge_outbox_dir,
+            timeout_seconds=config.mt5_bridge_timeout_seconds,
+            symbol_suffix=config.mt5_symbol_suffix,
+        ),
     )
+
+
+def _startup_health_check(config: AppConfig) -> None:
+    logger = logging.getLogger(__name__)
+    summary: dict[str, object] = {"ai_providers": [], "ocr": {}}
+
+    if config.ai_ready:
+        try:
+            ai_client = OpenAIClient(config)
+            providers = ai_client.providers
+            logger.info("Startup health check: AI providers configured: %d", len(providers))
+            now = time.time()
+            for p in providers:
+                name = p.get("name") or "unnamed"
+                base_url = p.get("base_url") or ""
+                supports_vision = p.get("supports_vision", False)
+                trip_until = p.get("trip_until", 0)
+                status = "tripped" if trip_until and trip_until > now else "ok"
+                # Perform a lightweight network probe when provider adapter exposes a probe method
+                probe_result = None
+                adapter = p.get("adapter")
+                if adapter and hasattr(adapter, "probe"):
+                    try:
+                        probe_ok = adapter.probe()
+                        probe_result = True if probe_ok else False
+                    except Exception as exc:
+                        probe_result = f"error: {exc}"
+
+                logger.info("    - %s: base_url=%s vision=%s status=%s probe=%s", name, base_url, supports_vision, status, probe_result)
+                summary["ai_providers"].append({"name": name, "base_url": base_url, "vision": supports_vision, "status": status, "probe": probe_result})
+        except Exception as exc:
+            logger.exception("AI client init failed: %s", exc)
+            summary["ai_error"] = str(exc)
+    else:
+        logger.info("Startup health check: No AI providers configured")
+
+    # OCR availability
+    try:
+        img_proc = ImageProcessor(ai_client=None)
+        ocr_ok = getattr(img_proc, "_ocr_available", False)
+        if ocr_ok:
+            try:
+                ver = img_proc._pytesseract.get_tesseract_version()
+                logger.info("Local OCR: python packages present, tesseract available: %s", ver)
+                summary["ocr"] = {"python_packages": True, "tesseract": str(ver)}
+            except Exception:
+                logger.info("Local OCR: python packages present, tesseract binary NOT found or inaccessible")
+                summary["ocr"] = {"python_packages": True, "tesseract": False}
+        else:
+            logger.info("Local OCR: pytesseract/Pillow not installed")
+            summary["ocr"] = {"python_packages": False, "tesseract": False}
+    except Exception as exc:
+        logger.exception("Local OCR check failed: %s", exc)
+        summary["ocr"] = {"error": str(exc)}
+
+    # Write startup health summary to bridge folder
+    try:
+        health_path = config.bridge_inbox_dir.parent / "startup_health.txt"
+        _safe_write_text(health_path, json.dumps(summary, indent=2) + "\n")
+        logger.info("Wrote startup health to %s", health_path)
+    except Exception:
+        logger.exception("Failed to write startup health file")
+
+
+async def _run_with_restarts(config: AppConfig) -> None:
+    attempt = 0
+    while True:
+        attempt += 1
+        try:
+            print(f"Starting listener (attempt {attempt})")
+            await _run_listener(config)
+            # If listener exits cleanly, stop restarting
+            print("Listener exited cleanly; stopping restart loop")
+            return
+        except Exception as exc:
+            print(f"Listener crashed: {exc}", flush=True)
+            # exponential backoff with cap
+            backoff = min(300, 2 ** min(attempt, 8))
+            print(f"Restarting listener in {backoff}s (attempt {attempt})", flush=True)
+            await asyncio.sleep(backoff)
 
 
 async def _run_listener(config: AppConfig) -> None:
@@ -213,6 +322,7 @@ def main() -> None:
 
     config = AppConfig.from_env()
     config.ensure_runtime_dirs()
+    configure_logging(config)
     _write_source_map(config)
 
     if args.command == "sample":
@@ -223,7 +333,9 @@ def main() -> None:
         asyncio.run(_run_login(config))
         return
 
-    asyncio.run(_run_listener(config))
+    # Run a startup health check and then start listener with automatic restarts
+    _startup_health_check(config)
+    asyncio.run(_run_with_restarts(config))
 
 
 if __name__ == "__main__":

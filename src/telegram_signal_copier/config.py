@@ -85,11 +85,29 @@ class AppConfig:
     nvidia_base_url: str = "https://api.ngc.nvidia.com/v2"
     cerebras_api_key: str | None = None
     cerebras_base_url: str = "https://api.cerebras.net/v1"
+    # Groq API (optional)
+    groq_api_key: str | None = None
+    groq_base_url: str = "https://api.groq.ai/v1"
     # AI usage tuning
     ai_max_requests_per_minute: int = 60
     ai_provider_cooldown_seconds: int = 60
     ai_provider_max_cooldown_seconds: int = 3600
     ai_cache_ttl_seconds: int = 300
+    # persistent cache for AI responses (optional)
+    ai_persistent_cache: bool = False
+    ai_cache_path: str = ""
+    # Per-source heuristic-only (comma-separated labels or identifiers)
+    telegram_heuristic_only: list[str] = None
+    # MT5 bridge timeout
+    mt5_bridge_timeout_seconds: float = 60.0
+    # Optional broker symbol suffix to append when writing bridge commands (e.g. 'm')
+    mt5_symbol_suffix: str = ""
+    # Auto-add new symbols discovered in incoming signals
+    auto_add_new_symbols: bool = False
+    # Path to persist dynamic symbols (one per line). If empty, defaults to bridge folder/dynamic_symbols.txt
+    dynamic_symbols_file: str = ""
+    # runtime cache for dynamic symbols (not part of env)
+    _dynamic_symbols_cache: set[str] = None
 
     @classmethod
     def from_env(cls, project_root: Path | None = None) -> "AppConfig":
@@ -116,10 +134,19 @@ class AppConfig:
             nvidia_base_url=os.getenv("NVIDIA_BASE_URL", "https://api.nvidia.com/v1"),
             cerebras_api_key=os.getenv("CEREBRAS_API_KEY"),
             cerebras_base_url=os.getenv("CEREBRAS_BASE_URL", "https://api.cerebras.net/v1"),
+            groq_api_key=os.getenv("GROQ_API_KEY"),
+            groq_base_url=os.getenv("GROQ_BASE_URL", "https://api.groq.ai/v1"),
             ai_max_requests_per_minute=int(os.getenv("AI_MAX_REQUESTS_PER_MINUTE", "60")),
             ai_provider_cooldown_seconds=int(os.getenv("AI_PROVIDER_COOLDOWN_SECONDS", "60")),
             ai_provider_max_cooldown_seconds=int(os.getenv("AI_PROVIDER_MAX_COOLDOWN_SECONDS", "3600")),
             ai_cache_ttl_seconds=int(os.getenv("AI_CACHE_TTL_SECONDS", "300")),
+            ai_persistent_cache=_bool_env("AI_PERSISTENT_CACHE", False),
+            ai_cache_path=os.getenv("AI_CACHE_PATH", str(root / "ai_cache.db")),
+            telegram_heuristic_only=_csv_env("TELEGRAM_HEURISTIC_ONLY"),
+            mt5_bridge_timeout_seconds=float(os.getenv("MT5_BRIDGE_TIMEOUT_SECONDS", "60")),
+            mt5_symbol_suffix=os.getenv("MT5_SYMBOL_SUFFIX", ""),
+            auto_add_new_symbols=_bool_env("AUTO_ADD_NEW_SYMBOLS", False),
+            dynamic_symbols_file=os.getenv("DYNAMIC_SYMBOLS_FILE", ""),
             minimum_confidence=float(os.getenv("MINIMUM_CONFIDENCE", "0.70")),
             default_volume=float(os.getenv("DEFAULT_VOLUME", "0.10")),
             allowed_symbols=_csv_env("ALLOWED_SYMBOLS", "XAUUSD,EURUSD,GBPUSD,USDJPY"),
@@ -135,6 +162,15 @@ class AppConfig:
     def ensure_runtime_dirs(self) -> None:
         self.bridge_inbox_dir.mkdir(parents=True, exist_ok=True)
         self.bridge_outbox_dir.mkdir(parents=True, exist_ok=True)
+        # ensure dynamic symbols file exists when using auto-add
+        if self.auto_add_new_symbols:
+            try:
+                path = self.dynamic_symbols_path
+                path.parent.mkdir(parents=True, exist_ok=True)
+                if not path.exists():
+                    path.write_text("", encoding="utf-8")
+            except Exception:
+                pass
 
     @property
     def telegram_source_mappings(self) -> list[tuple[str, str]]:
@@ -148,6 +184,86 @@ class AppConfig:
     @property
     def telegram_source_labels(self) -> list[str]:
         return [label for label, _ in self.telegram_source_mappings]
+
+    @property
+    def telegram_source_identifiers(self) -> list[str]:
+        return [identifier for _, identifier in self.telegram_source_mappings]
+
+    def is_source_heuristic_only(self, source_group: str) -> bool:
+        if not source_group:
+            return False
+        if not self.telegram_heuristic_only:
+            return False
+        target = source_group.strip()
+        # direct match against provided list
+        for s in self.telegram_heuristic_only:
+            if not s:
+                continue
+            if s.strip().lower() == target.lower():
+                return True
+        # match against labels or identifiers
+        for label, identifier in self.telegram_source_mappings:
+            if target.lower() == label.lower() or target == identifier:
+                for s in self.telegram_heuristic_only:
+                    if s.strip().lower() in {label.lower(), identifier}:
+                        return True
+        return False
+
+    @property
+    def dynamic_symbols_path(self) -> Path:
+        if self.dynamic_symbols_file:
+            return Path(self.dynamic_symbols_file).expanduser()
+        # default to bridge folder sibling
+        try:
+            return Path(self.bridge_inbox_dir).parent / "dynamic_symbols.txt"
+        except Exception:
+            return self.project_root / "dynamic_symbols.txt"
+
+    def _load_dynamic_symbols(self) -> set[str]:
+        if self._dynamic_symbols_cache is not None:
+            return self._dynamic_symbols_cache
+        symbols: set[str] = set()
+        try:
+            path = self.dynamic_symbols_path
+            if path.exists():
+                for line in path.read_text(encoding="utf-8").splitlines():
+                    s = line.strip().upper()
+                    if s:
+                        symbols.add(s)
+        except Exception:
+            pass
+        self._dynamic_symbols_cache = symbols
+        return symbols
+
+    def add_dynamic_symbol(self, symbol: str) -> bool:
+        if not symbol:
+            return False
+        sym = symbol.strip().upper()
+        if not sym:
+            return False
+        # Already in env-specified allowed list
+        if sym in {s.upper() for s in self.allowed_symbols}:
+            return False
+        current = self._load_dynamic_symbols()
+        if sym in current:
+            return False
+        try:
+            path = self.dynamic_symbols_path
+            path.parent.mkdir(parents=True, exist_ok=True)
+            with path.open("a", encoding="utf-8") as fh:
+                fh.write(sym + "\n")
+            current.add(sym)
+            self._dynamic_symbols_cache = current
+            return True
+        except Exception:
+            return False
+
+    @property
+    def merged_allowed_symbols(self) -> list[str]:
+        base = [s.upper() for s in (self.allowed_symbols or [])]
+        dynamic = sorted(self._load_dynamic_symbols())
+        merged = list(dict.fromkeys(base + dynamic))
+        return merged
 
     @property
     def telegram_source_identifiers(self) -> list[str]:
@@ -181,4 +297,6 @@ class AppConfig:
             providers.append({"name": "nvidia", "api_key": self.nvidia_api_key, "base_url": self.nvidia_base_url})
         if self.cerebras_api_key:
             providers.append({"name": "cerebras", "api_key": self.cerebras_api_key, "base_url": self.cerebras_base_url})
+        if self.groq_api_key:
+            providers.append({"name": "groq", "api_key": self.groq_api_key, "base_url": self.groq_base_url})
         return providers

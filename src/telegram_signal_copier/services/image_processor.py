@@ -1,9 +1,17 @@
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass
 from typing import Optional
+import logging
+import os
 
 from telegram_signal_copier.adapters.openai_client import OpenAIClient
+
+_NUMERIC_SL = re.compile(r"(?:SL|STOP\s*LOSS)\s*[:=@-]?\s*\d{3,}", re.IGNORECASE)
+_NUMERIC_TP = re.compile(r"(?:TP\d*|TAKE\s*PROFIT)\s*[:=@-]?\s*\d{3,}", re.IGNORECASE)
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass(slots=True)
@@ -24,42 +32,88 @@ class ImageProcessor:
             self._ocr_available = True
             self._pytesseract = pytesseract
             self._PILImage = Image
+            # If tesseract binary not on PATH, try common Windows install locations
+            try:
+                # quick probe
+                self._pytesseract.get_tesseract_version()
+            except Exception:
+                # try typical install locations on Windows
+                for candidate in (
+                    r"C:\Program Files\Tesseract-OCR\tesseract.exe",
+                    r"C:\Program Files (x86)\Tesseract-OCR\tesseract.exe",
+                ):
+                    try:
+                        if os.path.exists(candidate):
+                            self._pytesseract.pytesseract.tesseract_cmd = candidate
+                            # re-probe
+                            self._pytesseract.get_tesseract_version()
+                            logging.getLogger(__name__).info("Found tesseract binary at %s", candidate)
+                            break
+                    except Exception:
+                        # ignore and try next candidate
+                        pass
         except Exception:
             self._ocr_available = False
             self._pytesseract = None
             self._PILImage = None
 
-    def extract_signal_context(self, image_path: str | None, existing_text: str = "") -> ImageProcessingResult:
-        if not image_path:
+    def extract_signal_context(
+        self,
+        image_path: str | None,
+        existing_text: str = "",
+        all_image_paths: list[str] | None = None,
+    ) -> ImageProcessingResult:
+        # Collect all available images; primary first
+        images: list[str] = []
+        if image_path:
+            images.append(image_path)
+        if all_image_paths:
+            for p in all_image_paths:
+                if p and p not in images:
+                    images.append(p)
+
+        if not images:
             return ImageProcessingResult(extracted_text="", notes=[])
 
         notes: list[str] = []
 
-        # If existing text already contains trading markers, skip image analysis
-        if existing_text:
-            upper = existing_text.upper()
-            markers = ("SL", "TP", "BUY", "SELL", "ENTRY", "STOP LOSS")
-            if any(m in upper for m in markers):
-                notes.append("Existing text contains trading fields; skipped image analysis")
-                return ImageProcessingResult(extracted_text="", notes=notes)
+        # Only skip image analysis when text is COMPLETE: has BOTH an explicit numeric SL AND numeric TP.
+        # A caption with just "BUY" or "XAUUSD BUY" is NOT complete — we still need the chart.
+        if existing_text and _NUMERIC_SL.search(existing_text) and _NUMERIC_TP.search(existing_text):
+            notes.append("Text already contains explicit numeric SL+TP; skipped image analysis")
+            return ImageProcessingResult(extracted_text="", notes=notes)
+
+        logger.info(
+            "Analyzing %d image(s) with AI vision (primary: %s)",
+            len(images),
+            images[0],
+        )
 
         # Try AI vision first (if configured)
         if self.ai_client:
             try:
                 response = self.ai_client.parse_signal(
-                    "Extract visible trading text from this image. Preserve buy or sell, entry, stop loss, take profits, and whether it is a fresh new trade.",
-                    image_path=image_path,
+                    (
+                        "Extract the trading signal from this chart image. "
+                        "Look for colored rectangular zones: GREEN zones are take-profit/buy-target areas, "
+                        "RED/PINK zones are stop-loss areas. Read price levels from the Y-axis scale. "
+                        "Also note direction from candlestick patterns and any text overlays."
+                    ),
+                    image_path=images[0],
+                    all_image_paths=images[1:] if len(images) > 1 else None,
                 )
                 extracted_text = self._payload_to_text(response)
-                notes.append("Image analyzed with AI vision")
+                notes.append(f"Image(s) analyzed with AI vision ({len(images)} chart{'s' if len(images) > 1 else ''})")
+                logger.info("AI vision extracted from image: %s", extracted_text[:200])
                 return ImageProcessingResult(extracted_text=extracted_text, notes=notes, ai_payload=response)
-            except Exception as exc:  # handle provider or network errors gracefully
+            except Exception as exc:
                 notes.append(f"AI vision failed: {exc}")
+                logger.warning("AI vision failed for %s: %s", images[0], exc)
 
-        # Fallback to local OCR if available
+        # Fallback to local OCR if available (first image only)
         if self._ocr_available and self._PILImage is not None and self._pytesseract is not None:
             try:
-                img = self._PILImage.open(image_path)
+                img = self._PILImage.open(images[0])
                 text = self._pytesseract.image_to_string(img)
                 if text and text.strip():
                     notes.append("Image OCR extracted text locally")

@@ -31,9 +31,23 @@ class TelegramSignalMessage:
     image_path: str | None = None
     sender: str | None = None
     received_at: str = field(default_factory=_now_iso)
+    # All image paths when multiple images are grouped from one source window
+    all_image_paths: list[str] = field(default_factory=list)
+    # Grouped message count (>1 means buffer flushed multiple messages)
+    grouped_count: int = 1
 
     def combined_text(self) -> str:
         return _normalize_text(self.raw_text)
+
+    def effective_image_paths(self) -> list[str]:
+        """Return deduplicated list of all available images, primary first."""
+        paths: list[str] = []
+        if self.image_path and self.image_path not in paths:
+            paths.append(self.image_path)
+        for p in self.all_image_paths:
+            if p and p not in paths:
+                paths.append(p)
+        return paths
 
 
 @dataclass(slots=True)

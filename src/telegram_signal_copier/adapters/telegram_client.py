@@ -1,11 +1,100 @@
 from __future__ import annotations
 
+import asyncio
+import logging
 from collections.abc import Awaitable, Callable
 from pathlib import Path
 import shutil
 
 from telegram_signal_copier.config import AppConfig
 from telegram_signal_copier.models import TelegramSignalMessage
+
+logger = logging.getLogger(__name__)
+
+
+class MessageBuffer:
+    """Groups messages from the same source channel within a rolling time window.
+
+    When a new message arrives from a source, any existing flush timer is reset.
+    After ``window_seconds`` of silence from that source, all buffered messages
+    are combined into a single ``TelegramSignalMessage`` and sent to the callback.
+    This lets the system read 3–4 chart images posted in quick succession as a
+    single multi-timeframe signal rather than 3 independent (and likely rejected)
+    partial signals.
+    """
+
+    def __init__(self, window_seconds: float = 25.0) -> None:
+        self._window = window_seconds
+        self._buffers: dict[str, list[TelegramSignalMessage]] = {}
+        self._tasks: dict[str, asyncio.Task] = {}  # type: ignore[type-arg]
+        self._lock = asyncio.Lock()
+
+    async def add(
+        self,
+        message: TelegramSignalMessage,
+        flush_callback: Callable[[TelegramSignalMessage], Awaitable[None]],
+    ) -> None:
+        async with self._lock:
+            key = message.source_group
+            self._buffers.setdefault(key, []).append(message)
+            logger.debug(
+                "[BUFFER] +1 msg for %s (total=%d) id=%s",
+                key,
+                len(self._buffers[key]),
+                message.message_id,
+            )
+            # Reset flush timer
+            existing = self._tasks.get(key)
+            if existing and not existing.done():
+                existing.cancel()
+            self._tasks[key] = asyncio.create_task(
+                self._delayed_flush(key, flush_callback)
+            )
+
+    async def _delayed_flush(
+        self,
+        key: str,
+        callback: Callable[[TelegramSignalMessage], Awaitable[None]],
+    ) -> None:
+        await asyncio.sleep(self._window)
+        async with self._lock:
+            messages = self._buffers.pop(key, [])
+            self._tasks.pop(key, None)
+        if not messages:
+            return
+        combined = self._combine(messages)
+        logger.info(
+            "[BUFFER] Flushing %d messages from %s → combined id=%s images=%d",
+            len(messages),
+            key,
+            combined.message_id,
+            len(combined.all_image_paths),
+        )
+        await callback(combined)
+
+    @staticmethod
+    def _combine(messages: list[TelegramSignalMessage]) -> TelegramSignalMessage:
+        texts = [m.raw_text for m in messages if m.raw_text and m.raw_text.strip()]
+        all_images: list[str] = []
+        for m in messages:
+            for p in m.effective_image_paths():
+                if p not in all_images:
+                    all_images.append(p)
+
+        mid = (
+            f"{messages[0].message_id}..{messages[-1].message_id}"
+            if len(messages) > 1
+            else messages[0].message_id
+        )
+        return TelegramSignalMessage(
+            source_group=messages[0].source_group,
+            message_id=mid,
+            raw_text="\n---\n".join(texts),
+            image_path=all_images[0] if all_images else None,
+            sender=messages[0].sender,
+            all_image_paths=all_images,
+            grouped_count=len(messages),
+        )
 
 
 class TelegramSignalListener:
@@ -31,12 +120,22 @@ class TelegramSignalListener:
         await self._start_client(client)
         source_chats = await self._resolve_source_chats(client)
 
+        # Buffer window from config (default 25 s); set MESSAGE_BUFFER_WINDOW_SECONDS=0 to disable
+        buffer_window = float(
+            __import__("os").getenv("MESSAGE_BUFFER_WINDOW_SECONDS", "25")
+        )
+        use_buffer = buffer_window > 0
+        buffer = MessageBuffer(window_seconds=buffer_window) if use_buffer else None
+
         event_builder = events.NewMessage(chats=source_chats)
 
         @client.on(event_builder)
         async def handler(event: object) -> None:
             message = await self._event_to_message(event)
-            await on_message(message)
+            if buffer is not None:
+                await buffer.add(message, on_message)
+            else:
+                await on_message(message)
 
         await client.run_until_disconnected()
 
