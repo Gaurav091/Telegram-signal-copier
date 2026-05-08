@@ -1,11 +1,12 @@
 from __future__ import annotations
 
 import logging
+import re
 from dataclasses import asdict, dataclass
 
 from telegram_signal_copier.adapters.bridge import FileBridgeExecutor
 from telegram_signal_copier.config import AppConfig
-from telegram_signal_copier.models import ExecutionResult, TelegramSignalMessage, TradeCommand
+from telegram_signal_copier.models import ExecutionResult, ParsedSignal, TelegramSignalMessage, TradeCommand
 from telegram_signal_copier.services.image_processor import ImageProcessor, ImageProcessingResult
 from telegram_signal_copier.services.risk_engine import RiskEngine, ValidationDecision
 from telegram_signal_copier.services.signal_parser import ParseResult, SignalParser
@@ -16,6 +17,17 @@ logger = logging.getLogger(__name__)
 _UPDATE_INTENTS = {"TRADE_UPDATE"}
 _INFO_INTENTS = {"INFORMATIONAL"}
 _TRADEABLE_INTENTS = {"NEW_TRADE_SIGNAL", "CHART_ANALYSIS", "UNKNOWN"}
+
+# Keyword patterns that hard-override intent → always treat as NEW_TRADE_SIGNAL
+# Matches: "New", "NEW", "New Trade", "New Signal", "new entry", "📊 New", etc.
+_NEW_SIGNAL_OVERRIDE = re.compile(
+    r"\b(new\s*(trade|signal|entry|setup|call|idea)?|buy\s*now|sell\s*now|open\s*trade)\b",
+    re.IGNORECASE,
+)
+
+# Raise these thresholds — intent AI must be very sure before we DISCARD a message that has an image
+_INFO_SKIP_THRESHOLD = 0.92   # was 0.80
+_UPDATE_SKIP_THRESHOLD = 0.90  # was 0.75
 
 
 @dataclass(slots=True)
@@ -67,7 +79,15 @@ class CopierPipeline:
         intent = "UNKNOWN"
         intent_confidence = 0.0
         reasoning = ""
-        if self.signal_parser.ai_client:
+
+        # Hard override: caption explicitly signals a new trade entry.
+        # "New", "New Trade", "New Signal", "Buy Now" etc. → never discard.
+        keyword_override = bool(_NEW_SIGNAL_OVERRIDE.search(combined_text))
+        if keyword_override:
+            intent = "NEW_TRADE_SIGNAL"
+            reasoning = f"Keyword override from caption: {combined_text[:60]!r}"
+            logger.info("[INTENT] FORCED NEW_TRADE_SIGNAL — keyword match in caption: %r", combined_text[:60])
+        elif self.signal_parser.ai_client:
             try:
                 intent_result = self.signal_parser.ai_client.classify_intent(
                     raw_text=combined_text,
@@ -85,10 +105,13 @@ class CopierPipeline:
             except Exception as exc:
                 logger.warning("[INTENT] classification failed: %s — treating as UNKNOWN", exc)
 
-        # Drop pure informational messages immediately
-        if intent in _INFO_INTENTS and intent_confidence >= 0.80:
-            logger.info("[PIPELINE] SKIPPED — informational message (conf=%.2f)", intent_confidence)
-            from telegram_signal_copier.models import ParsedSignal
+        # If image is present, require much higher confidence before skipping.
+        # A chart + ambiguous caption must be attempted as a signal.
+        has_image = bool(primary_image)
+
+        # Drop pure informational messages (no image: 0.92, with image: never auto-skip)
+        if intent in _INFO_INTENTS and not has_image and intent_confidence >= _INFO_SKIP_THRESHOLD:
+            logger.info("[PIPELINE] SKIPPED — informational text-only message (conf=%.2f)", intent_confidence)
             dummy = ParsedSignal(
                 source_group=message.source_group,
                 message_id=message.message_id,
@@ -102,13 +125,13 @@ class CopierPipeline:
                 execution_result=None,
             )
 
-        # For TRADE_UPDATE, log it but don't execute (TradeTracker would handle modify/close in future)
-        if intent in _UPDATE_INTENTS and intent_confidence >= 0.75:
+        # For TRADE_UPDATE: only skip if no image AND high confidence.
+        # With an image present the same message could contain a fresh chart entry.
+        if intent in _UPDATE_INTENTS and not has_image and intent_confidence >= _UPDATE_SKIP_THRESHOLD:
             logger.info(
-                "[PIPELINE] TRADE_UPDATE detected (conf=%.2f) — no new trade; logged for tracking",
+                "[PIPELINE] TRADE_UPDATE text-only (conf=%.2f) — no new trade; logged for tracking",
                 intent_confidence,
             )
-            from telegram_signal_copier.models import ParsedSignal
             dummy = ParsedSignal(
                 source_group=message.source_group,
                 message_id=message.message_id,
