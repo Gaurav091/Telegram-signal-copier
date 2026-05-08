@@ -18,6 +18,15 @@ def _normalize_text(value: str | None) -> str:
     return " ".join(value.split())
 
 
+def _iso_to_epoch_text(value: str | None) -> str:
+    if not value:
+        return ""
+    try:
+        return str(int(datetime.fromisoformat(value).timestamp()))
+    except ValueError:
+        return ""
+
+
 def _comment_source_slug(value: str) -> str:
     cleaned = re.sub(r"[^A-Za-z0-9]+", "-", value).strip("-").upper()
     return cleaned or "UNKNOWN"
@@ -129,6 +138,7 @@ class TradeCommand:
         return {
             "request_id": self.request_id,
             "submitted_at": self.submitted_at,
+            "submitted_epoch": _iso_to_epoch_text(self.submitted_at),
             "source_group": self.source_group,
             "message_id": self.message_id,
             "symbol": self.symbol,

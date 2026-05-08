@@ -82,12 +82,12 @@ class AppConfig:
     cloudflare_base_url: str = "https://api.cloudflare.com/client/v4"
     nvidia_cloudname: str | None = None
     nvidia_api_key: str | None = None
-    nvidia_base_url: str = "https://api.ngc.nvidia.com/v2"
+    nvidia_base_url: str = "https://integrate.api.nvidia.com/v1"
     cerebras_api_key: str | None = None
     cerebras_base_url: str = "https://api.cerebras.net/v1"
     # Groq API (optional)
     groq_api_key: str | None = None
-    groq_base_url: str = "https://api.groq.ai/v1"
+    groq_base_url: str = "https://api.groq.com/openai/v1"
     # AI usage tuning
     ai_max_requests_per_minute: int = 60
     ai_provider_cooldown_seconds: int = 60
@@ -135,7 +135,7 @@ class AppConfig:
             cerebras_api_key=os.getenv("CEREBRAS_API_KEY"),
             cerebras_base_url=os.getenv("CEREBRAS_BASE_URL", "https://api.cerebras.net/v1"),
             groq_api_key=os.getenv("GROQ_API_KEY"),
-            groq_base_url=os.getenv("GROQ_BASE_URL", "https://api.groq.ai/v1"),
+            groq_base_url=os.getenv("GROQ_BASE_URL", "https://api.groq.com/openai/v1"),
             ai_max_requests_per_minute=int(os.getenv("AI_MAX_REQUESTS_PER_MINUTE", "60")),
             ai_provider_cooldown_seconds=int(os.getenv("AI_PROVIDER_COOLDOWN_SECONDS", "60")),
             ai_provider_max_cooldown_seconds=int(os.getenv("AI_PROVIDER_MAX_COOLDOWN_SECONDS", "3600")),
@@ -149,7 +149,7 @@ class AppConfig:
             dynamic_symbols_file=os.getenv("DYNAMIC_SYMBOLS_FILE", ""),
             minimum_confidence=float(os.getenv("MINIMUM_CONFIDENCE", "0.70")),
             default_volume=float(os.getenv("DEFAULT_VOLUME", "0.10")),
-            allowed_symbols=_csv_env("ALLOWED_SYMBOLS", "XAUUSD,EURUSD,GBPUSD,USDJPY"),
+            allowed_symbols=_csv_env("ALLOWED_SYMBOLS", "XAUUSD,EURUSD,GBPUSD,USDJPY,BTCUSD,ETHUSD,XAGUSD,US30,NAS100,USOIL,SPX500"),
             dry_run=_bool_env("DRY_RUN", True),
             approval_required_below=float(os.getenv("APPROVAL_REQUIRED_BELOW", "0.85")),
             poll_interval_seconds=float(os.getenv("POLL_INTERVAL_SECONDS", "2.0")),

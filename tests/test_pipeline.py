@@ -34,6 +34,42 @@ def build_config(tmp_path: Path) -> AppConfig:
 
 
 class PipelineTests(unittest.TestCase):
+    def test_trade_command_bridge_payload_includes_submitted_epoch(self) -> None:
+        command = TradeCommand.from_signal(
+            SignalParser(config=build_config(Path(".")), ai_client=None).parse(
+                TelegramSignalMessage(
+                    source_group="Forex Focus",
+                    message_id="17102",
+                    raw_text="BUY GOLD NOW @ 2320 SL 2315 TP1 2330 TP2 2338",
+                )
+            ).signal,
+            volume=0.10,
+        )
+
+        payload = command.to_bridge_payload()
+
+        self.assertIn("submitted_epoch", payload)
+        self.assertTrue(payload["submitted_epoch"].isdigit())
+
+    def test_file_bridge_reports_not_consumed_when_command_stays_in_inbox(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            tmp_path = Path(temp_dir)
+            config = build_config(tmp_path)
+            signal = SignalParser(config=config, ai_client=None).parse(
+                TelegramSignalMessage(
+                    source_group="Gold Expertise",
+                    message_id="26019",
+                    raw_text="XAUUSD SELL LIMIT @4718 SL 4726.56 TP1 4710 TP2 4703 TP3 4695",
+                )
+            ).signal
+            command = TradeCommand.from_signal(signal, volume=0.10)
+            executor = FileBridgeExecutor(config.bridge_inbox_dir, config.bridge_outbox_dir, timeout_seconds=0.01)
+
+            result = executor.submit(command)
+
+            self.assertEqual(result.status, "NOT_CONSUMED")
+            self.assertIn("still in inbox", result.message)
+
     def test_pipeline_dry_run_returns_execution_result(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
             tmp_path = Path(temp_dir)

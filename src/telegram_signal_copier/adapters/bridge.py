@@ -51,8 +51,15 @@ class FileBridgeExecutor:
                 return ExecutionResult.from_bridge_lines(lines)
             sleep(0.5)
 
+        if command_path.exists():
+            return ExecutionResult(
+                request_id=command.request_id,
+                status="NOT_CONSUMED",
+                message="Bridge command still in inbox; MT5 EA likely not attached or not reading the common bridge folder",
+            )
+
         return ExecutionResult(
             request_id=command.request_id,
-            status="TIMEOUT",
-            message="MT5 EA did not return a result before timeout",
+            status="NO_RESULT",
+            message="MT5 EA consumed the command but did not write a result file before timeout",
         )

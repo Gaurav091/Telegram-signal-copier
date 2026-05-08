@@ -56,53 +56,11 @@ class OpenAIAdapter(ProviderAdapter):
 
 
 class GroqAdapter(OpenAIAdapter):
+    """Groq is fully OpenAI-compatible; no payload translation needed."""
+
     @property
     def supports_vision(self) -> bool:
-        # Treat Groq as OpenAI-compatible and capable of vision when configured with v1 base url
         return True
-
-    def translate_payload(self, path: str, payload: dict[str, Any]) -> dict[str, Any]:
-        """Provider-specific payload translation for Groq.
-
-        Current behavior: for chat/completions endpoints, if `messages` present,
-        convert to a simple `input` field by joining message contents. This
-        helps when the provider expects prompt-like input instead of a
-        chat-structured payload. Keep as a best-effort non-destructive
-        translation.
-        """
-        try:
-            if "messages" in payload and ("completions" in path or "chat" in path):
-                parts: list[str] = []
-                for m in payload.get("messages", []):
-                    if isinstance(m, dict):
-                        cont = m.get("content")
-                        if isinstance(cont, str):
-                            parts.append(cont)
-                        elif isinstance(cont, list):
-                            # join image/text mixed content
-                            for item in cont:
-                                if isinstance(item, dict) and item.get("type") == "text":
-                                    parts.append(item.get("text", ""))
-                if parts:
-                    new = dict(payload)
-                    new.pop("messages", None)
-                    new["input"] = "\n\n".join(parts)
-                    return new
-        except Exception:
-            pass
-        return payload
-
-    def post(self, path: str, payload: dict[str, Any]) -> dict[str, Any]:
-        # Allow base_url to include /v1; simply join base_url + path which covers most deployments
-        payload = self.translate_payload(path, payload)
-        url = f"{self.base_url}{path}"
-        body = json.dumps(payload).encode("utf-8")
-        headers = {"Content-Type": "application/json"}
-        if self.api_key:
-            headers["Authorization"] = f"Bearer {self.api_key}"
-        http_request = request.Request(url, data=body, headers=headers, method="POST")
-        with request.urlopen(http_request, timeout=60) as response:
-            return json.loads(response.read().decode("utf-8"))
 
 
 class CloudflareAdapter(ProviderAdapter):
@@ -112,10 +70,11 @@ class CloudflareAdapter(ProviderAdapter):
         return False
 
     def post(self, path: str, payload: dict[str, Any]) -> dict[str, Any]:
-        # If account id provided, prefer a namespaced endpoint
+        # Cloudflare Workers AI OpenAI-compatible endpoint:
+        # https://api.cloudflare.com/client/v4/accounts/{account_id}/ai/v1/chat/completions
         account_id = getattr(self.config, "cloudflare_account_id", None)
         if account_id:
-            url = f"{self.base_url}/accounts/{account_id}{path}"
+            url = f"{self.base_url}/accounts/{account_id}/ai/v1{path}"
         else:
             url = f"{self.base_url}{path}"
         body = json.dumps(payload).encode("utf-8")

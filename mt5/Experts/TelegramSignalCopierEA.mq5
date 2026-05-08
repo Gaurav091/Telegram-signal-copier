@@ -6,13 +6,16 @@ input string BridgeFolderName = "TelegramSignalCopierBridge";
 input int TimerIntervalSeconds = 1;
 input int TelegramHeartbeatTimeoutSeconds = 15;
 input int MaxSlippagePoints = 30;
-input string AllowedSymbols = "XAUUSD,EURUSD,GBPUSD,USDJPY";
+input int MaxCommandAgeSeconds = 180;
+input string AllowedSymbols = "XAUUSD,EURUSD,GBPUSD,USDJPY,BTCUSD,ETHUSD,XAGUSD,US30,NAS100,USOIL,SPX500";
 input bool AllowMarketOrders = true;
 input bool AllowPendingOrders = true;
 
 struct TradeCommand
 {
    string request_id;
+   long submitted_epoch;
+   bool has_submitted_epoch;
    string source_group;
    string message_id;
    string symbol;
@@ -56,12 +59,21 @@ CTrade trade;
 TelegramStatus g_last_status;
 bool g_has_last_status = false;
 string g_last_chart_comment = "";
+string g_last_bridge_request_id = "";
+string g_last_bridge_status = "";
+string g_last_bridge_message = "";
 
 int OnInit()
 {
    trade.SetDeviationInPoints(MaxSlippagePoints);
    EnsureBridgeFolders();
+   WriteEAStatus();
    UpdateChartStatus();
+   bool auto_trade = (bool)MQLInfoInteger(MQL_TRADE_ALLOWED);
+   PrintFormat("TelegramSignalCopierEA initialized. Bridge=%s Symbol=%s AllowedSymbols=%s AutoTrading=%s",
+      BridgeFolderName, _Symbol, AllowedSymbols, auto_trade ? "ON" : "OFF");
+   if(!auto_trade)
+      Print("TelegramSignalCopierEA WARNING: AutoTrading is DISABLED in MT5. Enable it via the toolbar button.");
    EventSetTimer(TimerIntervalSeconds);
    return(INIT_SUCCEEDED);
 }
@@ -69,6 +81,7 @@ int OnInit()
 void OnDeinit(const int reason)
 {
    EventKillTimer();
+   WriteEAStatus();
    Comment("");
 }
 
@@ -76,13 +89,14 @@ void OnTimer()
 {
    ProcessBridgeCommands();
    UpdateChartStatus();
+   WriteEAStatus();
 }
 
 void EnsureBridgeFolders()
 {
    FolderCreate(BridgeFolderName, FILE_COMMON);
-   FolderCreate(BridgeFolderName + "\\inbox", FILE_COMMON);
-   FolderCreate(BridgeFolderName + "\\outbox", FILE_COMMON);
+   FolderCreate(BridgeFolderName + "/inbox", FILE_COMMON);
+   FolderCreate(BridgeFolderName + "/outbox", FILE_COMMON);
 }
 
 void UpdateChartStatus()
@@ -161,9 +175,17 @@ string DisplayValue(const string value)
    return(value == "" ? "-" : value);
 }
 
+string TrimmedCopy(const string value)
+{
+   string output = value;
+   StringTrimLeft(output);
+   StringTrimRight(output);
+   return(output);
+}
+
 bool ReadTelegramStatus(TelegramStatus &status)
 {
-   int file_handle = FileOpen(BridgeFolderName + "\\telegram_status.txt", FILE_READ | FILE_TXT | FILE_ANSI | FILE_COMMON);
+   int file_handle = FileOpen(BridgeFolderName + "/telegram_status.txt", FILE_READ | FILE_TXT | FILE_ANSI | FILE_COMMON);
    if(file_handle == INVALID_HANDLE)
       return(false);
 
@@ -293,14 +315,27 @@ string BuildStatusComment(const TelegramStatus &status, const bool has_status)
 
 void ProcessBridgeCommands()
 {
+   // MQL5 FileFindFirst with FILE_COMMON requires forward slashes for subdirectory patterns.
+   // Backslash subdirectory paths silently return INVALID_HANDLE on most MT5 builds.
    string filename = "";
-   long search_handle = FileFindFirst(BridgeFolderName + "\\inbox\\*.cmd", filename, FILE_COMMON);
+   long search_handle = FileFindFirst(BridgeFolderName + "/inbox/*.cmd", filename, FILE_COMMON);
    if(search_handle == INVALID_HANDLE)
+   {
+      // Log only once per minute to avoid spam — use a global timer
+      static datetime s_last_no_cmd_log = 0;
+      if(TimeCurrent() - s_last_no_cmd_log >= 60)
+      {
+         PrintFormat("TelegramSignalCopierEA: inbox scan found no .cmd files (path=%s/inbox/*.cmd AutoTrading=%s)",
+            BridgeFolderName, (bool)MQLInfoInteger(MQL_TRADE_ALLOWED) ? "ON" : "OFF");
+         s_last_no_cmd_log = TimeCurrent();
+      }
       return;
+   }
 
    do
    {
-      string relative_path = BridgeFolderName + "\\inbox\\" + filename;
+      PrintFormat("TelegramSignalCopierEA found bridge command: %s", filename);
+      string relative_path = BridgeFolderName + "/inbox/" + filename;
       TradeCommand command;
       string parse_error = "";
       bool read_ok = ReadTradeCommand(relative_path, command, parse_error);
@@ -308,7 +343,10 @@ void ProcessBridgeCommands()
       if(read_ok)
          ExecuteTradeCommand(command);
       else
+      {
+         PrintFormat("TelegramSignalCopierEA failed to parse %s: %s", filename, parse_error);
          WriteResult(StripExtension(filename), "ERROR", parse_error, 0, 0.0);
+      }
 
       FileDelete(relative_path, FILE_COMMON);
    }
@@ -370,6 +408,11 @@ void ApplyField(TradeCommand &command, const string key, const string value)
 {
    if(key == "request_id")
       command.request_id = value;
+   else if(key == "submitted_epoch" && value != "")
+   {
+      command.submitted_epoch = StringToInteger(value);
+      command.has_submitted_epoch = true;
+   }
    else if(key == "source_group")
       command.source_group = value;
    else if(key == "message_id")
@@ -404,10 +447,24 @@ void ApplyField(TradeCommand &command, const string key, const string value)
 void ExecuteTradeCommand(TradeCommand &command)
 {
    command.comment = BuildTradeComment(command);
+   PrintFormat(
+      "TelegramSignalCopierEA executing request=%s symbol=%s action=%s order_type=%s volume=%.2f",
+      command.request_id,
+      command.symbol,
+      command.action,
+      command.order_type,
+      command.volume
+   );
+
+   if(IsCommandStale(command))
+   {
+      WriteResult(command.request_id, "REJECTED", "Bridge command expired before EA consumed it", 0, 0.0);
+      return;
+   }
 
    if(!IsSymbolAllowed(command.symbol))
    {
-      WriteResult(command.request_id, "REJECTED", "Symbol not allowed by EA configuration", 0, 0.0);
+      WriteResult(command.request_id, "REJECTED", "Symbol not allowed by EA configuration: " + command.symbol, 0, 0.0);
       return;
    }
    if(!SymbolSelect(command.symbol, true))
@@ -548,6 +605,37 @@ double NormalizePrice(const string symbol, const double price, const bool has_va
    return(NormalizeDouble(price, digits));
 }
 
+bool IsCommandStale(const TradeCommand &command)
+{
+   if(MaxCommandAgeSeconds <= 0)
+      return(false);
+   if(!command.has_submitted_epoch || command.submitted_epoch <= 0)
+      return(false);
+
+   long age_seconds = (long)TimeLocal() - command.submitted_epoch;
+   if(age_seconds < 0)
+      age_seconds = 0;
+   return(age_seconds > MaxCommandAgeSeconds);
+}
+
+bool SymbolMatchesAllowedItem(const string symbol, const string allowed_item)
+{
+   string normalized_symbol = TrimmedCopy(symbol);
+   string normalized_allowed = TrimmedCopy(allowed_item);
+   if(normalized_symbol == "" || normalized_allowed == "")
+      return(false);
+   if(normalized_symbol == normalized_allowed)
+      return(true);
+
+   int allowed_length = StringLen(normalized_allowed);
+   int symbol_length = StringLen(normalized_symbol);
+   int suffix_length = symbol_length - allowed_length;
+   if(symbol_length > allowed_length && suffix_length <= 4 && StringSubstr(normalized_symbol, 0, allowed_length) == normalized_allowed)
+      return(true);
+
+   return(false);
+}
+
 bool IsSymbolAllowed(const string symbol)
 {
    string allowed = AllowedSymbols;
@@ -559,7 +647,7 @@ bool IsSymbolAllowed(const string symbol)
    int count = StringSplit(allowed, ',', items);
    for(int index = 0; index < count; index++)
    {
-      if(items[index] == symbol)
+      if(SymbolMatchesAllowedItem(symbol, items[index]))
          return(true);
    }
    return(false);
@@ -581,7 +669,19 @@ void WriteResult(
    const double executed_price
 )
 {
-   string path = BridgeFolderName + "\\outbox\\" + request_id + ".result";
+   g_last_bridge_request_id = request_id;
+   g_last_bridge_status = status;
+   g_last_bridge_message = message;
+   string ticket_text = (ticket > 0 ? IntegerToString((int)ticket) : "0");
+   PrintFormat(
+      "TelegramSignalCopierEA result request=%s status=%s ticket=%s message=%s",
+      request_id,
+      status,
+      ticket_text,
+      message
+   );
+
+   string path = BridgeFolderName + "/outbox/" + request_id + ".result";
    int file_handle = FileOpen(path, FILE_WRITE | FILE_TXT | FILE_ANSI | FILE_COMMON);
    if(file_handle == INVALID_HANDLE)
       return;
@@ -594,5 +694,25 @@ void WriteResult(
    if(executed_price > 0.0)
       FileWriteString(file_handle, "executed_price=" + DoubleToString(executed_price, _Digits) + "\n");
    FileWriteString(file_handle, "executed_at=" + TimeToString(TimeCurrent(), TIME_DATE | TIME_SECONDS) + "\n");
+   FileClose(file_handle);
+   WriteEAStatus();
+}
+
+void WriteEAStatus()
+{
+   string path = BridgeFolderName + "/ea_status.txt";
+   int file_handle = FileOpen(path, FILE_WRITE | FILE_TXT | FILE_ANSI | FILE_COMMON);
+   if(file_handle == INVALID_HANDLE)
+      return;
+
+   FileWriteString(file_handle, "expert_name=" + MQLInfoString(MQL_PROGRAM_NAME) + "\n");
+   FileWriteString(file_handle, "chart_symbol=" + _Symbol + "\n");
+   FileWriteString(file_handle, "heartbeat_epoch=" + IntegerToString((int)TimeLocal()) + "\n");
+   FileWriteString(file_handle, "heartbeat_display=" + TimeToString(TimeLocal(), TIME_DATE | TIME_SECONDS) + "\n");
+   FileWriteString(file_handle, "allowed_symbols=" + AllowedSymbols + "\n");
+   FileWriteString(file_handle, "terminal_data_path=" + TerminalInfoString(TERMINAL_DATA_PATH) + "\n");
+   FileWriteString(file_handle, "last_request_id=" + g_last_bridge_request_id + "\n");
+   FileWriteString(file_handle, "last_status=" + g_last_bridge_status + "\n");
+   FileWriteString(file_handle, "last_message=" + g_last_bridge_message + "\n");
    FileClose(file_handle);
 }
