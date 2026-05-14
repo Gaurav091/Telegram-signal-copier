@@ -255,7 +255,8 @@ bool IsHeartbeatFresh(const long heartbeat_epoch)
    if(heartbeat_epoch <= 0)
       return(false);
 
-   long age = (long)TimeLocal() - heartbeat_epoch;
+   // Use TimeGMT() — heartbeat_epoch is a UTC Unix timestamp written by Python.
+   long age = (long)TimeGMT() - heartbeat_epoch;
    if(age < 0)
       age = 0;
    return(age <= TelegramHeartbeatTimeoutSeconds);
@@ -315,17 +316,18 @@ string BuildStatusComment(const TelegramStatus &status, const bool has_status)
 
 void ProcessBridgeCommands()
 {
-   // MQL5 FileFindFirst with FILE_COMMON requires forward slashes for subdirectory patterns.
-   // Backslash subdirectory paths silently return INVALID_HANDLE on most MT5 builds.
+   // FileFindFirst with FILE_COMMON does NOT reliably enumerate files in subdirectories
+   // on all MT5 builds.  We therefore place .cmd files in the bridge root and scan there.
+   // Python writes to bridge_root directly (not bridge_root/inbox).
    string filename = "";
-   long search_handle = FileFindFirst(BridgeFolderName + "/inbox/*.cmd", filename, FILE_COMMON);
+   long search_handle = FileFindFirst(BridgeFolderName + "/*.cmd", filename, FILE_COMMON);
    if(search_handle == INVALID_HANDLE)
    {
       // Log only once per minute to avoid spam — use a global timer
       static datetime s_last_no_cmd_log = 0;
       if(TimeCurrent() - s_last_no_cmd_log >= 60)
       {
-         PrintFormat("TelegramSignalCopierEA: inbox scan found no .cmd files (path=%s/inbox/*.cmd AutoTrading=%s)",
+         PrintFormat("TelegramSignalCopierEA: bridge root scan found no .cmd files (path=%s/*.cmd AutoTrading=%s)",
             BridgeFolderName, (bool)MQLInfoInteger(MQL_TRADE_ALLOWED) ? "ON" : "OFF");
          s_last_no_cmd_log = TimeCurrent();
       }
@@ -335,7 +337,7 @@ void ProcessBridgeCommands()
    do
    {
       PrintFormat("TelegramSignalCopierEA found bridge command: %s", filename);
-      string relative_path = BridgeFolderName + "/inbox/" + filename;
+      string relative_path = BridgeFolderName + "/" + filename;
       TradeCommand command;
       string parse_error = "";
       bool read_ok = ReadTradeCommand(relative_path, command, parse_error);
@@ -348,6 +350,7 @@ void ProcessBridgeCommands()
          WriteResult(StripExtension(filename), "ERROR", parse_error, 0, 0.0);
       }
 
+      // Delete from bridge root (same relative_path used to open)
       FileDelete(relative_path, FILE_COMMON);
    }
    while(FileFindNext(search_handle, filename));
@@ -612,7 +615,10 @@ bool IsCommandStale(const TradeCommand &command)
    if(!command.has_submitted_epoch || command.submitted_epoch <= 0)
       return(false);
 
-   long age_seconds = (long)TimeLocal() - command.submitted_epoch;
+   // Use TimeGMT() so the comparison is always UTC vs UTC.
+   // TimeLocal() is offset by the machine timezone and would make every command
+   // appear stale on machines running in UTC+N timezones.
+   long age_seconds = (long)TimeGMT() - command.submitted_epoch;
    if(age_seconds < 0)
       age_seconds = 0;
    return(age_seconds > MaxCommandAgeSeconds);
@@ -705,9 +711,11 @@ void WriteEAStatus()
    if(file_handle == INVALID_HANDLE)
       return;
 
+   // Write UTC epoch so Python (which uses time.time() = UTC) can compare correctly.
+   // TimeLocal() is offset by machine timezone and would confuse Python-side monitors.
    FileWriteString(file_handle, "expert_name=" + MQLInfoString(MQL_PROGRAM_NAME) + "\n");
    FileWriteString(file_handle, "chart_symbol=" + _Symbol + "\n");
-   FileWriteString(file_handle, "heartbeat_epoch=" + IntegerToString((int)TimeLocal()) + "\n");
+   FileWriteString(file_handle, "heartbeat_epoch=" + IntegerToString((int)TimeGMT()) + "\n");
    FileWriteString(file_handle, "heartbeat_display=" + TimeToString(TimeLocal(), TIME_DATE | TIME_SECONDS) + "\n");
    FileWriteString(file_handle, "allowed_symbols=" + AllowedSymbols + "\n");
    FileWriteString(file_handle, "terminal_data_path=" + TerminalInfoString(TERMINAL_DATA_PATH) + "\n");

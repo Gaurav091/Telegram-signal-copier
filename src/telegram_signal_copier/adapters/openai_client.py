@@ -4,6 +4,7 @@ import base64
 import hashlib
 import json
 import mimetypes
+import re
 import threading
 import time
 from pathlib import Path
@@ -38,10 +39,15 @@ class OpenAIClient:
                     "adapter": adapter,
                     "api_key": p.get("api_key"),
                     "base_url": base_url,
+                    "model": p.get("model") or self.model,
+                    "vision_model": p.get("vision_model") or p.get("model") or self.model,
                     "supports_vision": adapter.supports_vision,
                     "failure_count": 0,
+                    "hard_fail_count": 0,
                     "trip_until": 0.0,
                     "last_failure": 0.0,
+                    "disabled_until": 0.0,
+                    "disabled_reason": "",
                 }
             )
 
@@ -77,11 +83,33 @@ class OpenAIClient:
         """Parse a trading signal from text and/or chart image(s)."""
         has_vision = bool(image_path or all_image_paths)
         payload = self._build_chat_payload(raw_text, image_path, all_image_paths)
-        result = self._call_with_fallbacks("/chat/completions", payload, image_path=image_path, require_vision=has_vision)
+        try:
+            result = self._call_with_fallbacks("/chat/completions", payload, image_path=image_path, require_vision=has_vision)
+        except Exception as vision_exc:
+            if not has_vision:
+                raise
+            # If vision providers fail, retry using text-only providers.
+            text_payload = self._build_chat_payload(raw_text, None, None)
+            result = self._call_with_fallbacks("/chat/completions", text_payload, image_path=None, require_vision=False)
+            try:
+                parsed_fallback = result["choices"][0]["message"]["content"]
+                parsed_obj = self._json_from_text(parsed_fallback) if isinstance(parsed_fallback, str) else parsed_fallback
+                if isinstance(parsed_obj, dict):
+                    notes = parsed_obj.get("notes")
+                    if isinstance(notes, list):
+                        notes.append(f"Vision providers unavailable; used text-only AI fallback: {vision_exc}")
+                    elif isinstance(notes, str) and notes.strip():
+                        parsed_obj["notes"] = notes + f" | Vision providers unavailable; used text-only AI fallback: {vision_exc}"
+                    else:
+                        parsed_obj["notes"] = f"Vision providers unavailable; used text-only AI fallback: {vision_exc}"
+                    return parsed_obj
+            except Exception:
+                # If parsing fallback payload fails, continue with standard parse below.
+                pass
         try:
             message_content = result["choices"][0]["message"]["content"]
             if isinstance(message_content, str):
-                return json.loads(message_content)
+                return self._json_from_text(message_content)
             if isinstance(message_content, dict):
                 return message_content
         except Exception:
@@ -136,7 +164,7 @@ class OpenAIClient:
                 require_vision=bool(image_path),
             )
             msg = result["choices"][0]["message"]["content"]
-            return json.loads(msg) if isinstance(msg, str) else msg
+            return self._json_from_text(msg) if isinstance(msg, str) else msg
         except Exception as exc:
             return {"intent": "UNKNOWN", "confidence": 0.0, "reasoning": str(exc)}
 
@@ -195,11 +223,38 @@ class OpenAIClient:
         try:
             message_content = result["choices"][0]["message"]["content"]
             if isinstance(message_content, str):
-                return json.loads(message_content)
+                return self._json_from_text(message_content)
             if isinstance(message_content, dict):
                 return message_content
         except Exception:
             return result
+
+    @staticmethod
+    def _json_from_text(text: str) -> dict[str, Any]:
+        # Fast path: strict JSON already
+        try:
+            parsed = json.loads(text)
+            if isinstance(parsed, dict):
+                return parsed
+        except Exception:
+            pass
+
+        # Extract fenced JSON blocks
+        fence_match = re.search(r"```(?:json)?\s*(\{.*?\})\s*```", text, flags=re.DOTALL | re.IGNORECASE)
+        if fence_match:
+            parsed = json.loads(fence_match.group(1))
+            if isinstance(parsed, dict):
+                return parsed
+
+        # Extract first JSON object substring
+        start = text.find("{")
+        end = text.rfind("}")
+        if start != -1 and end != -1 and end > start:
+            parsed = json.loads(text[start : end + 1])
+            if isinstance(parsed, dict):
+                return parsed
+
+        raise ValueError("Model response did not contain JSON object")
 
     # ---- Internal helpers -----------------------------------------------------------
     def _build_chat_payload(
@@ -302,16 +357,31 @@ class OpenAIClient:
                     provider_errors.append(f"{name}: missing api_key or base_url")
                     continue
 
+                # Skip providers temporarily disabled for repeated hard failures.
+                if provider.get("disabled_until", 0) > now:
+                    provider_errors.append(
+                        f"{name}: disabled until {provider['disabled_until']} ({provider.get('disabled_reason','')})"
+                    )
+                    continue
+
                 # Skip providers currently tripped
                 if provider.get("trip_until", 0) > now:
                     provider_errors.append(f"{name}: tripped until {provider['trip_until']}")
                     continue
 
+                # Provider-specific model override so one invalid model doesn't break all providers.
+                provider_payload = dict(payload)
+                provider_payload["model"] = (
+                    provider.get("vision_model")
+                    if require_vision
+                    else provider.get("model")
+                ) or self.model
+
                 try:
                     adapter = provider.get("adapter")
                     if adapter is None:
                         # fallback: simple HTTP POST
-                        body = json.dumps(payload).encode("utf-8")
+                        body = json.dumps(provider_payload).encode("utf-8")
                         http_request = request.Request(
                             f"{base_url}{path}",
                             data=body,
@@ -324,11 +394,14 @@ class OpenAIClient:
                         with request.urlopen(http_request, timeout=60) as response:
                             result = json.loads(response.read().decode("utf-8"))
                     else:
-                        result = adapter.post(path, payload)
+                        result = adapter.post(path, provider_payload)
 
                     # Success: reset provider failure state
                     provider["failure_count"] = 0
+                    provider["hard_fail_count"] = 0
                     provider["trip_until"] = 0.0
+                    provider["disabled_until"] = 0.0
+                    provider["disabled_reason"] = ""
                     # Cache and return
                     with self._cache_lock:
                         self._cache[cache_key] = (time.time(), result)
@@ -347,29 +420,35 @@ class OpenAIClient:
                     detail = exc.read().decode("utf-8", errors="replace")
                     # On rate limit -> increase failure and trip provider
                     if exc.code == 429:
-                        self._record_provider_failure(provider, exc)
+                        self._record_provider_failure(provider, exc, kind="rate_limit")
                         provider_errors.append(f"{name}: 429 {detail}")
                         continue
-                    # Non-retryable for this payload
+                    # Non-429 HTTP failures. Mark hard failures and temporarily disable after repeats.
                     provider_errors.append(f"{name}: {exc.code} {detail}")
-                    # mark as failed but not tripped
+                    provider["hard_fail_count"] = provider.get("hard_fail_count", 0) + 1
                     provider["failure_count"] = provider.get("failure_count", 0) + 1
                     provider["last_failure"] = time.time()
+                    if provider["hard_fail_count"] >= 3 and exc.code in {400, 401, 403, 404, 422}:
+                        provider["disabled_until"] = time.time() + 600
+                        provider["disabled_reason"] = f"repeated_http_{exc.code}"
                     continue
                 except Exception as exc:
                     provider_errors.append(f"{name}: {exc}")
-                    self._record_provider_failure(provider, exc)
+                    self._record_provider_failure(provider, exc, kind="network")
                     continue
 
         raise RuntimeError("All AI providers failed: " + " | ".join(provider_errors))
 
-    def _record_provider_failure(self, provider: dict[str, Any], exc: Exception) -> None:
+    def _record_provider_failure(self, provider: dict[str, Any], exc: Exception, kind: str = "network") -> None:
         now = time.time()
         base = max(1, self.config.ai_provider_cooldown_seconds)
         max_cool = max(1, self.config.ai_provider_max_cooldown_seconds)
         provider["failure_count"] = provider.get("failure_count", 0) + 1
-        # exponential backoff on trips
-        cooldown = min(max_cool, base * (2 ** (provider["failure_count"] - 1)))
+        # gentler backoff keeps providers recoverable under bursty load/rate limits.
+        if kind == "rate_limit":
+            cooldown = min(max_cool, int(base * (1.5 ** (provider["failure_count"] - 1))))
+        else:
+            cooldown = min(max_cool, int(max(5, base // 2) * (1.3 ** (provider["failure_count"] - 1))))
         provider["trip_until"] = now + cooldown
         provider["last_failure"] = now
 

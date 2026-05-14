@@ -77,7 +77,14 @@ class CloudflareAdapter(ProviderAdapter):
             url = f"{self.base_url}/accounts/{account_id}/ai/v1{path}"
         else:
             url = f"{self.base_url}{path}"
-        body = json.dumps(payload).encode("utf-8")
+
+        # Cloudflare expects json_schema and may reject json_object.
+        cf_payload = dict(payload)
+        rf = cf_payload.get("response_format")
+        if isinstance(rf, dict) and rf.get("type") == "json_object":
+            cf_payload.pop("response_format", None)
+
+        body = json.dumps(cf_payload).encode("utf-8")
         headers = {"Content-Type": "application/json", "Authorization": f"Bearer {self.api_key}"}
         http_request = request.Request(url, data=body, headers=headers, method="POST")
         with request.urlopen(http_request, timeout=60) as response:
@@ -89,6 +96,20 @@ class NvidiaAdapter(ProviderAdapter):
     def supports_vision(self) -> bool:
         # NVIDIA inference endpoints may support vision depending on model; treat as text-only by default
         return False
+
+    def post(self, path: str, payload: dict[str, Any]) -> dict[str, Any]:
+        # Some configs use legacy NGC base URL which is not OpenAI chat-compatible.
+        base = self.base_url
+        if "api.ngc.nvidia.com" in base:
+            base = "https://integrate.api.nvidia.com/v1"
+        url = f"{base}{path}"
+        body = json.dumps(payload).encode("utf-8")
+        headers = {"Content-Type": "application/json"}
+        if self.api_key:
+            headers["Authorization"] = f"Bearer {self.api_key}"
+        http_request = request.Request(url, data=body, headers=headers, method="POST")
+        with request.urlopen(http_request, timeout=60) as response:
+            return json.loads(response.read().decode("utf-8"))
 
 
 class CerebrasAdapter(ProviderAdapter):

@@ -71,6 +71,7 @@ class AppConfig:
     dry_run: bool
     approval_required_below: float
     poll_interval_seconds: float
+    openai_vision_model: str | None = None
     # optional telegram fields
     telegram_bot_token: str | None = None
     telegram_username: str | None = None
@@ -88,6 +89,10 @@ class AppConfig:
     # Groq API (optional)
     groq_api_key: str | None = None
     groq_base_url: str = "https://api.groq.com/openai/v1"
+    cloudflare_model: str | None = None
+    nvidia_model: str | None = None
+    cerebras_model: str | None = None
+    groq_model: str | None = None
     # AI usage tuning
     ai_max_requests_per_minute: int = 60
     ai_provider_cooldown_seconds: int = 60
@@ -116,7 +121,9 @@ class AppConfig:
         bridge_root = Path(os.getenv("MT5_BRIDGE_DIR", _default_bridge_root(root)))
         return cls(
             project_root=root,
-            bridge_inbox_dir=bridge_root / "inbox",
+            # Commands are written to the bridge ROOT (not inbox/ subfolder) because
+            # MQL5's FileFindFirst with FILE_COMMON cannot reliably enumerate subdirectories.
+            bridge_inbox_dir=bridge_root,
             bridge_outbox_dir=bridge_root / "outbox",
             telegram_api_id=os.getenv("TELEGRAM_API_ID"),
             telegram_api_hash=os.getenv("TELEGRAM_API_HASH"),
@@ -126,16 +133,21 @@ class AppConfig:
             openai_api_key=os.getenv("OPENAI_API_KEY"),
             openai_model=os.getenv("OPENAI_MODEL", "gpt-4.1-mini"),
             openai_base_url=os.getenv("OPENAI_BASE_URL", "https://api.openai.com/v1"),
+            openai_vision_model=os.getenv("OPENAI_VISION_MODEL") or os.getenv("OPENAI_MODEL"),
             cloudflare_account_id=os.getenv("CLOUDFLARE_ACCOUNT_ID"),
             cloudflare_api_token=os.getenv("CLOUDFLARE_API_TOKEN"),
             cloudflare_base_url=os.getenv("CLOUDFLARE_BASE_URL", "https://api.cloudflare.com/client/v4"),
+            cloudflare_model=os.getenv("CLOUDFLARE_MODEL", "@cf/meta/llama-3.1-8b-instruct"),
             nvidia_cloudname=os.getenv("NVIDIA_CLOUDNAME"),
             nvidia_api_key=os.getenv("NVIDIA_API_KEY"),
             nvidia_base_url=os.getenv("NVIDIA_BASE_URL", "https://api.nvidia.com/v1"),
+            nvidia_model=os.getenv("NVIDIA_MODEL", "meta/llama-3.1-70b-instruct"),
             cerebras_api_key=os.getenv("CEREBRAS_API_KEY"),
             cerebras_base_url=os.getenv("CEREBRAS_BASE_URL", "https://api.cerebras.net/v1"),
+            cerebras_model=os.getenv("CEREBRAS_MODEL", "llama3.1-70b"),
             groq_api_key=os.getenv("GROQ_API_KEY"),
             groq_base_url=os.getenv("GROQ_BASE_URL", "https://api.groq.com/openai/v1"),
+            groq_model=os.getenv("GROQ_MODEL", "llama-3.3-70b-versatile"),
             ai_max_requests_per_minute=int(os.getenv("AI_MAX_REQUESTS_PER_MINUTE", "60")),
             ai_provider_cooldown_seconds=int(os.getenv("AI_PROVIDER_COOLDOWN_SECONDS", "60")),
             ai_provider_max_cooldown_seconds=int(os.getenv("AI_PROVIDER_MAX_COOLDOWN_SECONDS", "3600")),
@@ -284,19 +296,57 @@ class AppConfig:
             or self.cloudflare_api_token
             or self.nvidia_api_key
             or self.cerebras_api_key
+            or self.groq_api_key
         )
 
     @property
     def ai_providers(self) -> list[dict[str, str]]:
         providers: list[dict[str, str]] = []
         if self.openai_api_key:
-            providers.append({"name": "primary", "api_key": self.openai_api_key, "base_url": self.openai_base_url})
+            providers.append(
+                {
+                    "name": "primary",
+                    "api_key": self.openai_api_key,
+                    "base_url": self.openai_base_url,
+                    "model": self.openai_model,
+                    "vision_model": self.openai_vision_model or self.openai_model,
+                }
+            )
         if self.cloudflare_api_token:
-            providers.append({"name": "cloudflare", "api_key": self.cloudflare_api_token, "base_url": self.cloudflare_base_url})
+            providers.append(
+                {
+                    "name": "cloudflare",
+                    "api_key": self.cloudflare_api_token,
+                    "base_url": self.cloudflare_base_url,
+                    "model": self.cloudflare_model or self.openai_model,
+                }
+            )
         if self.nvidia_api_key:
-            providers.append({"name": "nvidia", "api_key": self.nvidia_api_key, "base_url": self.nvidia_base_url})
+            providers.append(
+                {
+                    "name": "nvidia",
+                    "api_key": self.nvidia_api_key,
+                    "base_url": self.nvidia_base_url,
+                    "model": self.nvidia_model or self.openai_model,
+                }
+            )
         if self.cerebras_api_key:
-            providers.append({"name": "cerebras", "api_key": self.cerebras_api_key, "base_url": self.cerebras_base_url})
+            providers.append(
+                {
+                    "name": "cerebras",
+                    "api_key": self.cerebras_api_key,
+                    "base_url": self.cerebras_base_url,
+                    "model": self.cerebras_model or self.openai_model,
+                }
+            )
         if self.groq_api_key:
-            providers.append({"name": "groq", "api_key": self.groq_api_key, "base_url": self.groq_base_url})
+            providers.append(
+                {
+                    "name": "groq",
+                    "api_key": self.groq_api_key,
+                    "base_url": self.groq_base_url,
+                    "model": self.groq_model or self.openai_model,
+                    "vision_model": self.groq_model or self.openai_model,
+                }
+            )
         return providers
