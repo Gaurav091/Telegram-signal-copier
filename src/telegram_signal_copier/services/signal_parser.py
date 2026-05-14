@@ -15,6 +15,13 @@ TP_PATTERN = re.compile(r"(?:TP\d*|TAKE\s*PROFIT\s*\d*)\s*[:=@-]?\s*(\d{1,6}(?:\
 ENTRY_PATTERN = re.compile(r"(?:ENTRY|AT|BUY|SELL)\s*[:=@-]?\s*(\d{1,6}(?:\.\d{1,5})?)", re.IGNORECASE)
 AT_SYMBOL_PATTERN = re.compile(r"@\s*(\d{1,6}(?:\.\d{1,5})?)", re.IGNORECASE)
 
+# Cluster context block injected by MessageClusterAgent
+_CLUSTER_BLOCK_RE = re.compile(
+    r"\[CLUSTER CONTEXT\](.*?)\[/CLUSTER CONTEXT\]",
+    re.DOTALL | re.IGNORECASE,
+)
+_CLUSTER_KV_RE = re.compile(r"^(\w[\w\s]*):\s*(.+)$", re.MULTILINE)
+
 
 @dataclass(slots=True)
 class ParseResult:
@@ -236,6 +243,20 @@ class SignalParser:
             protected = {value for value in [entry_price, stop_loss] if value is not None}
             take_profits = [value for value in numbers if value not in protected][1:3]
 
+        # ── Overlay cluster-context levels (if MessageClusterAgent injected them) ──
+        ctx = self._parse_cluster_context(combined_text)
+        if ctx:
+            symbol = ctx.get("symbol") or symbol
+            side = self._normalize_side(ctx.get("side")) or side
+            if ctx.get("order_type"):
+                order_type = ctx["order_type"]
+            if ctx.get("entry") is not None:
+                entry_price = ctx["entry"]
+            if ctx.get("sl") is not None:
+                stop_loss = ctx["sl"]
+            if ctx.get("tps"):
+                take_profits = ctx["tps"]
+
         fields_found = sum(
             1
             for item in [symbol, side, order_type, entry_price, stop_loss, take_profits[0] if take_profits else None]
@@ -245,6 +266,8 @@ class SignalParser:
         notes: list[str] = []
         if message.image_path:
             notes.append("Image attached; heuristic parser may need AI vision for full accuracy")
+        if ctx:
+            notes.append("Cluster context applied: " + "; ".join(f"{k}={v}" for k, v in ctx.items() if v))
 
         return ParsedSignal(
             source_group=message.source_group,
@@ -261,6 +284,38 @@ class SignalParser:
             parser_name="heuristic",
             notes=notes,
         )
+
+    @staticmethod
+    def _parse_cluster_context(text: str) -> dict | None:
+        """Extract structured levels from a [CLUSTER CONTEXT] block if present."""
+        m = _CLUSTER_BLOCK_RE.search(text)
+        if not m:
+            return None
+        block = m.group(1)
+        result: dict = {}
+        for kv in _CLUSTER_KV_RE.finditer(block):
+            key = kv.group(1).strip().lower()
+            val = kv.group(2).strip()
+            if key == "symbol":
+                result["symbol"] = val
+            elif key == "side":
+                result["side"] = val
+            elif key == "order":
+                result["order_type"] = val
+            elif key == "entry":
+                try:
+                    result["entry"] = float(val)
+                except ValueError:
+                    pass
+            elif key == "sl":
+                try:
+                    result["sl"] = float(val)
+                except ValueError:
+                    pass
+            elif key == "tp":
+                nums = re.findall(r"\d{3,7}(?:\.\d{1,5})?", val)
+                result["tps"] = [float(n) for n in nums]
+        return result if result else None
 
     def _detect_symbol(self, upper_text: str) -> str | None:
         aliases = {

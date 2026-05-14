@@ -380,6 +380,12 @@ class Supervisor:
         print(f"Workflow supervisor ON interval={self.interval_sec}s autofix={self.autofix}")
         print(f"Workspace: {WORKSPACE_ROOT}")
         print(f"Bridge: {BRIDGE_ROOT}")
+        import os
+        cluster_window = os.environ.get("CLUSTER_WINDOW_SECONDS", "120")
+        cluster_sl_pips = os.environ.get("CLUSTER_AUTO_SL_PIPS", "20")
+        cluster_enabled = os.environ.get("CLUSTER_ENABLED", "1")
+        print(f"ClusterAgent: enabled={cluster_enabled} window={cluster_window}s auto_sl_pips={cluster_sl_pips}")
+        print("LogMonitorAgent: auto-started separately via tools/log_monitor_agent.py --daemon")
         print("Ctrl+C to stop")
 
         while True:

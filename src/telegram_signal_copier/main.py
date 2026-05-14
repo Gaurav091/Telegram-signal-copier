@@ -16,6 +16,7 @@ from telegram_signal_copier.adapters.openai_client import OpenAIClient
 from telegram_signal_copier.adapters.telegram_client import TelegramSignalListener
 from telegram_signal_copier.config import AppConfig
 from telegram_signal_copier.models import TelegramSignalMessage, TradeCommand
+from telegram_signal_copier.services.cluster_agent import MessageClusterAgent
 from telegram_signal_copier.services.image_processor import ImageProcessor
 from telegram_signal_copier.services.pipeline import CopierPipeline
 from telegram_signal_copier.services.risk_engine import RiskEngine
@@ -217,6 +218,9 @@ async def _run_with_restarts(config: AppConfig) -> None:
 
 async def _run_listener(config: AppConfig) -> None:
     pipeline = build_pipeline(config)
+    cluster_agent = MessageClusterAgent(
+        allowed_symbols=config.merged_allowed_symbols,
+    )
     listener = TelegramSignalListener(config)
     status: dict[str, object] = {
         "listener_state": "starting",
@@ -259,9 +263,12 @@ async def _run_listener(config: AppConfig) -> None:
             print(f"Unhandled exception in message handler: {exc}", flush=True)
             status.update({"last_error": str(exc)})
 
+    async def on_message_clustered(message: TelegramSignalMessage) -> None:
+        await cluster_agent.process(message, on_message)
+
     try:
         status["listener_state"] = "running"
-        await listener.run(on_message)
+        await listener.run(on_message_clustered)
     except Exception as exc:
         status.update(
             {

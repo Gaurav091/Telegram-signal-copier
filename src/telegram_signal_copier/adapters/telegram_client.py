@@ -193,29 +193,85 @@ class TelegramSignalListener:
 
     async def _resolve_source_chats(self, client: object) -> list[object]:
         resolved: list[object] = []
+        skipped: list[str] = []
         for label, source in self.config.telegram_source_mappings:
             identifier = source.strip()
             if not identifier:
                 continue
             try:
                 resolved.append(await self._resolve_source_chat(client, label, identifier))
+            except _FloodWaitSkip as exc:
+                logger.warning(
+                    "Skipping source '%s' (%s) due to Telegram flood wait: %s — will retry after restart",
+                    label, identifier, exc,
+                )
+                skipped.append(label)
             except Exception as exc:  # type: ignore[misc]
                 raise RuntimeError(f"Failed to resolve configured source '{label}' ({identifier}): {exc}") from exc
+        if skipped:
+            logger.warning("Skipped %d source(s) due to flood wait: %s", len(skipped), skipped)
+        if not resolved:
+            raise RuntimeError(
+                f"All configured sources are unavailable (flood wait or error). Skipped: {skipped}"
+            )
         return resolved
 
     async def _resolve_source_chat(self, client: object, label: str, identifier: str) -> object:
-        normalized_identifier = identifier[1:] if identifier.startswith("@") else identifier
         try:
-            if normalized_identifier.isdigit():
-                return await client.get_entity(int(normalized_identifier))  # type: ignore[attr-defined]
+            from telethon.errors import FloodWaitError  # type: ignore[import-not-found]
+        except ImportError:
+            FloodWaitError = Exception  # type: ignore[assignment,misc]
+
+        normalized_identifier = identifier[1:] if identifier.startswith("@") else identifier
+
+        # Numeric ID: try both raw int and channel format (-100XXXXX) before any fallback.
+        # Never use SearchRequest for numeric IDs — it burns API quota and hits flood limits.
+        if normalized_identifier.isdigit():
+            raw_id = int(normalized_identifier)
+            channel_id = int(f"-100{normalized_identifier}")
+            for attempt_id in (channel_id, raw_id):
+                try:
+                    return await client.get_entity(attempt_id)  # type: ignore[attr-defined]
+                except FloodWaitError as exc:
+                    raise _FloodWaitSkip(str(exc)) from exc
+                except Exception:
+                    continue
+            # Last resort: peer object
+            try:
+                from telethon.tl.types import PeerChannel  # type: ignore[import-not-found]
+                return await client.get_entity(PeerChannel(raw_id))  # type: ignore[attr-defined]
+            except FloodWaitError as exc:
+                raise _FloodWaitSkip(str(exc)) from exc
+            except Exception:
+                pass
+            raise RuntimeError(
+                f"Could not resolve numeric source '{label}' ({identifier}) with any ID format. "
+                "Check that the account is a member of the channel."
+            )
+
+        # Username / invite link: direct get_entity, then search fallback
+        try:
             return await client.get_entity(normalized_identifier)  # type: ignore[attr-defined]
+        except FloodWaitError as exc:
+            raise _FloodWaitSkip(str(exc)) from exc
         except Exception:
-            return await self._search_source_chat(client, label, normalized_identifier)
+            pass
+
+        return await self._search_source_chat(client, label, normalized_identifier)
 
     async def _search_source_chat(self, client: object, label: str, identifier: str) -> object:
-        from telethon.tl.functions.contacts import SearchRequest  # type: ignore[import-not-found]
+        try:
+            from telethon.errors import FloodWaitError  # type: ignore[import-not-found]
+            from telethon.tl.functions.contacts import SearchRequest  # type: ignore[import-not-found]
+        except ImportError:
+            FloodWaitError = Exception  # type: ignore[assignment,misc]
+            raise RuntimeError("telethon not available")
 
-        result = await client(SearchRequest(q=label, limit=20))  # type: ignore[attr-defined]
+        try:
+            result = await client(SearchRequest(q=label, limit=20))  # type: ignore[attr-defined]
+        except FloodWaitError as exc:
+            raise _FloodWaitSkip(str(exc)) from exc
+
         normalized_label = label.casefold()
         normalized_identifier = identifier.casefold()
 
@@ -235,7 +291,7 @@ class TelegramSignalListener:
     async def _event_to_message(self, event: object) -> TelegramSignalMessage:
         chat = await event.get_chat()  # type: ignore[attr-defined]
         sender = await event.get_sender()  # type: ignore[attr-defined]
-        raw_text = event.raw_text or ""  # type: ignore[attr-defined]
+        raw_text = getattr(event, "raw_text", "") or ""  # type: ignore[attr-defined]
         image_path = await self._download_media(event)
         return TelegramSignalMessage(
             source_group=getattr(chat, "title", None) or getattr(chat, "username", "unknown-source"),
@@ -251,3 +307,10 @@ class TelegramSignalListener:
         file_path = self._media_dir / f"{event.id}.jpg"  # type: ignore[attr-defined]
         downloaded = await event.download_media(file=file_path)  # type: ignore[attr-defined]
         return str(Path(downloaded)) if downloaded else None
+
+
+class _FloodWaitSkip(Exception):
+    """Raised when a Telegram FloodWaitError is hit during source resolution.
+    Caught by _resolve_source_chats to skip the source gracefully instead of
+    crashing the entire listener."""
+    pass
