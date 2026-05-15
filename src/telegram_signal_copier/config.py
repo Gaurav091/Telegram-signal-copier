@@ -71,6 +71,7 @@ class AppConfig:
     dry_run: bool
     approval_required_below: float
     poll_interval_seconds: float
+    minimum_rr_ratio: float = 1.5  # Minimum risk:reward ratio for agent validation
     openai_vision_model: str | None = None
     # optional telegram fields
     telegram_bot_token: str | None = None
@@ -131,7 +132,7 @@ class AppConfig:
             telegram_session_name=os.getenv("TELEGRAM_SESSION_NAME", "telegram-signal-copier"),
             telegram_sources=_csv_env("TELEGRAM_SOURCES"),
             openai_api_key=os.getenv("OPENAI_API_KEY"),
-            openai_model=os.getenv("OPENAI_MODEL", "gpt-4.1-mini"),
+            openai_model=os.getenv("OPENAI_MODEL", "gpt-4o-mini"),
             openai_base_url=os.getenv("OPENAI_BASE_URL", "https://api.openai.com/v1"),
             openai_vision_model=os.getenv("OPENAI_VISION_MODEL") or os.getenv("OPENAI_MODEL"),
             cloudflare_account_id=os.getenv("CLOUDFLARE_ACCOUNT_ID"),
@@ -140,11 +141,11 @@ class AppConfig:
             cloudflare_model=os.getenv("CLOUDFLARE_MODEL", "@cf/meta/llama-3.1-8b-instruct"),
             nvidia_cloudname=os.getenv("NVIDIA_CLOUDNAME"),
             nvidia_api_key=os.getenv("NVIDIA_API_KEY"),
-            nvidia_base_url=os.getenv("NVIDIA_BASE_URL", "https://api.nvidia.com/v1"),
+            nvidia_base_url=os.getenv("NVIDIA_BASE_URL", "https://integrate.api.nvidia.com/v1"),
             nvidia_model=os.getenv("NVIDIA_MODEL", "meta/llama-3.1-70b-instruct"),
             cerebras_api_key=os.getenv("CEREBRAS_API_KEY"),
             cerebras_base_url=os.getenv("CEREBRAS_BASE_URL", "https://api.cerebras.net/v1"),
-            cerebras_model=os.getenv("CEREBRAS_MODEL", "llama3.1-70b"),
+            cerebras_model=os.getenv("CEREBRAS_MODEL", "llama-3.1-70b"),
             groq_api_key=os.getenv("GROQ_API_KEY"),
             groq_base_url=os.getenv("GROQ_BASE_URL", "https://api.groq.com/openai/v1"),
             groq_model=os.getenv("GROQ_MODEL", "llama-3.3-70b-versatile"),
@@ -164,6 +165,7 @@ class AppConfig:
             allowed_symbols=_csv_env("ALLOWED_SYMBOLS", "XAUUSD,EURUSD,GBPUSD,USDJPY,BTCUSD,ETHUSD,XAGUSD,US30,NAS100,USOIL,SPX500"),
             dry_run=_bool_env("DRY_RUN", True),
             approval_required_below=float(os.getenv("APPROVAL_REQUIRED_BELOW", "0.85")),
+            minimum_rr_ratio=float(os.getenv("MINIMUM_RR_RATIO", "1.5")),
             poll_interval_seconds=float(os.getenv("POLL_INTERVAL_SECONDS", "2.0")),
             telegram_bot_token=os.getenv("TELEGRAM_BOT_TOKEN"),
             telegram_username=os.getenv("TELEGRAM_USERNAME"),
@@ -276,10 +278,6 @@ class AppConfig:
         dynamic = sorted(self._load_dynamic_symbols())
         merged = list(dict.fromkeys(base + dynamic))
         return merged
-
-    @property
-    def telegram_source_identifiers(self) -> list[str]:
-        return [identifier for _, identifier in self.telegram_source_mappings]
 
     @property
     def telegram_ready(self) -> bool:

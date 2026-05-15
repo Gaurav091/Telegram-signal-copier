@@ -109,7 +109,7 @@ def validation_agent_node(state: AgentState, app_config: AppConfig) -> dict[str,
                 return {"rejection_reasons": reasons, "next_node": "reject"}
 
     min_rr: float = float(
-        os.getenv("AGENT_MIN_RR") or getattr(app_config, "minimum_rr_ratio", 1.5)
+        os.getenv("AGENT_MIN_RR") or app_config.minimum_rr_ratio
     )
     entry_price = signal.entry_price
     sl = signal.stop_loss
