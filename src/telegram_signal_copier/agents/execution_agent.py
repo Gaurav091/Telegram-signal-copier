@@ -55,7 +55,15 @@ def execution_agent_node(
             "next_node": "reject",
         }
 
-    volume: float = state.validated_signal.volume or getattr(app_config, "default_volume", 0.01)
+    # Ensure volume > 0: use validated_signal.volume (always >= 0.01 by Pydantic), fallback to app_config, final fallback to 0.01
+    volume: float = state.validated_signal.volume
+    if volume <= 0:
+        volume = float(getattr(app_config, "default_volume", 0.01) or 0.01)
+    if volume <= 0:
+        volume = 0.01
+    
+    logger.debug("[EXECUTE] Volume resolved to %.4f (from signal=%.4f, config=%s)", 
+                 volume, state.validated_signal.volume, getattr(app_config, "default_volume", None))
 
     # Dry-run mode — log but do not actually write the command file
     if getattr(app_config, "dry_run", False):
