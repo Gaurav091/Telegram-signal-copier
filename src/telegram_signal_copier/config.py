@@ -163,7 +163,7 @@ class AppConfig:
             minimum_confidence=float(os.getenv("MINIMUM_CONFIDENCE", "0.70")),
             default_volume=float(os.getenv("DEFAULT_VOLUME", "0.10")),
             allowed_symbols=_csv_env("ALLOWED_SYMBOLS", "XAUUSD,EURUSD,GBPUSD,USDJPY,BTCUSD,ETHUSD,XAGUSD,US30,NAS100,USOIL,SPX500"),
-            dry_run=_bool_env("DRY_RUN", True),
+            dry_run=_bool_env("DRY_RUN", False),
             approval_required_below=float(os.getenv("APPROVAL_REQUIRED_BELOW", "0.85")),
             minimum_rr_ratio=float(os.getenv("MINIMUM_RR_RATIO", "1.5")),
             poll_interval_seconds=float(os.getenv("POLL_INTERVAL_SECONDS", "2.0")),
