@@ -104,7 +104,7 @@ class SignalParser:
             chart_tps = [float(v) for v in raw_tps if v not in (None, "")]
             chart_confidence = max(0.0, min(1.0, float(levels.get("confidence") or 0)))
 
-            if chart_confidence < 0.50:
+            if chart_confidence < 0.30:
                 signal.notes.append(
                     f"Chart level extraction confidence too low ({chart_confidence:.2f}), skipped"
                 )
