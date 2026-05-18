@@ -10,8 +10,14 @@ from telegram_signal_copier.models import ParsedSignal, TelegramSignalMessage
 
 
 PRICE_PATTERN = re.compile(r"\b\d{1,6}(?:\.\d{1,5})?\b")
-SL_PATTERN = re.compile(r"(?:SL|STOP\s*LOSS)\s*[:=@-]?\s*(\d{1,6}(?:\.\d{1,5})?)", re.IGNORECASE)
-TP_PATTERN = re.compile(r"(?:TP\d*|TAKE\s*PROFIT\s*\d*)\s*[:=@-]?\s*(\d{1,6}(?:\.\d{1,5})?)", re.IGNORECASE)
+SL_PATTERN = re.compile(
+    r"(?:\bSL\b|\bS\s*[\\/]\s*L\b|STOP\s*LOSS)\s*[:=@-]?\s*(\d{1,6}(?:\.\d{1,5})?)",
+    re.IGNORECASE,
+)
+TP_PATTERN = re.compile(
+    r"(?:\bTP\d*\b|\bT\s*[\\/]\s*P\d*\b|TAKE\s*PROFIT\s*\d*)\s*[:=@-]?\s*(\d{1,6}(?:\.\d{1,5})?)",
+    re.IGNORECASE,
+)
 ENTRY_PATTERN = re.compile(r"(?:ENTRY|AT|BUY|SELL)\s*[:=@-]?\s*(\d{1,6}(?:\.\d{1,5})?)", re.IGNORECASE)
 AT_SYMBOL_PATTERN = re.compile(r"@\s*(\d{1,6}(?:\.\d{1,5})?)", re.IGNORECASE)
 
@@ -254,17 +260,24 @@ class SignalParser:
                         try:
                             l = float(pair.group(1))
                             h = float(pair.group(2))
-                            entry_range_low = l
-                            entry_range_high = h
-                            entry_price = round((entry_range_low + entry_range_high) / 2, 2)
-                            break
+                            # reject if either value looks like a volume (< 100)
+                            if l >= 100 and h >= 100:
+                                entry_range_low = l
+                                entry_range_high = h
+                                entry_price = round((entry_range_low + entry_range_high) / 2, 2)
+                                break
                         except Exception:
                             pass
             # fallback to single entry 'ENTRY 4540' or '@4540' patterns
             if entry_price is None:
-                entry_price = self._first_float(ENTRY_PATTERN.findall(upper_text))
+                raw_entries = ENTRY_PATTERN.findall(upper_text)
+                # discard volume-like values (< 100)
+                valid_entries = [v for v in raw_entries if self._maybe_float(v) is not None and float(v) >= 100]
+                entry_price = self._first_float(valid_entries)
                 if entry_price is None:
-                    entry_price = self._first_float(AT_SYMBOL_PATTERN.findall(upper_text))
+                    raw_at = AT_SYMBOL_PATTERN.findall(upper_text)
+                    valid_at = [v for v in raw_at if self._maybe_float(v) is not None and float(v) >= 100]
+                    entry_price = self._first_float(valid_at)
 
         # --- SL/TP extraction (multi-line robust) ---
         stop_loss = None

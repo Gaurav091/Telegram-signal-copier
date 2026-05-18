@@ -8,8 +8,13 @@ import os
 
 from telegram_signal_copier.adapters.openai_client import OpenAIClient
 
-_NUMERIC_SL = re.compile(r"(?:SL|STOP\s*LOSS)\s*[:=@-]?\s*\d{3,}", re.IGNORECASE)
-_NUMERIC_TP = re.compile(r"(?:TP\d*|TAKE\s*PROFIT)\s*[:=@-]?\s*\d{3,}", re.IGNORECASE)
+_NUMERIC_SL = re.compile(r"(?:\bSL\b|\bS\s*/\s*L\b|STOP\s*LOSS)\s*[:=@-]?\s*\d{3,}", re.IGNORECASE)
+_NUMERIC_TP = re.compile(r"(?:\bTP\d*\b|\bT\s*/\s*P\d*\b|TAKE\s*PROFIT)\s*[:=@-]?\s*\d{3,}", re.IGNORECASE)
+_OCR_KEYWORD_RE = re.compile(
+    r"\b(BUY|SELL|SL|S\s*/\s*L|STOP\s*LOSS|TP\d*|T\s*/\s*P\d*|TAKE\s*PROFIT|XAUUSD|EURUSD|GBPUSD|USDJPY|BTCUSD|ETHUSD)\b",
+    re.IGNORECASE,
+)
+_OCR_PRICE_RE = re.compile(r"\b\d{3,6}(?:\.\d{1,5})?\b")
 
 logger = logging.getLogger(__name__)
 
@@ -27,11 +32,13 @@ class ImageProcessor:
         # detect optional local OCR availability (pytesseract + PIL)
         try:
             import pytesseract  # type: ignore
-            from PIL import Image  # type: ignore
+            from PIL import Image, ImageFilter, ImageOps  # type: ignore
 
             self._ocr_available = True
             self._pytesseract = pytesseract
             self._PILImage = Image
+            self._PILImageOps = ImageOps
+            self._PILImageFilter = ImageFilter
             # If tesseract binary not on PATH, try common Windows install locations
             try:
                 # quick probe
@@ -56,6 +63,8 @@ class ImageProcessor:
             self._ocr_available = False
             self._pytesseract = None
             self._PILImage = None
+            self._PILImageOps = None
+            self._PILImageFilter = None
 
     def extract_signal_context(
         self,
@@ -103,20 +112,31 @@ class ImageProcessor:
                     all_image_paths=images[1:] if len(images) > 1 else None,
                 )
                 extracted_text = self._payload_to_text(response)
-                notes.append(f"Image(s) analyzed with AI vision ({len(images)} chart{'s' if len(images) > 1 else ''})")
-                logger.info("AI vision extracted from image: %s", extracted_text[:200])
-                return ImageProcessingResult(extracted_text=extracted_text, notes=notes, ai_payload=response)
+                if extracted_text.strip():
+                    notes.append(f"Image(s) analyzed with AI vision ({len(images)} chart{'s' if len(images) > 1 else ''})")
+                    logger.info("AI vision extracted from image: %s", extracted_text[:200])
+                    return ImageProcessingResult(extracted_text=extracted_text, notes=notes, ai_payload=response)
+                notes.append("AI vision returned no usable text; trying local OCR fallback")
+                logger.warning("AI vision returned empty payload text for %s; trying local OCR", images[0])
             except Exception as exc:
                 notes.append(f"AI vision failed: {exc}")
                 logger.warning("AI vision failed for %s: %s", images[0], exc)
 
-        # Fallback to local OCR if available (first image only)
-        if self._ocr_available and self._PILImage is not None and self._pytesseract is not None:
+        # Fallback to local OCR if available
+        if (
+            self._ocr_available
+            and self._PILImage is not None
+            and self._PILImageOps is not None
+            and self._PILImageFilter is not None
+            and self._pytesseract is not None
+        ):
             try:
-                img = self._PILImage.open(images[0])
-                text = self._pytesseract.image_to_string(img)
+                text, source = self._run_local_ocr(images)
                 if text and text.strip():
-                    notes.append("Image OCR extracted text locally")
+                    if source:
+                        notes.append(f"Image OCR extracted text locally ({source})")
+                    else:
+                        notes.append("Image OCR extracted text locally")
                     return ImageProcessingResult(extracted_text=text.strip(), notes=notes)
                 notes.append("Local OCR ran but returned no text")
                 return ImageProcessingResult(extracted_text="", notes=notes)
@@ -130,6 +150,48 @@ class ImageProcessor:
         else:
             notes.append("Image present; AI vision failed and no local OCR available")
         return ImageProcessingResult(extracted_text="", notes=notes)
+
+    def _run_local_ocr(self, image_paths: list[str]) -> tuple[str, str | None]:
+        best_text = ""
+        best_score = -1
+        best_source: str | None = None
+        for image_path in image_paths:
+            for variant_name, variant in self._iter_ocr_variants(image_path):
+                for psm in (6, 11):
+                    config = f"--oem 3 --psm {psm}"
+                    try:
+                        text = self._pytesseract.image_to_string(variant, config=config)
+                    except Exception:
+                        continue
+                    score = self._score_ocr_text(text)
+                    if score > best_score:
+                        best_score = score
+                        best_text = text or ""
+                        best_source = f"{os.path.basename(image_path)}:{variant_name}:psm{psm}"
+        return best_text.strip(), best_source
+
+    def _iter_ocr_variants(self, image_path: str) -> list[tuple[str, object]]:
+        with self._PILImage.open(image_path) as raw:
+            rgb = raw.convert("RGB")
+        gray = self._PILImageOps.grayscale(rgb)
+        auto = self._PILImageOps.autocontrast(gray)
+        sharpen = auto.filter(self._PILImageFilter.SHARPEN)
+        binary = auto.point(lambda p: 255 if p > 160 else 0)
+        return [
+            ("gray", gray),
+            ("auto", auto),
+            ("sharpen", sharpen),
+            ("binary", binary),
+        ]
+
+    @staticmethod
+    def _score_ocr_text(text: str) -> int:
+        if not text or not text.strip():
+            return -1
+        text_u = text.upper()
+        keyword_hits = len(_OCR_KEYWORD_RE.findall(text_u))
+        price_hits = len(_OCR_PRICE_RE.findall(text_u))
+        return keyword_hits * 5 + min(price_hits, 12)
 
     @staticmethod
     def _payload_to_text(payload: dict[str, object]) -> str:
