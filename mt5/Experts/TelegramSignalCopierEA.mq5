@@ -316,28 +316,29 @@ string BuildStatusComment(const TelegramStatus &status, const bool has_status)
 
 void ProcessBridgeCommands()
 {
-   // FileFindFirst with FILE_COMMON does NOT reliably enumerate files in subdirectories
-   // on all MT5 builds.  We therefore place .cmd files in the bridge root and scan there.
-   // Python writes to bridge_root directly (not bridge_root/inbox).
-   string filename = "";
-   long search_handle = FileFindFirst(BridgeFolderName + "/*.cmd", filename, FILE_COMMON);
-   if(search_handle == INVALID_HANDLE)
+   string request_ids[];
+   int queued_count = ReadQueuedRequestIds(request_ids);
+   if(queued_count <= 0)
    {
       // Log only once per minute to avoid spam — use a global timer
       static datetime s_last_no_cmd_log = 0;
       if(TimeCurrent() - s_last_no_cmd_log >= 60)
       {
-         PrintFormat("TelegramSignalCopierEA: bridge root scan found no .cmd files (path=%s/*.cmd AutoTrading=%s)",
+         PrintFormat("TelegramSignalCopierEA: command queue empty (path=%s/command_queue.txt AutoTrading=%s)",
             BridgeFolderName, (bool)MQLInfoInteger(MQL_TRADE_ALLOWED) ? "ON" : "OFF");
          s_last_no_cmd_log = TimeCurrent();
       }
       return;
    }
 
-   do
+   string pending_request_ids[];
+   ArrayResize(pending_request_ids, 0);
+
+   for(int i = 0; i < queued_count; i++)
    {
-      PrintFormat("TelegramSignalCopierEA found bridge command: %s", filename);
-      string relative_path = BridgeFolderName + "/" + filename;
+      string request_id = request_ids[i];
+      string relative_path = CommandFilePrefix() + request_id + ".txt";
+      PrintFormat("TelegramSignalCopierEA found bridge command: %s", request_id);
       TradeCommand command;
       string parse_error = "";
       bool read_ok = ReadTradeCommand(relative_path, command, parse_error);
@@ -346,21 +347,29 @@ void ProcessBridgeCommands()
          ExecuteTradeCommand(command);
       else
       {
-         PrintFormat("TelegramSignalCopierEA failed to parse %s: %s", filename, parse_error);
-         WriteResult(StripExtension(filename), "ERROR", parse_error, 0, 0.0);
+         if(parse_error == "Failed to open bridge command file")
+         {
+            int pending_index = ArraySize(pending_request_ids);
+            ArrayResize(pending_request_ids, pending_index + 1);
+            pending_request_ids[pending_index] = request_id;
+            continue;
+         }
+
+         PrintFormat("TelegramSignalCopierEA failed to parse %s: %s", request_id, parse_error);
+         WriteResult(request_id, "ERROR", parse_error, 0, 0.0);
       }
 
-      // Delete from bridge root (same relative_path used to open)
+      // Delete the processed top-level alias. Python cleans mirrored compatibility
+      // files after it observes the result file.
       FileDelete(relative_path, FILE_COMMON);
    }
-   while(FileFindNext(search_handle, filename));
 
-   FileFindClose(search_handle);
+   RewriteCommandQueue(pending_request_ids);
 }
 
 bool ReadTradeCommand(const string relative_path, TradeCommand &command, string &error_message)
 {
-   int file_handle = FileOpen(relative_path, FILE_READ | FILE_TXT | FILE_ANSI | FILE_COMMON);
+   int file_handle = FileOpen(relative_path, FILE_READ | FILE_ANSI | FILE_COMMON);
    if(file_handle == INVALID_HANDLE)
    {
       error_message = "Failed to open bridge command file";
@@ -369,9 +378,18 @@ bool ReadTradeCommand(const string relative_path, TradeCommand &command, string 
 
    ZeroMemory(command);
 
-   while(!FileIsEnding(file_handle))
+   string payload = FileReadString(file_handle, (int)FileSize(file_handle));
+   FileClose(file_handle);
+
+   string lines[];
+   int line_count = StringSplit(payload, '\n', lines);
+   for(int i = 0; i < line_count; i++)
    {
-      string line = FileReadString(file_handle);
+      string line = lines[i];
+      StringReplace(line, "\r", "");
+      if(line == "")
+         continue;
+
       int separator = StringFind(line, "=");
       if(separator < 0)
          continue;
@@ -380,8 +398,6 @@ bool ReadTradeCommand(const string relative_path, TradeCommand &command, string 
       string value = StringSubstr(line, separator + 1);
       ApplyField(command, key, value);
    }
-
-   FileClose(file_handle);
 
    if(command.request_id == "")
    {
@@ -427,24 +443,80 @@ void ApplyField(TradeCommand &command, const string key, const string value)
    else if(key == "order_type")
       command.order_type = value;
    else if(key == "volume")
-      command.volume = StringToDouble(value);
+      command.volume = ParseBridgeDouble(value);
    else if(key == "entry_price" && value != "")
    {
-      command.entry_price = StringToDouble(value);
+      command.entry_price = ParseBridgeDouble(value);
       command.has_entry_price = true;
    }
    else if(key == "stop_loss" && value != "")
    {
-      command.stop_loss = StringToDouble(value);
+      command.stop_loss = ParseBridgeDouble(value);
       command.has_stop_loss = true;
    }
    else if(key == "take_profit" && value != "")
    {
-      command.take_profit = StringToDouble(value);
+      command.take_profit = ParseBridgeDouble(value);
       command.has_take_profit = true;
    }
    else if(key == "comment")
       command.comment = value;
+}
+
+double ParseBridgeDouble(const string raw_value)
+{
+   string normalized = raw_value;
+   StringTrimLeft(normalized);
+   StringTrimRight(normalized);
+   if(normalized == "")
+      return(0.0);
+
+   bool negative = false;
+   bool seen_separator = false;
+   bool saw_digit = false;
+   double value = 0.0;
+   double fractional_scale = 0.1;
+
+   for(int index = 0; index < StringLen(normalized); index++)
+   {
+      ushort ch = StringGetCharacter(normalized, index);
+      if(index == 0 && ch == '-')
+      {
+         negative = true;
+         continue;
+      }
+
+      if(ch >= '0' && ch <= '9')
+      {
+         saw_digit = true;
+         int digit = (int)(ch - '0');
+         if(!seen_separator)
+            value = (value * 10.0) + digit;
+         else
+         {
+            value += digit * fractional_scale;
+            fractional_scale *= 0.1;
+         }
+         continue;
+      }
+
+      if((ch == '.' || ch == ',') && !seen_separator)
+      {
+         seen_separator = true;
+         continue;
+      }
+
+      if(ch == 0 || ch == ' ' || ch == '\t' || ch == '\r' || ch == '\n')
+         continue;
+
+      return(0.0);
+   }
+
+   if(!saw_digit)
+      return(0.0);
+   if(negative)
+      value *= -1.0;
+   return(value);
 }
 
 void ExecuteTradeCommand(TradeCommand &command)
@@ -665,6 +737,78 @@ string StripExtension(const string filename)
    if(separator < 0)
       return(filename);
    return(StringSubstr(filename, 0, separator));
+}
+
+string CommandFilePrefix()
+{
+   string prefix = BridgeFolderName;
+   StringReplace(prefix, "/", "_");
+   StringReplace(prefix, "\\", "_");
+   return(prefix + "__");
+}
+
+string RequestIdFromCommandFilename(const string filename)
+{
+   string stem = StripExtension(filename);
+   string prefix = CommandFilePrefix();
+   if(StringFind(stem, prefix) == 0)
+      return(StringSubstr(stem, StringLen(prefix)));
+   return(stem);
+}
+
+int ReadQueuedRequestIds(string &request_ids[])
+{
+   ArrayResize(request_ids, 0);
+
+   string path = BridgeFolderName + "/command_queue.txt";
+   int file_handle = FileOpen(path, FILE_READ | FILE_TXT | FILE_ANSI | FILE_COMMON);
+   if(file_handle == INVALID_HANDLE)
+      return(0);
+
+   while(!FileIsEnding(file_handle))
+   {
+      string request_id = FileReadString(file_handle);
+      if(request_id == "")
+         continue;
+
+      bool already_added = false;
+      for(int i = 0; i < ArraySize(request_ids); i++)
+      {
+         if(request_ids[i] == request_id)
+         {
+            already_added = true;
+            break;
+         }
+      }
+      if(already_added)
+         continue;
+
+      int index = ArraySize(request_ids);
+      ArrayResize(request_ids, index + 1);
+      request_ids[index] = request_id;
+   }
+
+   FileClose(file_handle);
+   return(ArraySize(request_ids));
+}
+
+void RewriteCommandQueue(const string &request_ids[])
+{
+   string path = BridgeFolderName + "/command_queue.txt";
+   if(ArraySize(request_ids) == 0)
+   {
+      FileDelete(path, FILE_COMMON);
+      return;
+   }
+
+   int file_handle = FileOpen(path, FILE_WRITE | FILE_TXT | FILE_ANSI | FILE_COMMON);
+   if(file_handle == INVALID_HANDLE)
+      return;
+
+   for(int i = 0; i < ArraySize(request_ids); i++)
+      FileWriteString(file_handle, request_ids[i] + "\n");
+
+   FileClose(file_handle);
 }
 
 void WriteResult(

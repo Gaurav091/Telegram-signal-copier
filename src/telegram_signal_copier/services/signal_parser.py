@@ -237,16 +237,34 @@ class SignalParser:
         entry_range_low = None
         entry_range_high = None
         entry_price = None
-        # Match 'NEAR 4542/4545' or '4542/4545' or '4542 - 4545'
-        entry_range_match = re.search(r"(?:NEAR|AROUND)?\s*(\d{4,5})\s*[/\-] *?(\d{4,5})", upper_text)
+        # First, match 'NEAR 4542/4545' or '4542/4545' or '4542 - 4545'
+        entry_range_match = re.search(r"(?:NEAR|AROUND)?\s*(\d{4,6})\s*[/\-]\s*(\d{4,6})", upper_text)
         if entry_range_match:
             entry_range_low = float(entry_range_match.group(1))
             entry_range_high = float(entry_range_match.group(2))
             entry_price = round((entry_range_low + entry_range_high) / 2, 2)
         else:
-            entry_price = self._first_float(ENTRY_PATTERN.findall(upper_text))
+            # Also accept two adjacent prices on the same line when near BUY/SELL/ENTRY keywords,
+            # e.g. 'XAUUSD SELL NOW: 4582 4586'
+            for line in combined_text.splitlines():
+                line_u = line.upper()
+                if re.search(r"\b(ENTRY|AT|BUY|SELL|NOW|NEAR|AROUND)\b", line_u):
+                    pair = re.search(r"(\d{3,7})\s+(\d{3,7})", line_u)
+                    if pair:
+                        try:
+                            l = float(pair.group(1))
+                            h = float(pair.group(2))
+                            entry_range_low = l
+                            entry_range_high = h
+                            entry_price = round((entry_range_low + entry_range_high) / 2, 2)
+                            break
+                        except Exception:
+                            pass
+            # fallback to single entry 'ENTRY 4540' or '@4540' patterns
             if entry_price is None:
-                entry_price = self._first_float(AT_SYMBOL_PATTERN.findall(upper_text))
+                entry_price = self._first_float(ENTRY_PATTERN.findall(upper_text))
+                if entry_price is None:
+                    entry_price = self._first_float(AT_SYMBOL_PATTERN.findall(upper_text))
 
         # --- SL/TP extraction (multi-line robust) ---
         stop_loss = None

@@ -2,22 +2,28 @@ import subprocess, os, sys
 from pathlib import Path
 
 PY = sys.executable
-LOG = Path(__file__).resolve().parents[1] / "logs" / "listener-restart.log"
+ROOT = Path(__file__).resolve().parents[1]
+LOG = ROOT / "logs" / "listener-restart.log"
+PID_FILE = ROOT / "runtime" / "listener.pid"
 LOG.parent.mkdir(parents=True, exist_ok=True)
 
-ps_cmd = "Get-CimInstance Win32_Process | Where-Object { $_.CommandLine -match 'telegram_signal_copier.main' } | Select-Object -ExpandProperty ProcessId"
 try:
-    out = subprocess.check_output(["powershell", "-Command", ps_cmd], stderr=subprocess.DEVNULL, text=True)
-except subprocess.CalledProcessError:
-    out = ""
+    pid_text = PID_FILE.read_text(encoding="utf-8").strip()
+except FileNotFoundError:
+    pid_text = ""
+except Exception as e:
+    pid_text = ""
+    print(f"Failed to read pid file {PID_FILE}: {e}")
 
-pids = [int(x.strip()) for x in out.splitlines() if x.strip().isdigit()]
-for pid in pids:
+if pid_text.isdigit():
+    pid = int(pid_text)
     try:
         subprocess.run(["taskkill", "/PID", str(pid), "/F"], check=True)
         print(f"Killed PID {pid}")
     except Exception as e:
         print(f"Failed to kill {pid}: {e}")
+else:
+    print("No listener pid file found; starting a new listener")
 
 # Start new listener
 cmd = [PY, "-u", "-m", "telegram_signal_copier.main", "listen"]

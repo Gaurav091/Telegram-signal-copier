@@ -2,14 +2,45 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import os
+import platform
 from collections.abc import Awaitable, Callable
+from contextlib import contextmanager
 from pathlib import Path
 import shutil
+from types import SimpleNamespace
 
 from telegram_signal_copier.config import AppConfig
 from telegram_signal_copier.models import TelegramSignalMessage
 
 logger = logging.getLogger(__name__)
+
+
+@contextmanager
+def _patched_platform_uname_for_telethon() -> object:
+    if os.name != "nt":
+        yield
+        return
+
+    original_uname = platform.uname
+
+    # Python 3.14 on Windows can hang in platform.uname() while issuing a WMI
+    # query from Telethon's TelegramClient constructor. Telethon only needs
+    # machine and release to derive default device/system labels.
+    fallback = SimpleNamespace(
+        system="Windows",
+        node=os.environ.get("COMPUTERNAME", "localhost"),
+        release=os.environ.get("TELEGRAM_SYSTEM_RELEASE", "10"),
+        version=os.environ.get("TELEGRAM_SYSTEM_VERSION", ""),
+        machine=os.environ.get("PROCESSOR_ARCHITECTURE", "AMD64"),
+        processor=os.environ.get("PROCESSOR_IDENTIFIER", "AMD64"),
+    )
+
+    platform.uname = lambda: fallback
+    try:
+        yield
+    finally:
+        platform.uname = original_uname
 
 
 class MessageBuffer:
@@ -107,18 +138,30 @@ class TelegramSignalListener:
         if not self.config.telegram_ready:
             raise RuntimeError("Telegram credentials or source groups missing")
 
+        logger.info("[TG] importing Telethon runtime")
         from telethon import TelegramClient, events  # type: ignore[import-not-found]
+        logger.info("[TG] Telethon import complete")
 
         self._media_dir.mkdir(parents=True, exist_ok=True)
 
-        client = TelegramClient(
-            self._listener_session(),
-            int(self.config.telegram_api_id or "0"),
-            self.config.telegram_api_hash or "",
-        )
+        logger.info("[TG] building listener session")
+        session = self._listener_session()
+        logger.info("[TG] listener session ready")
 
-        await self._start_client(client)
+        logger.info("[TG] constructing TelegramClient")
+        with _patched_platform_uname_for_telethon():
+            client = TelegramClient(
+                session,
+                int(self.config.telegram_api_id or "0"),
+                self.config.telegram_api_hash or "",
+            )
+        logger.info("[TG] TelegramClient constructed")
+
+        logger.info("[TG] connecting listener client")
+        await self._connect_listener_client(client)
+        logger.info("[TG] listener client connected")
         source_chats = await self._resolve_source_chats(client)
+        logger.info("[TG] source chats resolved: %d", len(source_chats))
 
         # Buffer window from config (default 25 s); set MESSAGE_BUFFER_WINDOW_SECONDS=0 to disable
         buffer_window = float(
@@ -161,6 +204,17 @@ class TelegramSignalListener:
             await client.start(bot_token=self.config.telegram_bot_token)  # type: ignore[attr-defined]
             return
         raise RuntimeError("Telegram login requested without phone number or bot token")
+
+    async def _connect_listener_client(self, client: object) -> None:
+        await client.connect()  # type: ignore[attr-defined]
+        if await client.is_user_authorized():  # type: ignore[attr-defined]
+            return
+        if self.config.telegram_bot_token:
+            await client.start(bot_token=self.config.telegram_bot_token)  # type: ignore[attr-defined]
+            return
+        raise RuntimeError(
+            "Telegram listener session is not authorized. Run `python -m telegram_signal_copier login` first."
+        )
 
     def _listener_session_name(self) -> str:
         self._session_dir.mkdir(parents=True, exist_ok=True)

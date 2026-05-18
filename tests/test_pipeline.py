@@ -12,10 +12,11 @@ from telegram_signal_copier.services.signal_parser import SignalParser
 
 
 def build_config(tmp_path: Path) -> AppConfig:
+    bridge_root = tmp_path / "Common" / "Files" / "TelegramSignalCopierBridge"
     return AppConfig(
         project_root=tmp_path,
-        bridge_inbox_dir=tmp_path / "inbox",
-        bridge_outbox_dir=tmp_path / "outbox",
+        bridge_inbox_dir=bridge_root,
+        bridge_outbox_dir=bridge_root / "outbox",
         telegram_api_id=None,
         telegram_api_hash=None,
         telegram_phone_number=None,
@@ -68,7 +69,39 @@ class PipelineTests(unittest.TestCase):
             result = executor.submit(command)
 
             self.assertEqual(result.status, "NOT_CONSUMED")
-            self.assertIn("still in inbox", result.message)
+            self.assertIn("still pending", result.message)
+
+    def test_file_bridge_mirrors_to_legacy_inbox_when_root_not_consumed(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            tmp_path = Path(temp_dir)
+            config = build_config(tmp_path)
+            signal = SignalParser(config=config, ai_client=None).parse(
+                TelegramSignalMessage(
+                    source_group="Gold Expertise",
+                    message_id="26020",
+                    raw_text="XAUUSD SELL LIMIT @4718 SL 4726.56 TP1 4710 TP2 4703 TP3 4695",
+                )
+            ).signal
+            command = TradeCommand.from_signal(signal, volume=0.10)
+            executor = FileBridgeExecutor(
+                config.bridge_inbox_dir,
+                config.bridge_outbox_dir,
+                timeout_seconds=0.01,
+                legacy_inbox_mirror_delay_seconds=0.0,
+            )
+
+            result = executor.submit(command)
+
+            self.assertEqual(result.status, "NOT_CONSUMED")
+            self.assertTrue((config.bridge_inbox_dir / f"{command.request_id}.cmd").exists())
+            self.assertTrue((config.bridge_inbox_dir / "inbox" / f"{command.request_id}.cmd").exists())
+            self.assertTrue(
+                (tmp_path / "Common" / "Files" / f"TelegramSignalCopierBridge__{command.request_id}.txt").exists()
+            )
+            self.assertIn(
+                command.request_id,
+                (config.bridge_inbox_dir / "command_queue.txt").read_text(encoding="utf-8"),
+            )
 
     def test_pipeline_dry_run_returns_execution_result(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:

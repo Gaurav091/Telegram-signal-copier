@@ -3,6 +3,8 @@ from __future__ import annotations
 import argparse
 import asyncio
 import json
+import os
+import sys
 import time
 from contextlib import suppress
 from dataclasses import asdict
@@ -10,6 +12,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 import logging
 from logging.handlers import RotatingFileHandler
+
 
 from telegram_signal_copier.adapters.bridge import FileBridgeExecutor
 from telegram_signal_copier.adapters.openai_client import OpenAIClient
@@ -45,11 +48,43 @@ def _safe_write_text(path: Path, content: str, attempts: int = 5, delay_seconds:
             temp_path.replace(path)
             return
         except PermissionError:
+            try:
+                path.write_text(content, encoding="utf-8")
+                with suppress(FileNotFoundError):
+                    temp_path.unlink()
+                return
+            except PermissionError:
+                pass
             with suppress(FileNotFoundError):
                 temp_path.unlink()
             if attempt == attempts - 1:
                 return
             time.sleep(delay_seconds)
+
+
+def _bridge_root_path(config: AppConfig) -> Path:
+    bridge_root = config.bridge_inbox_dir
+    try:
+        if bridge_root.name.lower() == "inbox":
+            return bridge_root.parent
+    except Exception:
+        pass
+    return bridge_root
+
+
+def _listener_pid_path(config: AppConfig) -> Path:
+    return config.project_root / "runtime" / "listener.pid"
+
+
+def _write_listener_pid(config: AppConfig) -> None:
+    pid_path = _listener_pid_path(config)
+    pid_path.parent.mkdir(parents=True, exist_ok=True)
+    _safe_write_text(pid_path, f"{os.getpid()}\n")
+
+
+def _clear_listener_pid(config: AppConfig) -> None:
+    with suppress(FileNotFoundError):
+        _listener_pid_path(config).unlink()
 
 
 def _write_bridge_status(config: AppConfig, status: dict[str, object]) -> None:
@@ -76,7 +111,7 @@ def _write_bridge_status(config: AppConfig, status: dict[str, object]) -> None:
         "last_trade_comment": status.get("last_trade_comment", ""),
         "last_error": status.get("last_error", ""),
     }
-    status_path = config.bridge_inbox_dir.parent / "telegram_status.txt"
+    status_path = _bridge_root_path(config) / "telegram_status.txt"
     _safe_write_text(status_path, _status_file_content(payload))
 
 
@@ -84,7 +119,7 @@ def _write_source_map(config: AppConfig) -> None:
     lines = [f"{index}. {label} -> {identifier}" for index, (label, identifier) in enumerate(config.telegram_source_mappings, start=1)]
     if not lines:
         lines = ["No Telegram sources configured"]
-    source_map_path = config.bridge_inbox_dir.parent / "telegram_sources.txt"
+    source_map_path = _bridge_root_path(config) / "telegram_sources.txt"
     _safe_write_text(source_map_path, "\n".join(lines) + "\n")
 
 
@@ -191,7 +226,7 @@ def _startup_health_check(config: AppConfig) -> None:
 
     # Write startup health summary to bridge folder
     try:
-        health_path = config.bridge_inbox_dir.parent / "startup_health.txt"
+        health_path = _bridge_root_path(config) / "startup_health.txt"
         _safe_write_text(health_path, json.dumps(summary, indent=2) + "\n")
         logger.info("Wrote startup health to %s", health_path)
     except Exception:
@@ -199,19 +234,30 @@ def _startup_health_check(config: AppConfig) -> None:
 
 
 async def _run_with_restarts(config: AppConfig) -> None:
+    import traceback as _tb
+    _restart_logger = logging.getLogger("telegram_signal_copier.restarts")
     attempt = 0
     while True:
         attempt += 1
         try:
-            print(f"Starting listener (attempt {attempt})")
+            _restart_logger.info("Starting listener (attempt %d)", attempt)
+            print(f"Starting listener (attempt {attempt})", flush=True)
             await _run_listener(config)
-            # If listener exits cleanly, stop restarting
-            print("Listener exited cleanly; stopping restart loop")
-            return
-        except Exception as exc:
-            print(f"Listener crashed: {exc}", flush=True)
+            # run_until_disconnected returned normally → connection dropped; treat as crash and restart
+            _restart_logger.warning("Listener exited unexpectedly (run_until_disconnected returned) — restarting")
+            print("Listener exited unexpectedly — restarting", flush=True)
+            backoff = min(300, 2 ** min(attempt, 8))
+            await asyncio.sleep(backoff)
+            continue
+        except BaseException as exc:
+            tb = _tb.format_exc()
+            _restart_logger.error("Listener crashed (attempt %d): %s\n%s", attempt, exc, tb)
+            print(f"Listener crashed: {type(exc).__name__}: {exc}", flush=True)
+            if isinstance(exc, (KeyboardInterrupt, SystemExit)):
+                raise
             # exponential backoff with cap
             backoff = min(300, 2 ** min(attempt, 8))
+            _restart_logger.info("Restarting listener in %ds (attempt %d)", backoff, attempt)
             print(f"Restarting listener in {backoff}s (attempt {attempt})", flush=True)
             await asyncio.sleep(backoff)
 
@@ -235,7 +281,13 @@ async def _run_listener(config: AppConfig) -> None:
 
     async def on_message(message: TelegramSignalMessage) -> None:
         try:
-            outcome = pipeline.process_message(message)
+            # pipeline.process_message is synchronous and makes blocking I/O
+            # calls (OpenAI API, tesseract OCR). Running it in the default
+            # thread-pool executor keeps the asyncio event loop free to
+            # service Telethon's IOCP callbacks and prevents WinError 121
+            # (semaphore timeout) caused by blocking the ProactorEventLoop.
+            loop = asyncio.get_running_loop()
+            outcome = await loop.run_in_executor(None, pipeline.process_message, message)
             signal = outcome.parse_result.signal
             execution_result = outcome.execution_result
             trade_comment = status.get("last_trade_comment", "")
@@ -342,7 +394,37 @@ def main() -> None:
 
     # Run a startup health check and then start listener with automatic restarts
     _startup_health_check(config)
-    asyncio.run(_run_with_restarts(config))
+    # In Python 3.9+, asyncio.Task.__step() re-raises SystemExit and
+    # KeyboardInterrupt from background tasks directly through the event-loop,
+    # bypassing any try/except in the main coroutine (_run_with_restarts).
+    # A Telethon background task can raise SystemExit(1) (e.g. via cryptg or
+    # a network-error path) and the whole process would exit silently.
+    # The outer restart loop below catches those SystemExit(1) escapes and
+    # restarts by calling asyncio.run() again with a fresh event loop.
+    _outer_logger = logging.getLogger("telegram_signal_copier.outer")
+    _outer_attempt = 0
+    _write_listener_pid(config)
+    try:
+        while True:
+            _outer_attempt += 1
+            try:
+                asyncio.run(_run_with_restarts(config))
+                break  # clean exit (should never reach here under normal operation)
+            except (KeyboardInterrupt, SystemExit) as _esc:
+                if isinstance(_esc, SystemExit) and _esc.code not in (0, None):
+                    # Non-zero SystemExit — almost certainly from a background task
+                    # crash (e.g. Telethon's crypto or IOCP path).  Restart.
+                    _outer_logger.warning(
+                        "SystemExit(%s) escaped asyncio.run (background task crash), "
+                        "restarting event loop (outer attempt %d)",
+                        _esc.code, _outer_attempt,
+                    )
+                    time.sleep(2)
+                    continue
+                # code 0 / None = clean exit, or KeyboardInterrupt — propagate
+                raise
+    finally:
+        _clear_listener_pid(config)
 
 
 if __name__ == "__main__":

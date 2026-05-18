@@ -15,6 +15,7 @@ class SimpleConfig:
         self.ai_provider_cooldown_seconds = cooldown
         self.ai_provider_max_cooldown_seconds = max_cool
         self.ai_cache_ttl_seconds = cache_ttl
+        self.cloudflare_account_id = None
 
 
 class FakeResp:
@@ -90,6 +91,28 @@ class OpenAIClientTests(unittest.TestCase):
             p1 = client.providers[0]
             self.assertGreater(p1.get("failure_count", 0), 0)
             self.assertGreater(p1.get("trip_until", 0), time.time() - 1)
+
+    def test_cloudflare_adapter_flattens_text_only_message_content(self):
+        config = SimpleConfig(
+            [{"name": "cloudflare", "api_key": "k", "base_url": "https://example.test", "model": "cf-model"}]
+        )
+        client = OpenAIClient(config)
+
+        response_body = json.dumps(
+            {"choices": [{"message": {"content": json.dumps({"intent": "INFORMATIONAL", "confidence": 0.9})}}]}
+        )
+        seen_payload: dict[str, object] = {}
+
+        def _urlopen(req, timeout=60):
+            seen_payload.update(json.loads(req.data.decode("utf-8")))
+            return FakeResp(response_body.encode("utf-8"))
+
+        with patch("urllib.request.urlopen", side_effect=_urlopen):
+            result = client.classify_intent("BUY GOLD")
+
+        self.assertEqual(result.get("intent"), "INFORMATIONAL")
+        self.assertIsInstance(seen_payload["messages"][1]["content"], str)
+        self.assertEqual(seen_payload["messages"][1]["content"], "BUY GOLD")
 
 
 if __name__ == "__main__":

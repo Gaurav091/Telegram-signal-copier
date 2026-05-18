@@ -52,7 +52,7 @@ CREATE_NEW_PROCESS_GROUP = 0x00000200
 def _ps_all_process_map() -> dict:
     """Return a mapping of PID -> ParentPID for all system processes."""
     ps_cmd = (
-        "Get-CimInstance Win32_Process | ForEach-Object { \"$($_.ProcessId)|$($_.ParentProcessId)\" }"
+        "Get-CimInstance Win32_Process | ForEach-Object { [string]$PSItem.ProcessId + '|' + [string]$PSItem.ParentProcessId }"
     )
     try:
         out = subprocess.check_output(["powershell", "-NoProfile", "-Command", ps_cmd], stderr=subprocess.DEVNULL, text=True)
@@ -74,15 +74,13 @@ def _ps_all_process_map() -> dict:
 
 def _ps_workspace_python_processes() -> list[dict]:
     """Return list of dicts: {'pid': int, 'ppid': int, 'cmd': str} for python processes whose commandline contains workspace path."""
-    # PowerShell one-liner to list processid|parentid|commandline for processes where CommandLine contains workspace name and process name contains python
-    # using the human-friendly project folder name avoids backslash quoting complexity
-    ws_marker = WORKSPACE.name
+    ws_marker = WORKSPACE.name.replace("'", "''")  # escape single quotes for PS
     ps_cmd = (
-        "Get-CimInstance Win32_Process | "
-        "Where-Object { $_.CommandLine -and $_.CommandLine -match '"
+        "Get-CimInstance Win32_Process"
+        " | Where-Object { $PSItem.CommandLine -and $PSItem.CommandLine -match '"
         + ws_marker
-        + "' -and $_.Name -match '^python(\\.exe)?$' } | "
-        "ForEach-Object { \"$($_.ProcessId)|$($_.ParentProcessId)|$($_.CommandLine)\" }"
+        + "' -and $PSItem.Name -match 'python' }"
+        " | ForEach-Object { [string]$PSItem.ProcessId + '|' + [string]$PSItem.ParentProcessId + '|' + $PSItem.CommandLine }"
     )
     try:
         out = subprocess.check_output(["powershell", "-NoProfile", "-Command", ps_cmd], stderr=subprocess.DEVNULL, text=True)
@@ -106,13 +104,13 @@ def _ps_workspace_python_processes() -> list[dict]:
 
 def _ps_workspace_shell_processes() -> list[dict]:
     """Return list of dicts: {'pid': int, 'cmd': str} for shell processes (powershell/pwsh/cmd) whose commandline contains workspace path."""
-    ws_marker = WORKSPACE.name
+    ws_marker = WORKSPACE.name.replace("'", "''")
     ps_cmd = (
-        "Get-CimInstance Win32_Process | "
-        "Where-Object { $_.CommandLine -and $_.CommandLine -match '"
+        "Get-CimInstance Win32_Process"
+        " | Where-Object { $PSItem.CommandLine -and $PSItem.CommandLine -match '"
         + ws_marker
-        + "' -and ($_.Name -match '^powershell(\\.exe)?$' -or $_.Name -match '^pwsh(\\.exe)?$' -or $_.Name -match '^cmd(\\.exe)?$') } | "
-        "ForEach-Object { \"$($_.ProcessId)|$($_.CommandLine)\" }"
+        + "' -and ($PSItem.Name -match 'powershell' -or $PSItem.Name -match 'pwsh' -or $PSItem.Name -match 'cmd') }"
+        " | ForEach-Object { [string]$PSItem.ProcessId + '|' + $PSItem.CommandLine }"
     )
     try:
         out = subprocess.check_output(["powershell", "-NoProfile", "-Command", ps_cmd], stderr=subprocess.DEVNULL, text=True)

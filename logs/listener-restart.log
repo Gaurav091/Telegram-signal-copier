@@ -1,36 +1,26 @@
-Starting listener with: ['d:\\Github repos\\Telegram signal Copier\\.venv\\Scripts\\python.exe', '-u', '-m', 'telegram_signal_copier.main', 'listen']
-Started PID 21160
-2026-05-08 12:01:08,344 [INFO] Startup health check: AI providers configured: 5
-2026-05-08 12:01:10,862 [INFO]     - primary: base_url=https://api.sambanova.ai/v1 vision=True status=ok probe=True
-2026-05-08 12:01:11,890 [INFO]     - cloudflare: base_url=https://api.cloudflare.com/client/v4 vision=False status=ok probe=False
-2026-05-08 12:01:14,106 [INFO]     - nvidia: base_url=https://api.ngc.nvidia.com/v2 vision=False status=ok probe=True
-2026-05-08 12:01:14,139 [INFO]     - cerebras: base_url=https://api.cerebras.net/v1 vision=False status=ok probe=False
-2026-05-08 12:01:14,173 [INFO]     - groq: base_url=https://api.groq.ai/v1 vision=True status=ok probe=False
-2026-05-08 12:01:14,901 [INFO] Local OCR: python packages present, tesseract available: 5.5.0.20241111
-2026-05-08 12:01:14,911 [INFO] Wrote startup health to C:\Users\HP\AppData\Roaming\MetaQuotes\Terminal\Common\Files\TelegramSignalCopierBridge\startup_health.txt
+2026-05-14 13:30:46,553 [INFO] Startup health check: AI providers configured: 5
+2026-05-14 13:30:47,827 [INFO]     - primary: base_url=https://api.sambanova.ai/v1 vision=True status=ok probe=True
+2026-05-14 13:30:48,893 [INFO]     - cloudflare: base_url=https://api.cloudflare.com/client/v4 vision=False status=ok probe=False
+2026-05-14 13:30:49,117 [INFO]     - nvidia: base_url=https://integrate.api.nvidia.com/v1 vision=False status=ok probe=True
+2026-05-14 13:30:49,310 [INFO]     - cerebras: base_url=https://api.cerebras.ai/v1 vision=False status=ok probe=False
+2026-05-14 13:30:52,034 [INFO]     - groq: base_url=https://api.groq.com/openai/v1 vision=True status=ok probe=False
+2026-05-14 13:30:52,128 [INFO] Found tesseract binary at C:\Program Files\Tesseract-OCR\tesseract.exe
+2026-05-14 13:30:52,160 [INFO] Local OCR: python packages present, tesseract available: 5.5.0.20241111
+2026-05-14 13:30:52,164 [INFO] Wrote startup health to C:\Users\HP\AppData\Roaming\MetaQuotes\Terminal\Common\Files\startup_health.txt
 Starting listener (attempt 1)
-2026-05-08 12:01:16,216 [INFO] Failed to load SSL library: <class 'OSError'> (no library called "ssl" found)
-2026-05-08 12:01:16,483 [INFO] cryptg detected, it will be used for encryption
-2026-05-08 12:01:17,412 [INFO] Connecting to 91.108.56.163:443/TcpFull...
-2026-05-08 12:01:17,497 [INFO] Connection to 91.108.56.163:443/TcpFull complete!
-2026-05-08 12:01:35,226 [INFO] Starting direct file download in chunks of 131072 at 0, stride 131072
-{
-  "parsed_signal": {
-    "source_group": "Crypto with kevin 3.0",
-    "message_id": "9223",
-    "symbol": "CREATED",
-    "side": null,
-    "order_type": "MARKET",
-    "entry_price": null,
-    "entry_range_low": null,
-    "entry_range_high": null,
-    "stop_loss": null,
-    "take_profits": [
-      2026.0,
-      11.0
-    ],
-    "confidence": 0.61,
-    "raw_text": "check my level\nbajaniyakashyap created with TradingView.com, May 08, 2026 11:59 UTC+5:30\n\n14,728,360 114,734,895 4,727,580 C4,734.110 +5.440 (40.12%) 14,727.760 |14,734.895 (4,726.315 (4,734.155 \u00ab6.380 (20.13%) 14,723.170 $14,734,895 (4,721.760 (4,734,095 +10.930 (+0.23%)\n\n4,738.1\nATTA\n\nr\n4,737.44\n\n34.095\n\nPe\n\nA207\n\n4,720,788 4,720.78\n\n4.716.246\n\n4.719.186\nAN5.374\n\n4,718.642\n4,716,246\n4,715.374\n\n4,110.16\n\n705505\n\n4,697,530\n\n\"I TradingView",
+2026-05-14 13:30:53,086 [INFO] Failed to load SSL library: <class 'OSError'> (no library called "ssl" found)
+2026-05-14 13:30:53,091 [INFO] cryptg detected, it will be used for encryption
+2026-05-14 13:30:53,518 [INFO] Connecting to 91.108.56.163:443/TcpFull...
+2026-05-14 13:30:53,733 [INFO] Connection to 91.108.56.163:443/TcpFull complete!
+2026-05-14 13:31:02,080 [ERROR] Unhandled exception on handler
+Traceback (most recent call last):
+  File "D:\Github repos\Telegram signal Copier\.venv\Lib\site-packages\telethon\client\updates.py", line 605, in _dispatch_update
+    await callback(event)
+  File "D:\Github repos\Telegram signal Copier\src\telegram_signal_copier\adapters\telegram_client.py", line 134, in handler
+    message = await self._event_to_message(event)
+                    ^^^^^^^^^^^^^^^^^^^^^^
+AttributeError: 'TelegramSignalListener' object has no attribute '_event_to_message'
+"check my level\nbajaniyakashyap created with TradingView.com, May 08, 2026 11:59 UTC+5:30\n\n14,728,360 114,734,895 4,727,580 C4,734.110 +5.440 (40.12%) 14,727.760 |14,734.895 (4,726.315 (4,734.155 \u00ab6.380 (20.13%) 14,723.170 $14,734,895 (4,721.760 (4,734,095 +10.930 (+0.23%)\n\n4,738.1\nATTA\n\nr\n4,737.44\n\n34.095\n\nPe\n\nA207\n\n4,720,788 4,720.78\n\n4.716.246\n\n4.719.186\nAN5.374\n\n4,718.642\n4,716,246\n4,715.374\n\n4,110.16\n\n705505\n\n4,697,530\n\n\"I TradingView",
     "image_used": true,
     "requires_review": false,
     "parser_name": "heuristic",
@@ -8565,3 +8555,1467 @@ Starting listener (attempt 1)
 2026-05-14 09:07:44,014 [INFO] cryptg detected, it will be used for encryption
 2026-05-14 09:07:44,407 [INFO] Connecting to 91.108.56.163:443/TcpFull...
 2026-05-14 09:07:44,602 [INFO] Connection to 91.108.56.163:443/TcpFull complete!
+Starting listener with: ['D:\\Github repos\\Telegram signal Copier\\.venv\\Scripts\\python.exe', '-u', '-m', 'telegram_signal_copier.main', 'listen']
+Started PID 11616
+2026-05-14 10:00:20,653 [INFO] Startup health check: AI providers configured: 5
+2026-05-14 10:00:21,975 [INFO]     - primary: base_url=https://api.sambanova.ai/v1 vision=True status=ok probe=True
+2026-05-14 10:00:22,998 [INFO]     - cloudflare: base_url=https://api.cloudflare.com/client/v4 vision=False status=ok probe=False
+2026-05-14 10:00:23,186 [INFO]     - nvidia: base_url=https://integrate.api.nvidia.com/v1 vision=False status=ok probe=True
+2026-05-14 10:00:23,365 [INFO]     - cerebras: base_url=https://api.cerebras.ai/v1 vision=False status=ok probe=False
+2026-05-14 10:00:23,583 [INFO]     - groq: base_url=https://api.groq.com/openai/v1 vision=True status=ok probe=False
+2026-05-14 10:00:23,785 [INFO] Found tesseract binary at C:\Program Files\Tesseract-OCR\tesseract.exe
+2026-05-14 10:00:23,831 [INFO] Local OCR: python packages present, tesseract available: 5.5.0.20241111
+2026-05-14 10:00:23,835 [INFO] Wrote startup health to C:\Users\HP\AppData\Roaming\MetaQuotes\Terminal\Common\Files\startup_health.txt
+Starting listener (attempt 1)
+2026-05-14 10:00:24,394 [INFO] Failed to load SSL library: <class 'OSError'> (no library called "ssl" found)
+2026-05-14 10:00:24,398 [INFO] cryptg detected, it will be used for encryption
+2026-05-14 10:00:24,713 [INFO] Connecting to 91.108.56.163:443/TcpFull...
+2026-05-14 10:00:24,901 [INFO] Connection to 91.108.56.163:443/TcpFull complete!
+Starting listener with: ['D:\\Github repos\\Telegram signal Copier\\.venv\\Scripts\\python.exe', '-u', '-m', 'telegram_signal_copier.main', 'listen']
+Started PID 46292
+2026-05-14 10:01:05,533 [INFO] Startup health check: AI providers configured: 5
+2026-05-14 10:01:06,813 [INFO]     - primary: base_url=https://api.sambanova.ai/v1 vision=True status=ok probe=True
+2026-05-14 10:01:07,779 [INFO]     - cloudflare: base_url=https://api.cloudflare.com/client/v4 vision=False status=ok probe=False
+2026-05-14 10:01:07,978 [INFO]     - nvidia: base_url=https://integrate.api.nvidia.com/v1 vision=False status=ok probe=True
+2026-05-14 10:01:08,073 [INFO]     - cerebras: base_url=https://api.cerebras.ai/v1 vision=False status=ok probe=False
+2026-05-14 10:01:08,186 [INFO]     - groq: base_url=https://api.groq.com/openai/v1 vision=True status=ok probe=False
+2026-05-14 10:01:08,270 [INFO] Found tesseract binary at C:\Program Files\Tesseract-OCR\tesseract.exe
+2026-05-14 10:01:08,301 [INFO] Local OCR: python packages present, tesseract available: 5.5.0.20241111
+2026-05-14 10:01:08,304 [INFO] Wrote startup health to C:\Users\HP\AppData\Roaming\MetaQuotes\Terminal\Common\Files\startup_health.txt
+Starting listener (attempt 1)
+2026-05-14 10:01:08,725 [INFO] Failed to load SSL library: <class 'OSError'> (no library called "ssl" found)
+2026-05-14 10:01:08,729 [INFO] cryptg detected, it will be used for encryption
+2026-05-14 10:01:08,996 [INFO] Connecting to 91.108.56.163:443/TcpFull...
+2026-05-14 10:01:09,184 [INFO] Connection to 91.108.56.163:443/TcpFull complete!
+2026-05-14 10:02:20,631 [INFO] Starting direct file download in chunks of 131072 at 0, stride 131072
+2026-05-14 10:02:46,545 [INFO] [BUFFER] Flushing 1 messages from Crypto with kevin 3.0 → combined id=9439 images=1
+2026-05-14 10:02:46,551 [INFO] [PIPELINE] source=Crypto with kevin 3.0 msg_id=9439 grouped=1 text_len=31 images=1
+2026-05-14 10:02:47,747 [INFO] [INTENT] UNKNOWN (conf=0.00) — All AI providers failed: primary: 429 {"error":{"code":null,"message":"Rate limit exceeded","param":null,"type":"rate_limit_exceeded"},"request_id":"3ba5e0df-ec0a-4954-b02f-ee2446faca3f"}
+ | groq: 403 error code: 1010
+2026-05-14 10:02:47,748 [INFO] Analyzing 1 image(s) with AI vision (primary: D:\Github repos\Telegram signal Copier\runtime\media\9439.jpg)
+2026-05-14 10:03:32,131 [INFO] AI vision extracted from image: 
+2026-05-14 10:03:32,191 [INFO] [PARSED] symbol=None side=None entry=None SL=None TP=[30.0] conf=0.49 used_ai=True
+2026-05-14 10:03:32,191 [INFO] [DECISION] REJECTED — Missing symbol; Missing side; Missing stop loss
+{
+  "parsed_signal": {
+    "source_group": "Crypto with kevin 3.0",
+    "message_id": "9439",
+    "symbol": null,
+    "side": null,
+    "order_type": "MARKET",
+    "entry_price": null,
+    "entry_range_low": null,
+    "entry_range_high": null,
+    "stop_loss": null,
+    "take_profits": [
+      30.0
+    ],
+    "confidence": 0.49,
+    "raw_text": "300 PIPS IN JUST 30 MINUTES \ud83d\udd25\ud83d\udd25\ud83d\udd25",
+    "image_used": true,
+    "requires_review": false,
+    "parser_name": "openai+heuristic",
+    "notes": [
+      "Image attached; heuristic parser may need AI vision for full accuracy",
+      "AI confidence missing, reused heuristic confidence",
+      "Chart level extraction failed: All AI providers failed: primary: tripped until 1778733227.6309958 | groq: 403 error code: 1010",
+      "Image(s) analyzed with AI vision (1 chart)"
+    ]
+  },
+  "used_ai": true,
+  "decision": {
+    "status": "REJECTED",
+    "reasons": [
+      "Missing symbol",
+      "Missing side",
+      "Missing stop loss"
+    ]
+  },
+  "execution_result": null
+}
+2026-05-14 10:04:01,692 [INFO] Got difference for channel 1220361928 updates
+2026-05-14 10:04:33,110 [INFO] Got difference for channel 1930811005 updates
+2026-05-14 10:05:33,116 [INFO] Got difference for channel 3559202666 updates
+2026-05-14 10:06:32,959 [INFO] Got difference for channel 1799721991 updates
+2026-05-14 10:07:02,566 [INFO] Got difference for channel 1336276048 updates
+2026-05-14 10:07:02,784 [INFO] Got difference for channel 1370304351 updates
+2026-05-14 10:07:51,162 [INFO] Got difference for channel 2258046957 updates
+2026-05-14 10:09:13,542 [INFO] Got difference for channel 1220361928 updates
+2026-05-14 10:09:13,750 [INFO] Got difference for channel 1385739603 updates
+2026-05-14 10:09:13,959 [INFO] Got difference for channel 2227831098 updates
+2026-05-14 10:09:19,053 [INFO] Got difference for channel 2246296611 updates
+2026-05-14 10:09:57,275 [INFO] Got difference for channel 1977998275 updates
+2026-05-14 10:10:21,298 [INFO] Got difference for channel 1799721991 updates
+2026-05-14 10:10:31,968 [INFO] Got difference for channel 1930811005 updates
+2026-05-14 10:10:45,591 [INFO] [BUFFER] Flushing 2 messages from Gold Expertise → combined id=26119..26120 images=0
+2026-05-14 10:10:45,591 [INFO] [PIPELINE] source=Gold Expertise msg_id=26119..26120 grouped=2 text_len=57 images=0
+2026-05-14 10:10:47,163 [INFO] [INTENT] UNKNOWN (conf=0.00) — All AI providers failed: primary: 429 {"error":{"code":null,"message":"Rate limit exceeded","param":null,"type":"rate_limit_exceeded"},"request_id":"4bdd58b0-4c58-437f-9e06-23830d70353a"}
+ | cloudflare: 400 {"errors":[{"message":"AiError: AiError: invalid prompt: failed to parse prompt: invalid type: sequence, expected a string at line 1 column 1258 (3ed6fcfc-8763-47a3-8412-311c18e4d39a)","code":9015}],"success":false,"result":{},"messages":[]} | nvidia: 403 {"status":403,"title":"Forbidden","detail":"Authorization failed"} | cerebras: 403 error code: 1010 | groq: disabled until 1778733812.1910367 (repeated_http_403)
+2026-05-14 10:10:48,674 [INFO] [PARSED] symbol=None side=None entry=None SL=None TP=[3.0] conf=0.49 used_ai=True
+2026-05-14 10:10:48,674 [INFO] [DECISION] REJECTED — Missing symbol; Missing side; Missing stop loss
+{
+  "parsed_signal": {
+    "source_group": "Gold Expertise",
+    "message_id": "26119..26120",
+    "symbol": null,
+    "side": null,
+    "order_type": "MARKET",
+    "entry_price": null,
+    "entry_range_low": null,
+    "entry_range_high": null,
+    "stop_loss": null,
+    "take_profits": [
+      3.0
+    ],
+    "confidence": 0.49,
+    "raw_text": "Tp3 Hit \u26a1\ufe0f\u26a1\ufe0f\u26a1\ufe0f\n---\nFull Target Achieved congratulations \ud83c\udf8a",
+    "image_used": false,
+    "requires_review": false,
+    "parser_name": "openai+heuristic",
+    "notes": [
+      "AI confidence missing, reused heuristic confidence"
+    ]
+  },
+  "used_ai": true,
+  "decision": {
+    "status": "REJECTED",
+    "reasons": [
+      "Missing symbol",
+      "Missing side",
+      "Missing stop loss"
+    ]
+  },
+  "execution_result": null
+}
+2026-05-14 10:10:53,267 [INFO] Got difference for channel 1215547858 updates
+2026-05-14 10:11:06,715 [INFO] Got difference for channel 1821287563 updates
+2026-05-14 10:12:00,403 [INFO] Got difference for channel 1592511906 updates
+2026-05-14 10:12:15,855 [INFO] Starting direct file download in chunks of 131072 at 0, stride 131072
+2026-05-14 10:12:33,193 [INFO] Got difference for channel 2401841742 updates
+2026-05-14 10:12:41,155 [INFO] [BUFFER] Flushing 1 messages from Krishna crypto community 😍 → combined id=8211 images=1
+2026-05-14 10:12:41,155 [INFO] [PIPELINE] source=Krishna crypto community 😍 msg_id=8211 grouped=1 text_len=6 images=1
+2026-05-14 10:12:42,268 [INFO] [INTENT] UNKNOWN (conf=0.00) — All AI providers failed: primary: 429 {"error":{"code":null,"message":"Rate limit exceeded","param":null,"type":"rate_limit_exceeded"},"request_id":"daa2cddc-bc71-4fb0-81fd-7d0b4a7bbdbe"}
+ | groq: disabled until 1778733812.1910367 (repeated_http_403)
+2026-05-14 10:12:42,268 [INFO] Analyzing 1 image(s) with AI vision (primary: D:\Github repos\Telegram signal Copier\runtime\media\8211.jpg)
+2026-05-14 10:12:42,270 [INFO] AI vision extracted from image: 
+2026-05-14 10:12:42,273 [INFO] [PARSED] symbol=XAUUSD side=None entry=None SL=None TP=[] conf=0.49 used_ai=True
+2026-05-14 10:12:42,273 [INFO] [DECISION] REJECTED — Missing side; Missing stop loss; Missing take profit
+{
+  "parsed_signal": {
+    "source_group": "Krishna crypto community \ud83d\ude0d",
+    "message_id": "8211",
+    "symbol": "XAUUSD",
+    "side": null,
+    "order_type": "MARKET",
+    "entry_price": null,
+    "entry_range_low": null,
+    "entry_range_high": null,
+    "stop_loss": null,
+    "take_profits": [],
+    "confidence": 0.49,
+    "raw_text": "XAUUSD",
+    "image_used": true,
+    "requires_review": false,
+    "parser_name": "openai+heuristic",
+    "notes": [
+      "Image attached; heuristic parser may need AI vision for full accuracy",
+      "AI confidence missing, reused heuristic confidence",
+      "Chart level extraction failed: All AI providers failed: primary: tripped until 1778733897.2681215 | groq: disabled until 1778733812.1910367 (repeated_http_403)",
+      "Image(s) analyzed with AI vision (1 chart)"
+    ]
+  },
+  "used_ai": true,
+  "decision": {
+    "status": "REJECTED",
+    "reasons": [
+      "Missing side",
+      "Missing stop loss",
+      "Missing take profit"
+    ]
+  },
+  "execution_result": null
+}
+2026-05-14 10:13:14,146 [INFO] Starting direct file download in chunks of 131072 at 0, stride 131072
+2026-05-14 10:13:35,297 [INFO] [BUFFER] Flushing 3 messages from XAUUSD GOLD SIGNAL → combined id=32627..32628 images=0
+2026-05-14 10:13:35,297 [INFO] [PIPELINE] source=XAUUSD GOLD SIGNAL msg_id=32627..32628 grouped=3 text_len=32 images=0
+2026-05-14 10:13:35,297 [INFO] [INTENT] FORCED NEW_TRADE_SIGNAL — keyword match in caption: 'GOLD SELL NOW --- Entry --- 4708'
+2026-05-14 10:13:36,940 [INFO] [PARSED] symbol=XAUUSD side=SELL entry=4708.0 SL=None TP=[] conf=1.00 used_ai=True
+2026-05-14 10:13:36,940 [INFO] [DECISION] REJECTED — Missing stop loss; Missing take profit
+{
+  "parsed_signal": {
+    "source_group": "XAUUSD GOLD SIGNAL",
+    "message_id": "32627..32628",
+    "symbol": "XAUUSD",
+    "side": "SELL",
+    "order_type": "SELL_LIMIT",
+    "entry_price": 4708.0,
+    "entry_range_low": 4708.0,
+    "entry_range_high": 4708.0,
+    "stop_loss": null,
+    "take_profits": [],
+    "confidence": 1.0,
+    "raw_text": "GOLD SELL NOW\n---\nEntry\n---\n4708",
+    "image_used": false,
+    "requires_review": false,
+    "parser_name": "openai+heuristic",
+    "notes": [
+      "GOLD SELL NOW"
+    ]
+  },
+  "used_ai": true,
+  "decision": {
+    "status": "REJECTED",
+    "reasons": [
+      "Missing stop loss",
+      "Missing take profit"
+    ]
+  },
+  "execution_result": null
+}
+2026-05-14 10:13:37,651 [INFO] Got difference for channel 2422263430 updates
+2026-05-14 10:13:37,723 [INFO] Starting direct file download in chunks of 131072 at 0, stride 131072
+2026-05-14 10:13:57,712 [INFO] Got difference for channel 1930811005 updates
+2026-05-14 10:14:03,009 [INFO] [BUFFER] Flushing 2 messages from Krishna crypto community 😍 → combined id=8212..8213 images=2
+2026-05-14 10:14:03,009 [INFO] [PIPELINE] source=Krishna crypto community 😍 msg_id=8212..8213 grouped=2 text_len=19 images=2
+2026-05-14 10:14:03,102 [INFO] [INTENT] UNKNOWN (conf=0.00) — All AI providers failed: primary: tripped until 1778733897.2681215 | groq: 403 error code: 1010
+2026-05-14 10:14:03,102 [INFO] Analyzing 2 image(s) with AI vision (primary: D:\Github repos\Telegram signal Copier\runtime\media\8212.jpg)
+2026-05-14 10:14:03,113 [INFO] AI vision extracted from image: 
+2026-05-14 10:14:03,114 [INFO] [PARSED] symbol=None side=None entry=None SL=None TP=[20.0] conf=0.49 used_ai=True
+2026-05-14 10:14:03,115 [INFO] [DECISION] REJECTED — Missing symbol; Missing side; Missing stop loss
+{
+  "parsed_signal": {
+    "source_group": "Krishna crypto community \ud83d\ude0d",
+    "message_id": "8212..8213",
+    "symbol": null,
+    "side": null,
+    "order_type": "MARKET",
+    "entry_price": null,
+    "entry_range_low": null,
+    "entry_range_high": null,
+    "stop_loss": null,
+    "take_profits": [
+      20.0
+    ],
+    "confidence": 0.49,
+    "raw_text": "10 PIPS\n---\n20 PIPS",
+    "image_used": true,
+    "requires_review": false,
+    "parser_name": "openai+heuristic",
+    "notes": [
+      "Image attached; heuristic parser may need AI vision for full accuracy",
+      "AI confidence missing, reused heuristic confidence",
+      "Chart level extraction failed: All AI providers failed: primary: tripped until 1778733897.2681215 | groq: disabled until 1778734443.1026444 (repeated_http_403)",
+      "Image(s) analyzed with AI vision (2 charts)"
+    ]
+  },
+  "used_ai": true,
+  "decision": {
+    "status": "REJECTED",
+    "reasons": [
+      "Missing symbol",
+      "Missing side",
+      "Missing stop loss"
+    ]
+  },
+  "execution_result": null
+}
+2026-05-14 10:14:29,451 [INFO] [BUFFER] Flushing 1 messages from Crypto with kevin 3.0 → combined id=9440 images=0
+2026-05-14 10:14:29,451 [INFO] [PIPELINE] source=Crypto with kevin 3.0 msg_id=9440 grouped=1 text_len=86 images=0
+2026-05-14 10:14:29,451 [INFO] [INTENT] FORCED NEW_TRADE_SIGNAL — keyword match in caption: 'SAB LOG PROFIT SCREENSHOT SEND KARDO - @livelearning07 ISKE '
+2026-05-14 10:14:31,478 [INFO] [PARSED] symbol=None side=None entry=None SL=None TP=[] conf=0.37 used_ai=True
+2026-05-14 10:14:31,478 [INFO] [DECISION] REJECTED — Missing symbol; Missing side; Missing stop loss; Missing take profit; Confidence 0.37 below minimum 0.45
+{
+  "parsed_signal": {
+    "source_group": "Crypto with kevin 3.0",
+    "message_id": "9440",
+    "symbol": null,
+    "side": null,
+    "order_type": "MARKET",
+    "entry_price": null,
+    "entry_range_low": null,
+    "entry_range_high": null,
+    "stop_loss": null,
+    "take_profits": [],
+    "confidence": 0.37,
+    "raw_text": "SAB LOG PROFIT SCREENSHOT SEND KARDO - @livelearning07\n\nISKE BINA NEW TRADE NAHI AAYEGA",
+    "image_used": false,
+    "requires_review": false,
+    "parser_name": "openai+heuristic",
+    "notes": [
+      "AI confidence missing, reused heuristic confidence"
+    ]
+  },
+  "used_ai": true,
+  "decision": {
+    "status": "REJECTED",
+    "reasons": [
+      "Missing symbol",
+      "Missing side",
+      "Missing stop loss",
+      "Missing take profit",
+      "Confidence 0.37 below minimum 0.45"
+    ]
+  },
+  "execution_result": null
+}
+2026-05-14 10:14:31,478 [INFO] [BUFFER] Flushing 1 messages from XAUUSD GOLD SIGNAL → combined id=32630 images=0
+2026-05-14 10:14:31,479 [INFO] [PIPELINE] source=XAUUSD GOLD SIGNAL msg_id=32630 grouped=1 text_len=75 images=0
+2026-05-14 10:14:32,113 [INFO] [INTENT] UNKNOWN (conf=0.00) — All AI providers failed: primary: tripped until 1778733897.2681215 | cloudflare: 400 {"errors":[{"message":"AiError: AiError: invalid prompt: failed to parse prompt: invalid type: sequence, expected a string at line 1 column 1258 (c4219569-fec2-44af-9b5a-4c2d9ac1e571)","code":9015}],"success":false,"result":{},"messages":[]} | nvidia: 403 {"status":403,"title":"Forbidden","detail":"Authorization failed"} | cerebras: 403 error code: 1010 | groq: disabled until 1778734443.1026444 (repeated_http_403)
+2026-05-14 10:14:32,113 [INFO] [HEURISTIC] Complete: side=SELL entry=4708.0 SL=None TP=[4688.0, 4680.0]
+2026-05-14 10:14:32,113 [INFO] [PARSED] symbol=4708 side=SELL entry=4708.0 SL=None TP=[4688.0, 4680.0] conf=0.85 used_ai=False
+2026-05-14 10:14:32,113 [INFO] [DECISION] REJECTED — Symbol 4708 not allowed; Missing stop loss
+{
+  "parsed_signal": {
+    "source_group": "XAUUSD GOLD SIGNAL",
+    "message_id": "32630",
+    "symbol": "4708",
+    "side": "SELL",
+    "order_type": "MARKET",
+    "entry_price": 4708.0,
+    "entry_range_low": null,
+    "entry_range_high": null,
+    "stop_loss": null,
+    "take_profits": [
+      4688.0,
+      4680.0
+    ],
+    "confidence": 0.85,
+    "raw_text": "\ud83d\udcaf\ud835\udc06\ud835\udc0e\ud835\udc0b\ud835\udc03 Sell 4708 .4713 \ud83d\udcca\ud835\udc13\ud835\udc0f 4703 \ud83d\udcca\ud835\udc13\ud835\udc0f 4698 \ud83d\udcca\ud835\udc13\ud835\udc0f 4693 \ud83d\udccaTP 4688 \ud83d\udccaTP 4680 \u274c\ud835\udc12\ud835\udc0b 4723",
+    "image_used": false,
+    "requires_review": false,
+    "parser_name": "heuristic",
+    "notes": []
+  },
+  "used_ai": false,
+  "decision": {
+    "status": "REJECTED",
+    "reasons": [
+      "Symbol 4708 not allowed",
+      "Missing stop loss"
+    ]
+  },
+  "execution_result": null
+}
+2026-05-14 10:14:50,033 [INFO] Got difference for channel 1196915534 updates
+2026-05-14 10:15:16,198 [INFO] Starting direct file download in chunks of 131072 at 0, stride 131072
+2026-05-14 10:15:16,400 [INFO] File lives in another DC
+2026-05-14 10:15:16,597 [INFO] Connecting to 149.154.167.92:443/TcpFull...
+2026-05-14 10:15:18,496 [INFO] Connection to 149.154.167.92:443/TcpFull complete!
+2026-05-14 10:15:18,496 [INFO] Exporting auth for new borrowed sender in DcOption(id=4, ip_address='149.154.167.92', port=443, ipv6=False, media_only=False, tcpo_only=False, cdn=False, static=False, this_port_only=False, secret=None)
+2026-05-14 10:15:44,740 [INFO] [BUFFER] Flushing 1 messages from Gold Expertise → combined id=26121 images=1
+2026-05-14 10:15:44,740 [INFO] [PIPELINE] source=Gold Expertise msg_id=26121 grouped=1 text_len=1 images=1
+2026-05-14 10:15:45,709 [INFO] [INTENT] UNKNOWN (conf=0.00) — All AI providers failed: primary: 429 {"error":{"code":null,"message":"Rate limit exceeded","param":null,"type":"rate_limit_exceeded"},"request_id":"82eb7b30-664e-4a76-aed3-bb3534260961"}
+ | groq: disabled until 1778734443.1026444 (repeated_http_403)
+2026-05-14 10:15:45,709 [INFO] Analyzing 1 image(s) with AI vision (primary: D:\Github repos\Telegram signal Copier\runtime\media\26121.jpg)
+2026-05-14 10:15:45,711 [INFO] AI vision extracted from image: 
+2026-05-14 10:15:45,712 [INFO] [PARSED] symbol=None side=None entry=None SL=None TP=[] conf=0.37 used_ai=True
+2026-05-14 10:15:45,712 [INFO] [DECISION] REJECTED — Missing symbol; Missing side; Missing stop loss; Missing take profit; Confidence 0.37 below minimum 0.45
+{
+  "parsed_signal": {
+    "source_group": "Gold Expertise",
+    "message_id": "26121",
+    "symbol": null,
+    "side": null,
+    "order_type": "MARKET",
+    "entry_price": null,
+    "entry_range_low": null,
+    "entry_range_high": null,
+    "stop_loss": null,
+    "take_profits": [],
+    "confidence": 0.37,
+    "raw_text": "\ud83d\ude0e",
+    "image_used": true,
+    "requires_review": false,
+    "parser_name": "openai+heuristic",
+    "notes": [
+      "Image attached; heuristic parser may need AI vision for full accuracy",
+      "AI confidence missing, reused heuristic confidence",
+      "Chart level extraction failed: All AI providers failed: primary: tripped until 1778734147.7093768 | groq: disabled until 1778734443.1026444 (repeated_http_403)",
+      "Image(s) analyzed with AI vision (1 chart)"
+    ]
+  },
+  "used_ai": true,
+  "decision": {
+    "status": "REJECTED",
+    "reasons": [
+      "Missing symbol",
+      "Missing side",
+      "Missing stop loss",
+      "Missing take profit",
+      "Confidence 0.37 below minimum 0.45"
+    ]
+  },
+  "execution_result": null
+}
+2026-05-14 10:16:00,121 [INFO] Got difference for channel 1215547858 updates
+2026-05-14 10:16:10,496 [INFO] Got difference for account updates
+2026-05-14 10:16:10,846 [INFO] Got difference for channel 2007662842 updates
+2026-05-14 10:16:19,516 [INFO] Got difference for channel 1220361928 updates
+2026-05-14 10:16:19,718 [INFO] Got difference for channel 1408086896 updates
+2026-05-14 10:16:32,319 [INFO] Disconnecting borrowed sender for DC 4
+2026-05-14 10:16:32,319 [INFO] Disconnecting from 149.154.167.92:443/TcpFull...
+2026-05-14 10:16:32,320 [INFO] Disconnection from 149.154.167.92:443/TcpFull complete!
+2026-05-14 10:16:39,970 [INFO] Got difference for channel 2229838048 updates
+2026-05-14 10:17:05,917 [INFO] Got difference for channel 1215547858 updates
+2026-05-14 10:17:21,341 [INFO] Got difference for channel 1904536747 updates
+2026-05-14 10:17:21,743 [INFO] Got difference for channel 1682621717 updates
+2026-05-14 10:17:21,859 [INFO] [BUFFER] Flushing 1 messages from XAUUSD GOLD SIGNAL → combined id=32631 images=0
+2026-05-14 10:17:21,859 [INFO] [PIPELINE] source=XAUUSD GOLD SIGNAL msg_id=32631 grouped=1 text_len=7 images=0
+2026-05-14 10:17:22,541 [INFO] [INTENT] UNKNOWN (conf=0.00) — All AI providers failed: primary: tripped until 1778734147.7093768 | cloudflare: 400 {"errors":[{"message":"AiError: AiError: invalid prompt: failed to parse prompt: invalid type: sequence, expected a string at line 1 column 1258 (3bf4dcc3-a345-44d7-950e-f2eac535be3e)","code":9015}],"success":false,"result":{},"messages":[]} | nvidia: 403 {"status":403,"title":"Forbidden","detail":"Authorization failed"} | cerebras: 403 error code: 1010 | groq: disabled until 1778734443.1026444 (repeated_http_403)
+2026-05-14 10:17:25,272 [INFO] [PARSED] symbol=XAUUSD side=SELL entry=None SL=None TP=[] conf=0.50 used_ai=True
+2026-05-14 10:17:25,273 [INFO] [DECISION] REJECTED — Missing stop loss; Missing take profit
+{
+  "parsed_signal": {
+    "source_group": "XAUUSD GOLD SIGNAL",
+    "message_id": "32631",
+    "symbol": "XAUUSD",
+    "side": "SELL",
+    "order_type": "MARKET",
+    "entry_price": null,
+    "entry_range_low": null,
+    "entry_range_high": null,
+    "stop_loss": null,
+    "take_profits": [],
+    "confidence": 0.5,
+    "raw_text": "GO SELL",
+    "image_used": false,
+    "requires_review": false,
+    "parser_name": "openai+heuristic",
+    "notes": [
+      "Default SELL signal with unknown entry price and levels"
+    ]
+  },
+  "used_ai": true,
+  "decision": {
+    "status": "REJECTED",
+    "reasons": [
+      "Missing stop loss",
+      "Missing take profit"
+    ]
+  },
+  "execution_result": null
+}
+2026-05-14 10:17:26,465 [INFO] Got difference for channel 1678672678 updates
+2026-05-14 10:17:31,580 [INFO] Got difference for channel 1149835191 updates
+2026-05-14 10:17:35,730 [INFO] Got difference for channel 1816651237 updates
+2026-05-14 10:17:37,666 [INFO] Got difference for channel 2132105463 updates
+2026-05-14 10:18:51,520 [INFO] Got difference for channel 1370304351 updates
+2026-05-14 10:19:02,409 [INFO] Got difference for channel 1336276048 updates
+2026-05-14 10:19:02,624 [INFO] Got difference for channel 1220361928 updates
+2026-05-14 10:19:55,934 [INFO] Got difference for channel 1257527737 updates
+2026-05-14 10:20:17,571 [INFO] Got difference for channel 1799721991 updates
+2026-05-14 10:20:17,772 [INFO] Got difference for channel 1220361928 updates
+2026-05-14 10:20:53,163 [INFO] Got difference for channel 1692703467 updates
+2026-05-14 10:23:18,805 [INFO] Got difference for channel 1977998275 updates
+2026-05-14 10:24:19,261 [INFO] Got difference for channel 2246296611 updates
+2026-05-14 10:25:33,311 [INFO] Got difference for channel 1485498507 updates
+2026-05-14 10:26:03,564 [INFO] Got difference for channel 1461280890 updates
+2026-05-14 10:26:44,385 [INFO] Got difference for channel 1370304351 updates
+2026-05-14 10:27:51,155 [INFO] Starting direct file download in chunks of 131072 at 0, stride 131072
+2026-05-14 10:28:19,095 [INFO] [BUFFER] Flushing 1 messages from Krishna crypto community 😍 → combined id=8214 images=1
+2026-05-14 10:28:19,095 [INFO] [PIPELINE] source=Krishna crypto community 😍 msg_id=8214 grouped=1 text_len=7 images=1
+2026-05-14 10:28:20,301 [INFO] [INTENT] UNKNOWN (conf=0.00) — All AI providers failed: primary: 429 {"error":{"code":null,"message":"Rate limit exceeded","param":null,"type":"rate_limit_exceeded"},"request_id":"5622e6c3-10b7-480c-8416-002f5d23b6ba"}
+ | groq: 403 error code: 1010
+2026-05-14 10:28:20,301 [INFO] Analyzing 1 image(s) with AI vision (primary: D:\Github repos\Telegram signal Copier\runtime\media\8214.jpg)
+2026-05-14 10:28:20,303 [INFO] AI vision extracted from image: 
+2026-05-14 10:28:20,305 [INFO] [PARSED] symbol=None side=None entry=None SL=None TP=[] conf=0.37 used_ai=True
+2026-05-14 10:28:20,305 [INFO] [DECISION] REJECTED — Missing symbol; Missing side; Missing stop loss; Missing take profit; Confidence 0.37 below minimum 0.45
+{
+  "parsed_signal": {
+    "source_group": "Krishna crypto community \ud83d\ude0d",
+    "message_id": "8214",
+    "symbol": null,
+    "side": null,
+    "order_type": "MARKET",
+    "entry_price": null,
+    "entry_range_low": null,
+    "entry_range_high": null,
+    "stop_loss": null,
+    "take_profits": [],
+    "confidence": 0.37,
+    "raw_text": "30 PIPS",
+    "image_used": true,
+    "requires_review": false,
+    "parser_name": "openai+heuristic",
+    "notes": [
+      "Image attached; heuristic parser may need AI vision for full accuracy",
+      "AI confidence missing, reused heuristic confidence",
+      "Chart level extraction failed: All AI providers failed: primary: tripped until 1778735003.2326303 | groq: disabled until 1778735300.3012202 (repeated_http_403)",
+      "Image(s) analyzed with AI vision (1 chart)"
+    ]
+  },
+  "used_ai": true,
+  "decision": {
+    "status": "REJECTED",
+    "reasons": [
+      "Missing symbol",
+      "Missing side",
+      "Missing stop loss",
+      "Missing take profit",
+      "Confidence 0.37 below minimum 0.45"
+    ]
+  },
+  "execution_result": null
+}
+2026-05-14 10:28:57,918 [INFO] Got difference for channel 1930811005 updates
+2026-05-14 10:29:50,293 [INFO] Got difference for channel 1196915534 updates
+2026-05-14 10:29:51,029 [INFO] Got difference for channel 1893692643 updates
+2026-05-14 10:30:10,731 [INFO] Got difference for channel 1678672678 updates
+2026-05-14 10:30:10,962 [INFO] Got difference for channel 1370304351 updates
+2026-05-14 10:31:07,641 [INFO] Got difference for channel 1336276048 updates
+2026-05-14 10:31:07,854 [INFO] Got difference for channel 1821287563 updates
+2026-05-14 10:31:10,757 [INFO] Got difference for account updates
+2026-05-14 10:31:19,714 [INFO] Got difference for channel 1799721991 updates
+2026-05-14 10:32:17,208 [INFO] Got difference for channel 1852543402 updates
+2026-05-14 10:32:17,927 [INFO] Got difference for channel 1930811005 updates
+2026-05-14 10:32:21,555 [INFO] Got difference for channel 1904536747 updates
+2026-05-14 10:33:28,888 [INFO] Got difference for channel 1485498507 updates
+2026-05-14 10:33:47,467 [INFO] Got difference for channel 1977998275 updates
+2026-05-14 10:34:07,014 [INFO] Got difference for channel 1859455324 updates
+2026-05-14 10:34:29,092 [INFO] Starting direct file download in chunks of 131072 at 0, stride 131072
+2026-05-14 10:34:55,001 [INFO] [BUFFER] Flushing 1 messages from Krishna crypto community 😍 → combined id=8215 images=1
+2026-05-14 10:34:55,002 [INFO] [PIPELINE] source=Krishna crypto community 😍 msg_id=8215 grouped=1 text_len=18 images=1
+2026-05-14 10:34:57,578 [INFO] [INTENT] UNKNOWN (conf=0.00) — All AI providers failed: primary: 429 {"error":{"code":null,"message":"Rate limit exceeded","param":null,"type":"rate_limit_exceeded"},"request_id":"e2b36beb-aa9a-4b04-8425-f4cd2c282563"}
+ | groq: disabled until 1778735300.3012202 (repeated_http_403)
+2026-05-14 10:34:57,579 [INFO] Analyzing 1 image(s) with AI vision (primary: D:\Github repos\Telegram signal Copier\runtime\media\8215.jpg)
+2026-05-14 10:35:01,884 [INFO] AI vision extracted from image: 
+2026-05-14 10:35:01,886 [INFO] [PARSED] symbol=None side=None entry=None SL=None TP=[] conf=0.37 used_ai=True
+2026-05-14 10:35:01,887 [INFO] [DECISION] REJECTED — Missing symbol; Missing side; Missing stop loss; Missing take profit; Confidence 0.37 below minimum 0.45
+{
+  "parsed_signal": {
+    "source_group": "Krishna crypto community \ud83d\ude0d",
+    "message_id": "8215",
+    "symbol": null,
+    "side": null,
+    "order_type": "MARKET",
+    "entry_price": null,
+    "entry_range_low": null,
+    "entry_range_high": null,
+    "stop_loss": null,
+    "take_profits": [],
+    "confidence": 0.37,
+    "raw_text": "70. pips risk free",
+    "image_used": true,
+    "requires_review": false,
+    "parser_name": "openai+heuristic",
+    "notes": [
+      "Image attached; heuristic parser may need AI vision for full accuracy",
+      "AI confidence missing, reused heuristic confidence",
+      "Chart level extraction failed: All AI providers failed: primary: tripped until 1778735552.5786898 | groq: disabled until 1778735300.3012202 (repeated_http_403)",
+      "Image(s) analyzed with AI vision (1 chart)"
+    ]
+  },
+  "used_ai": true,
+  "decision": {
+    "status": "REJECTED",
+    "reasons": [
+      "Missing symbol",
+      "Missing side",
+      "Missing stop loss",
+      "Missing take profit",
+      "Confidence 0.37 below minimum 0.45"
+    ]
+  },
+  "execution_result": null
+}
+2026-05-14 10:35:16,178 [INFO] Starting direct file download in chunks of 131072 at 0, stride 131072
+2026-05-14 10:35:42,148 [INFO] [BUFFER] Flushing 1 messages from Krishna crypto community 😍 → combined id=8216 images=1
+2026-05-14 10:35:42,149 [INFO] [PIPELINE] source=Krishna crypto community 😍 msg_id=8216 grouped=1 text_len=17 images=1
+2026-05-14 10:35:42,161 [INFO] [INTENT] UNKNOWN (conf=0.00) — All AI providers failed: primary: tripped until 1778735552.5786898 | groq: disabled until 1778735300.3012202 (repeated_http_403)
+2026-05-14 10:35:42,162 [INFO] Analyzing 1 image(s) with AI vision (primary: D:\Github repos\Telegram signal Copier\runtime\media\8216.jpg)
+2026-05-14 10:35:42,164 [INFO] AI vision extracted from image: 
+2026-05-14 10:35:42,166 [INFO] [PARSED] symbol=None side=None entry=None SL=None TP=[] conf=0.37 used_ai=True
+2026-05-14 10:35:42,166 [INFO] [DECISION] REJECTED — Missing symbol; Missing side; Missing stop loss; Missing take profit; Confidence 0.37 below minimum 0.45
+{
+  "parsed_signal": {
+    "source_group": "Krishna crypto community \ud83d\ude0d",
+    "message_id": "8216",
+    "symbol": null,
+    "side": null,
+    "order_type": "MARKET",
+    "entry_price": null,
+    "entry_range_low": null,
+    "entry_range_high": null,
+    "stop_loss": null,
+    "take_profits": [],
+    "confidence": 0.37,
+    "raw_text": "60 PIPS RISK FREE",
+    "image_used": true,
+    "requires_review": false,
+    "parser_name": "openai+heuristic",
+    "notes": [
+      "Image attached; heuristic parser may need AI vision for full accuracy",
+      "AI confidence missing, reused heuristic confidence",
+      "Chart level extraction failed: All AI providers failed: primary: tripped until 1778735552.5786898 | groq: disabled until 1778735300.3012202 (repeated_http_403)",
+      "Image(s) analyzed with AI vision (1 chart)"
+    ]
+  },
+  "used_ai": true,
+  "decision": {
+    "status": "REJECTED",
+    "reasons": [
+      "Missing symbol",
+      "Missing side",
+      "Missing stop loss",
+      "Missing take profit",
+      "Confidence 0.37 below minimum 0.45"
+    ]
+  },
+  "execution_result": null
+}
+2026-05-14 10:35:49,288 [INFO] Got difference for channel 1930811005 updates
+2026-05-14 10:36:26,076 [INFO] [BUFFER] Flushing 2 messages from XAUUSD GOLD SIGNAL → combined id=32632..32633 images=0
+2026-05-14 10:36:26,077 [INFO] [PIPELINE] source=XAUUSD GOLD SIGNAL msg_id=32632..32633 grouped=2 text_len=288 images=0
+2026-05-14 10:36:26,903 [INFO] [INTENT] UNKNOWN (conf=0.00) — All AI providers failed: primary: tripped until 1778735552.5786898 | cloudflare: 400 {"errors":[{"message":"AiError: AiError: invalid prompt: failed to parse prompt: invalid type: sequence, expected a string at line 1 column 1258 (5de7d14e-a816-4c03-ba04-f2818705c72d)","code":9015}],"success":false,"result":{},"messages":[]} | nvidia: 403 {"status":403,"title":"Forbidden","detail":"Authorization failed"} | cerebras: 403 error code: 1010 | groq: disabled until 1778735300.3012202 (repeated_http_403)
+2026-05-14 10:36:26,904 [INFO] [HEURISTIC] Complete: side=SELL entry=None SL=None TP=[50.0, 2.0]
+2026-05-14 10:36:26,904 [INFO] [PARSED] symbol=XAUUSD side=SELL entry=None SL=None TP=[50.0, 2.0] conf=0.73 used_ai=False
+2026-05-14 10:36:26,904 [INFO] [DECISION] REJECTED — Missing stop loss
+{
+  "parsed_signal": {
+    "source_group": "XAUUSD GOLD SIGNAL",
+    "message_id": "32632..32633",
+    "symbol": "XAUUSD",
+    "side": "SELL",
+    "order_type": "MARKET",
+    "entry_price": null,
+    "entry_range_low": null,
+    "entry_range_high": null,
+    "stop_loss": null,
+    "take_profits": [
+      50.0,
+      2.0
+    ],
+    "confidence": 0.73,
+    "raw_text": "GOLD Sell \ud835\udc07\ud835\udc08\ud835\udc13 \ud835\udc13P ( 1 )\ud83d\ude2e\ud83d\ude2e\ud83d\ude2e \ud83d\udcca 50+\ud835\udc0f\ud835\udc08\ud835\udc0f\ud835\udc12 \ud835\udc0f\ud835\udc11\ud835\udc0e\ud835\udc05\ud835\udc08\ud835\udc13 \ud83d\udd25\ud83d\udd25\ud83d\udd25 \ud835\udc0c\ud835\udc32 \ud835\udc12\ud835\udc22\ud835\udc20\ud835\udc27\ud835\udc1a\ud835\udc25 \ud835\udc1a\ud835\udc2b\ud835\udc1e \ud835\udc28\ud835\udc27 \ud835\udc1f\ud835\udc22\ud835\udc2b\ud835\udc1e \ud835\udc30\ud835\udc22\ud835\udc2d\ud835\udc21 Gold \ud835\udc29\ud835\udc2b\ud835\udc28\ud835\udc1f\ud835\udc22\ud835\udc2d\ud835\udc2c \ud83e\udd1d i told you alot forex king is her\ud83d\udc4d\ud83d\udc4d\ud83d\udc4d Enjoy Profit \ud83d\udee1\ud83d\udee1 --- GOLD Sell \ud835\udc07\ud835\udc08\ud835\udc13 \ud835\udc13P ( 2 )\ud83d\ude2e\ud83d\ude2e\ud83d\ude2e \ud83d\udcca 100+\ud835\udc0f\ud835\udc08\ud835\udc0f\ud835\udc12 \ud835\udc0f\ud835\udc11\ud835\udc0e\ud835\udc05\ud835\udc08\ud835\udc13 \ud83d\udd25\ud83d\udd25\ud83d\udd25 \ud835\udc0c\ud835\udc32 \ud835\udc12\ud835\udc22\ud835\udc20\ud835\udc27\ud835\udc1a\ud835\udc25 \ud835\udc1a\ud835\udc2b\ud835\udc1e \ud835\udc28\ud835\udc27 \ud835\udc1f\ud835\udc22\ud835\udc2b\ud835\udc1e \ud835\udc30\ud835\udc22\ud835\udc2d\ud835\udc21 Gold \ud835\udc29\ud835\udc2b\ud835\udc28\ud835\udc1f\ud835\udc22\ud835\udc2d\ud835\udc2c \ud83e\udd1d i told you alot forex king is her\ud83d\udc4d\ud83d\udc4d\ud83d\udc4d Enjoy Profit \ud83d\udee1\ud83d\udee1",
+    "image_used": false,
+    "requires_review": false,
+    "parser_name": "heuristic",
+    "notes": []
+  },
+  "used_ai": false,
+  "decision": {
+    "status": "REJECTED",
+    "reasons": [
+      "Missing stop loss"
+    ]
+  },
+  "execution_result": null
+}
+2026-05-14 10:37:20,622 [INFO] Got difference for channel 1678672678 updates
+2026-05-14 10:38:03,080 [INFO] Got difference for channel 1215547858 updates
+2026-05-14 10:38:33,551 [INFO] Got difference for channel 1727271698 updates
+2026-05-14 10:38:33,753 [INFO] Got difference for channel 1678672678 updates
+2026-05-14 10:38:45,533 [INFO] Got difference for channel 1769823432 updates
+2026-05-14 10:39:56,088 [INFO] Got difference for channel 1821287563 updates
+2026-05-14 10:40:28,295 [INFO] Got difference for channel 1285105872 updates
+2026-05-14 10:41:03,779 [INFO] Got difference for channel 1461280890 updates
+2026-05-14 10:41:32,683 [INFO] Got difference for channel 1579198707 updates
+2026-05-14 10:41:53,187 [INFO] Got difference for channel 1977998275 updates
+2026-05-14 10:43:25,671 [INFO] Got difference for channel 1859455324 updates
+2026-05-14 10:45:33,523 [INFO] Got difference for channel 1461280890 updates
+2026-05-14 10:45:49,699 [INFO] Got difference for channel 2212021328 updates
+2026-05-14 10:46:10,974 [INFO] Got difference for account updates
+2026-05-14 10:46:19,925 [INFO] Got difference for channel 1799721991 updates
+2026-05-14 10:46:35,589 [INFO] Got difference for channel 1485498507 updates
+2026-05-14 10:47:22,039 [INFO] Got difference for channel 1220361928 updates
+2026-05-14 10:47:22,614 [INFO] Got difference for channel 1904536747 updates
+2026-05-14 10:47:35,623 [INFO] Got difference for channel 1678672678 updates
+2026-05-14 10:48:33,696 [INFO] Got difference for channel 1485498507 updates
+2026-05-14 10:48:38,640 [INFO] Got difference for channel 2066058341 updates
+2026-05-14 10:49:02,402 [INFO] Got difference for channel 1220361928 updates
+2026-05-14 10:49:33,598 [INFO] Got difference for channel 1678672678 updates
+2026-05-14 10:49:34,553 [INFO] Got difference for channel 1977998275 updates
+2026-05-14 10:50:49,512 [INFO] Got difference for channel 1930811005 updates
+2026-05-14 10:50:50,228 [INFO] Got difference for channel 1821287563 updates
+2026-05-14 10:50:54,466 [INFO] Starting direct file download in chunks of 131072 at 0, stride 131072
+2026-05-14 10:51:20,189 [INFO] [BUFFER] Flushing 1 messages from Krishna crypto community 😍 → combined id=8217 images=1
+2026-05-14 10:51:20,189 [INFO] [PIPELINE] source=Krishna crypto community 😍 msg_id=8217 grouped=1 text_len=7 images=1
+2026-05-14 10:51:23,375 [INFO] [INTENT] UNKNOWN (conf=0.00) — All AI providers failed: primary: 429 {"error":{"code":null,"message":"Rate limit exceeded","param":null,"type":"rate_limit_exceeded"},"request_id":"a76babd6-6556-4e73-8f86-55489294aead"}
+ | groq: 403 error code: 1010
+2026-05-14 10:51:23,375 [INFO] Analyzing 1 image(s) with AI vision (primary: D:\Github repos\Telegram signal Copier\runtime\media\8217.jpg)
+2026-05-14 10:51:23,377 [INFO] AI vision extracted from image: 
+2026-05-14 10:51:23,379 [INFO] [PARSED] symbol=None side=None entry=None SL=None TP=[] conf=0.37 used_ai=True
+2026-05-14 10:51:23,379 [INFO] [DECISION] REJECTED — Missing symbol; Missing side; Missing stop loss; Missing take profit; Confidence 0.37 below minimum 0.45
+{
+  "parsed_signal": {
+    "source_group": "Krishna crypto community \ud83d\ude0d",
+    "message_id": "8217",
+    "symbol": null,
+    "side": null,
+    "order_type": "MARKET",
+    "entry_price": null,
+    "entry_range_low": null,
+    "entry_range_high": null,
+    "stop_loss": null,
+    "take_profits": [],
+    "confidence": 0.37,
+    "raw_text": "88 PIPS",
+    "image_used": true,
+    "requires_review": false,
+    "parser_name": "openai+heuristic",
+    "notes": [
+      "Image attached; heuristic parser may need AI vision for full accuracy",
+      "AI confidence missing, reused heuristic confidence",
+      "Chart level extraction failed: All AI providers failed: primary: tripped until 1778736766.305794 | groq: disabled until 1778736683.3752718 (repeated_http_403)",
+      "Image(s) analyzed with AI vision (1 chart)"
+    ]
+  },
+  "used_ai": true,
+  "decision": {
+    "status": "REJECTED",
+    "reasons": [
+      "Missing symbol",
+      "Missing side",
+      "Missing stop loss",
+      "Missing take profit",
+      "Confidence 0.37 below minimum 0.45"
+    ]
+  },
+  "execution_result": null
+}
+2026-05-14 10:52:05,889 [INFO] Got difference for channel 1678672678 updates
+2026-05-14 10:52:06,597 [INFO] Got difference for channel 1600174263 updates
+2026-05-14 10:52:51,991 [INFO] Got difference for channel 2258046957 updates
+2026-05-14 10:53:38,015 [INFO] Got difference for channel 2337802318 updates
+2026-05-14 10:53:38,222 [INFO] Got difference for channel 2118244045 updates
+2026-05-14 10:54:11,151 [INFO] [BUFFER] Flushing 2 messages from XAUUSD GOLD SIGNAL → combined id=32635..32634 images=0
+2026-05-14 10:54:11,152 [INFO] [PIPELINE] source=XAUUSD GOLD SIGNAL msg_id=32635..32634 grouped=2 text_len=17 images=0
+2026-05-14 10:54:11,934 [INFO] [INTENT] UNKNOWN (conf=0.00) — All AI providers failed: primary: tripped until 1778736766.305794 | cloudflare: 400 {"errors":[{"message":"AiError: AiError: invalid prompt: failed to parse prompt: invalid type: sequence, expected a string at line 1 column 1258 (5127eddd-c2de-40eb-a91f-278cad8098a9)","code":9015}],"success":false,"result":{},"messages":[]} | nvidia: 403 {"status":403,"title":"Forbidden","detail":"Authorization failed"} | cerebras: 403 error code: 1010 | groq: disabled until 1778736683.3752718 (repeated_http_403)
+2026-05-14 10:54:18,048 [INFO] [PARSED] symbol=XAUUSD side=BUY entry=4744.0 SL=4730.0 TP=[4750.0, 4760.0] conf=0.80 used_ai=True
+2026-05-14 10:54:18,049 [INFO] [DECISION] APPROVED — OK
+2026-05-14 10:55:18,110 [INFO] [EXECUTION] NOT_CONSUMED — ticket=None price=None
+{
+  "parsed_signal": {
+    "source_group": "XAUUSD GOLD SIGNAL",
+    "message_id": "32635..32634",
+    "symbol": "XAUUSD",
+    "side": "BUY",
+    "order_type": "MARKET",
+    "entry_price": 4744.0,
+    "entry_range_low": 4740.0,
+    "entry_range_high": 4744.0,
+    "stop_loss": 4730.0,
+    "take_profits": [
+      4750.0,
+      4760.0
+    ],
+    "confidence": 0.8,
+    "raw_text": "Active\n---\nActive",
+    "image_used": false,
+    "requires_review": false,
+    "parser_name": "openai+heuristic",
+    "notes": [
+      "Gold Spot / U.S. Dollar, 3-min chart"
+    ]
+  },
+  "used_ai": true,
+  "decision": {
+    "status": "APPROVED",
+    "reasons": []
+  },
+  "execution_result": {
+    "request_id": "982be8b0-4186-4781-88b1-11475dbd097b",
+    "status": "NOT_CONSUMED",
+    "message": "Bridge command still in inbox; MT5 EA likely not attached or not reading the common bridge folder",
+    "ticket": null,
+    "executed_price": null,
+    "executed_at": "2026-05-14T05:25:18.110629+00:00"
+  }
+}
+2026-05-14 10:55:19,431 [INFO] Got difference for channel 2258046957 updates
+2026-05-14 10:55:38,307 [INFO] Got difference for channel 1408086896 updates
+2026-05-14 10:55:53,667 [INFO] Got difference for channel 1930811005 updates
+2026-05-14 10:56:09,875 [INFO] Starting direct file download in chunks of 131072 at 0, stride 131072
+2026-05-14 10:56:34,945 [INFO] Got difference for channel 1799721991 updates
+2026-05-14 10:56:35,512 [INFO] [BUFFER] Flushing 1 messages from Krishna crypto community 😍 → combined id=8218 images=1
+2026-05-14 10:56:35,512 [INFO] [PIPELINE] source=Krishna crypto community 😍 msg_id=8218 grouped=1 text_len=8 images=1
+2026-05-14 10:56:35,525 [INFO] [INTENT] UNKNOWN (conf=0.00) — All AI providers failed: primary: tripped until 1778736766.305794 | groq: disabled until 1778736683.3752718 (repeated_http_403)
+2026-05-14 10:56:35,526 [INFO] Analyzing 1 image(s) with AI vision (primary: D:\Github repos\Telegram signal Copier\runtime\media\8218.jpg)
+2026-05-14 10:56:35,528 [INFO] AI vision extracted from image: 
+2026-05-14 10:56:35,531 [INFO] [PARSED] symbol=None side=None entry=None SL=None TP=[] conf=0.37 used_ai=True
+2026-05-14 10:56:35,531 [INFO] [DECISION] REJECTED — Missing symbol; Missing side; Missing stop loss; Missing take profit; Confidence 0.37 below minimum 0.45
+{
+  "parsed_signal": {
+    "source_group": "Krishna crypto community \ud83d\ude0d",
+    "message_id": "8218",
+    "symbol": null,
+    "side": null,
+    "order_type": "MARKET",
+    "entry_price": null,
+    "entry_range_low": null,
+    "entry_range_high": null,
+    "stop_loss": null,
+    "take_profits": [],
+    "confidence": 0.37,
+    "raw_text": "100 PIPS",
+    "image_used": true,
+    "requires_review": false,
+    "parser_name": "openai+heuristic",
+    "notes": [
+      "Image attached; heuristic parser may need AI vision for full accuracy",
+      "AI confidence missing, reused heuristic confidence",
+      "Chart level extraction failed: All AI providers failed: primary: tripped until 1778736766.305794 | groq: disabled until 1778736683.3752718 (repeated_http_403)",
+      "Image(s) analyzed with AI vision (1 chart)"
+    ]
+  },
+  "used_ai": true,
+  "decision": {
+    "status": "REJECTED",
+    "reasons": [
+      "Missing symbol",
+      "Missing side",
+      "Missing stop loss",
+      "Missing take profit",
+      "Confidence 0.37 below minimum 0.45"
+    ]
+  },
+  "execution_result": null
+}
+2026-05-14 10:56:38,469 [INFO] Got difference for channel 1220361928 updates
+2026-05-14 10:56:52,185 [INFO] Got difference for channel 1977998275 updates
+2026-05-14 10:58:19,068 [INFO] Got difference for channel 1220361928 updates
+2026-05-14 10:58:19,278 [INFO] Got difference for channel 1336276048 updates
+2026-05-14 10:58:43,780 [INFO] [BUFFER] Flushing 2 messages from XAUUSD GOLD SIGNAL → combined id=32636..32637 images=0
+2026-05-14 10:58:43,780 [INFO] [PIPELINE] source=XAUUSD GOLD SIGNAL msg_id=32636..32637 grouped=2 text_len=142 images=0
+2026-05-14 10:58:44,368 [INFO] [INTENT] UNKNOWN (conf=0.00) — All AI providers failed: primary: tripped until 1778736766.305794 | cloudflare: 400 {"errors":[{"message":"AiError: AiError: invalid prompt: failed to parse prompt: invalid type: sequence, expected a string at line 1 column 1258 (8156933e-91e1-4995-9fe1-edf542f06162)","code":9015}],"success":false,"result":{},"messages":[]} | nvidia: disabled until 1778736851.876431 (repeated_http_403) | cerebras: disabled until 1778736851.9341812 (repeated_http_403) | groq: disabled until 1778736683.3752718 (repeated_http_403)
+2026-05-14 10:58:44,368 [INFO] [HEURISTIC] Complete: side=SELL entry=None SL=None TP=[150.0]
+2026-05-14 10:58:44,368 [INFO] [PARSED] symbol=XAUUSD side=SELL entry=None SL=None TP=[150.0] conf=0.73 used_ai=False
+2026-05-14 10:58:44,369 [INFO] [DECISION] REJECTED — Missing stop loss
+{
+  "parsed_signal": {
+    "source_group": "XAUUSD GOLD SIGNAL",
+    "message_id": "32636..32637",
+    "symbol": "XAUUSD",
+    "side": "SELL",
+    "order_type": "MARKET",
+    "entry_price": null,
+    "entry_range_low": null,
+    "entry_range_high": null,
+    "stop_loss": null,
+    "take_profits": [
+      150.0
+    ],
+    "confidence": 0.73,
+    "raw_text": "GOLD Sell \ud835\udc07\ud835\udc08\ud835\udc13 \ud835\udc13P ( 3 )\ud83d\ude2e\ud83d\ude2e\ud83d\ude2e \ud83d\udcca 150+\ud835\udc0f\ud835\udc08\ud835\udc0f\ud835\udc12 \ud835\udc0f\ud835\udc11\ud835\udc0e\ud835\udc05\ud835\udc08\ud835\udc13 \ud83d\udd25\ud83d\udd25\ud83d\udd25 \ud835\udc0c\ud835\udc32 \ud835\udc12\ud835\udc22\ud835\udc20\ud835\udc27\ud835\udc1a\ud835\udc25 \ud835\udc1a\ud835\udc2b\ud835\udc1e \ud835\udc28\ud835\udc27 \ud835\udc1f\ud835\udc22\ud835\udc2b\ud835\udc1e \ud835\udc30\ud835\udc22\ud835\udc2d\ud835\udc21 Gold \ud835\udc29\ud835\udc2b\ud835\udc28\ud835\udc1f\ud835\udc22\ud835\udc2d\ud835\udc2c \ud83e\udd1d i told you alot forex king is her\ud83d\udc4d\ud83d\udc4d\ud83d\udc4d Enjoy Profit \ud83d\udee1\ud83d\udee1",
+    "image_used": false,
+    "requires_review": false,
+    "parser_name": "heuristic",
+    "notes": []
+  },
+  "used_ai": false,
+  "decision": {
+    "status": "REJECTED",
+    "reasons": [
+      "Missing stop loss"
+    ]
+  },
+  "execution_result": null
+}
+2026-05-14 10:59:19,055 [INFO] Got difference for channel 1930811005 updates
+2026-05-14 10:59:47,101 [INFO] Got difference for channel 1678672678 updates
+2026-05-14 10:59:47,307 [INFO] Got difference for channel 1215547858 updates
+2026-05-14 11:01:11,222 [INFO] Got difference for account updates
+2026-05-14 11:01:40,598 [INFO] Got difference for channel 2229838048 updates
+2026-05-14 11:02:05,232 [INFO] Got difference for channel 1930811005 updates
+2026-05-14 11:02:42,141 [INFO] Got difference for channel 2118244045 updates
+2026-05-14 11:06:17,374 [INFO] Got difference for channel 1885100677 updates
+2026-05-14 11:08:38,220 [INFO] Got difference for channel 2337802318 updates
+2026-05-14 11:09:19,143 [INFO] Got difference for channel 1196915534 updates
+2026-05-14 11:09:43,850 [INFO] [BUFFER] Flushing 1 messages from XAUUSD GOLD SIGNAL → combined id=32638 images=0
+2026-05-14 11:09:43,851 [INFO] [PIPELINE] source=XAUUSD GOLD SIGNAL msg_id=32638 grouped=1 text_len=128 images=0
+2026-05-14 11:09:45,756 [INFO] [INTENT] UNKNOWN (conf=0.00) — All AI providers failed: primary: 429 {"error":{"code":null,"message":"Rate limit exceeded","param":null,"type":"rate_limit_exceeded"},"request_id":"63993cd2-a17e-4462-9106-342168003555"}
+ | cloudflare: 400 {"errors":[{"message":"AiError: AiError: invalid prompt: failed to parse prompt: invalid type: sequence, expected a string at line 1 column 1258 (33f4c373-4120-48ee-8420-b2ce468f177b)","code":9015}],"success":false,"result":{},"messages":[]} | nvidia: 403 {"status":403,"title":"Forbidden","detail":"Authorization failed"} | cerebras: 403 error code: 1010 | groq: 403 error code: 1010
+2026-05-14 11:09:46,286 [INFO] [PARSED] symbol=None side=None entry=None SL=None TP=[] conf=0.37 used_ai=True
+2026-05-14 11:09:46,286 [INFO] [DECISION] REJECTED — Missing symbol; Missing side; Missing stop loss; Missing take profit; Confidence 0.37 below minimum 0.45
+{
+  "parsed_signal": {
+    "source_group": "XAUUSD GOLD SIGNAL",
+    "message_id": "32638",
+    "symbol": null,
+    "side": null,
+    "order_type": "MARKET",
+    "entry_price": null,
+    "entry_range_low": null,
+    "entry_range_high": null,
+    "stop_loss": null,
+    "take_profits": [],
+    "confidence": 0.37,
+    "raw_text": "\ud83d\udc46\ud83d\udc46\ud83d\udc46\nGuys, we are a family, not just a channel. Don't be so lazy! Show some love and feedback. Let's make this space active! \ud83d\ude80\u2764\ufe0f\"",
+    "image_used": false,
+    "requires_review": false,
+    "parser_name": "openai+heuristic",
+    "notes": [
+      "AI confidence missing, reused heuristic confidence"
+    ]
+  },
+  "used_ai": true,
+  "decision": {
+    "status": "REJECTED",
+    "reasons": [
+      "Missing symbol",
+      "Missing side",
+      "Missing stop loss",
+      "Missing take profit",
+      "Confidence 0.37 below minimum 0.45"
+    ]
+  },
+  "execution_result": null
+}
+2026-05-14 11:10:19,745 [INFO] Got difference for channel 1930811005 updates
+2026-05-14 11:10:41,397 [INFO] Got difference for channel 1175415497 updates
+2026-05-14 11:11:04,192 [INFO] Got difference for channel 1461280890 updates
+2026-05-14 11:11:33,350 [INFO] Got difference for channel 2073061621 updates
+2026-05-14 11:11:33,577 [INFO] Got difference for channel 1515946537 updates
+2026-05-14 11:11:52,050 [INFO] Got difference for channel 1977998275 updates
+2026-05-14 11:12:34,755 [INFO] Got difference for channel 1885100677 updates
+2026-05-14 11:14:19,198 [INFO] Got difference for channel 2212021328 updates
+2026-05-14 11:14:48,234 [INFO] Got difference for channel 2229838048 updates
+2026-05-14 11:15:42,660 [INFO] Got difference for channel 1930811005 updates
+2026-05-14 11:16:11,439 [INFO] Got difference for account updates
+2026-05-14 11:16:20,405 [INFO] [BUFFER] Flushing 1 messages from Crypto with kevin 3.0 → combined id=9441 images=0
+2026-05-14 11:16:20,405 [INFO] [PIPELINE] source=Crypto with kevin 3.0 msg_id=9441 grouped=1 text_len=12 images=0
+2026-05-14 11:16:20,776 [INFO] [INTENT] UNKNOWN (conf=0.00) — All AI providers failed: primary: tripped until 1778738209.5886679 | cloudflare: 400 {"errors":[{"message":"AiError: AiError: invalid prompt: failed to parse prompt: invalid type: sequence, expected a string at line 1 column 1258 (c5847819-3591-45ab-8cb7-2bbe18fc8de8)","code":9015}],"success":false,"result":{},"messages":[]} | nvidia: disabled until 1778737785.591404 (repeated_http_403) | cerebras: disabled until 1778737785.6818643 (repeated_http_403) | groq: disabled until 1778737785.7566378 (repeated_http_403)
+2026-05-14 11:16:22,812 [INFO] [PARSED] symbol=XAUUSD side=BUY entry=None SL=None TP=[] conf=0.61 used_ai=True
+2026-05-14 11:16:22,812 [INFO] [DECISION] REJECTED — Missing stop loss; Missing take profit
+{
+  "parsed_signal": {
+    "source_group": "Crypto with kevin 3.0",
+    "message_id": "9441",
+    "symbol": "XAUUSD",
+    "side": "BUY",
+    "order_type": "MARKET",
+    "entry_price": null,
+    "entry_range_low": null,
+    "entry_range_high": null,
+    "stop_loss": null,
+    "take_profits": [],
+    "confidence": 0.61,
+    "raw_text": "Gold buy cmp",
+    "image_used": false,
+    "requires_review": false,
+    "parser_name": "openai+heuristic",
+    "notes": [
+      "AI confidence missing, reused heuristic confidence"
+    ]
+  },
+  "used_ai": true,
+  "decision": {
+    "status": "REJECTED",
+    "reasons": [
+      "Missing stop loss",
+      "Missing take profit"
+    ]
+  },
+  "execution_result": null
+}
+2026-05-14 11:17:02,042 [INFO] [BUFFER] Flushing 1 messages from Crypto with kevin 3.0 → combined id=9442 images=0
+2026-05-14 11:17:02,042 [INFO] [PIPELINE] source=Crypto with kevin 3.0 msg_id=9442 grouped=1 text_len=43 images=0
+2026-05-14 11:17:02,395 [INFO] [INTENT] UNKNOWN (conf=0.00) — All AI providers failed: primary: tripped until 1778738209.5886679 | cloudflare: 400 {"errors":[{"message":"AiError: AiError: invalid prompt: failed to parse prompt: invalid type: sequence, expected a string at line 1 column 1258 (f86e2727-db19-4e8a-9cd0-a75992067f77)","code":9015}],"success":false,"result":{},"messages":[]} | nvidia: disabled until 1778737785.591404 (repeated_http_403) | cerebras: disabled until 1778737785.6818643 (repeated_http_403) | groq: disabled until 1778737785.7566378 (repeated_http_403)
+2026-05-14 11:17:02,396 [INFO] [HEURISTIC] Complete: side=BUY entry=4702.0 SL=4693.0 TP=[4711.0]
+2026-05-14 11:17:02,396 [INFO] [PARSED] symbol=XAUUSD side=BUY entry=4702.0 SL=4693.0 TP=[4711.0] conf=0.95 used_ai=False
+2026-05-14 11:17:02,396 [INFO] [DECISION] APPROVED — OK
+2026-05-14 11:18:02,448 [INFO] [EXECUTION] NOT_CONSUMED — ticket=None price=None
+{
+  "parsed_signal": {
+    "source_group": "Crypto with kevin 3.0",
+    "message_id": "9442",
+    "symbol": "XAUUSD",
+    "side": "BUY",
+    "order_type": "MARKET",
+    "entry_price": 4702.0,
+    "entry_range_low": null,
+    "entry_range_high": null,
+    "stop_loss": 4693.0,
+    "take_profits": [
+      4711.0
+    ],
+    "confidence": 0.95,
+    "raw_text": "Gold buy at 4702 Sl - 4693 Tp - 4711 & 4720",
+    "image_used": false,
+    "requires_review": false,
+    "parser_name": "heuristic",
+    "notes": []
+  },
+  "used_ai": false,
+  "decision": {
+    "status": "APPROVED",
+    "reasons": []
+  },
+  "execution_result": {
+    "request_id": "6cfac08b-7737-44c7-b18a-4984d4970828",
+    "status": "NOT_CONSUMED",
+    "message": "Bridge command still in inbox; MT5 EA likely not attached or not reading the common bridge folder",
+    "ticket": null,
+    "executed_price": null,
+    "executed_at": "2026-05-14T05:48:02.448768+00:00"
+  }
+}
+2026-05-14 11:18:07,308 [INFO] Got difference for channel 2001462925 updates
+2026-05-14 11:18:08,338 [INFO] Got difference for channel 1904536747 updates
+2026-05-14 11:18:09,625 [INFO] Got difference for channel 2168135616 updates
+2026-05-14 11:18:10,832 [INFO] Got difference for channel 2118244045 updates
+2026-05-14 11:18:11,242 [INFO] Got difference for channel 2245760466 updates
+2026-05-14 11:18:14,034 [INFO] Got difference for channel 1432276727 updates
+2026-05-14 11:18:14,949 [INFO] Got difference for channel 1461280890 updates
+2026-05-14 11:18:30,204 [INFO] Got difference for channel 2066058341 updates
+2026-05-14 11:19:39,879 [INFO] Got difference for channel 1579198707 updates
+2026-05-14 11:20:35,029 [INFO] Got difference for channel 1799721991 updates
+2026-05-14 11:20:35,235 [INFO] Got difference for channel 1885100677 updates
+2026-05-14 11:20:51,389 [INFO] Got difference for channel 1579198707 updates
+2026-05-14 11:21:03,386 [INFO] Got difference for channel 1220361928 updates
+2026-05-14 11:22:31,197 [INFO] Got difference for channel 2157637910 updates
+2026-05-14 11:25:03,468 [INFO] Got difference for channel 1930811005 updates
+2026-05-14 11:25:19,464 [INFO] Got difference for channel 1515946537 updates
+2026-05-14 11:25:22,779 [INFO] Got difference for channel 1977998275 updates
+Starting listener with: ['D:\\Github repos\\Telegram signal Copier\\.venv\\Scripts\\python.exe', '-u', '-m', 'telegram_signal_copier.main', 'listen']
+Started PID 45828
+Starting listener with: ['D:\\Github repos\\Telegram signal Copier\\.venv\\Scripts\\python.exe', '-u', '-m', 'telegram_signal_copier.main', 'listen']
+Started PID 54688
+Starting listener with: ['D:\\Github repos\\Telegram signal Copier\\.venv\\Scripts\\python.exe', '-u', '-m', 'telegram_signal_copier.main', 'listen']
+Starting listener with: ['D:\\Github repos\\Telegram signal Copier\\.venv\\Scripts\\python.exe', '-u', '-m', 'telegram_signal_copier.main', 'listen']
+Starting listener with: ['D:\\Github repos\\Telegram signal Copier\\.venv\\Scripts\\python.exe', '-u', '-m', 'telegram_signal_copier.main', 'listen']
+Starting listener with: ['D:\\Github repos\\Telegram signal Copier\\.venv\\Scripts\\python.exe', '-u', '-m', 'telegram_signal_copier.main', 'listen']
+Starting listener with: ['D:\\Github repos\\Telegram signal Copier\\.venv\\Scripts\\python.exe', '-u', '-m', 'telegram_signal_copier.main', 'listen']
+Starting listener with: ['D:\\Github repos\\Telegram signal Copier\\.venv\\Scripts\\python.exe', '-u', '-m', 'telegram_signal_copier.main', 'listen']
+Starting listener with: ['D:\\Github repos\\Telegram signal Copier\\.venv\\Scripts\\python.exe', '-u', '-m', 'telegram_signal_copier.main', 'listen']
+Starting listener with: ['D:\\Github repos\\Telegram signal Copier\\.venv\\Scripts\\python.exe', '-u', '-m', 'telegram_signal_copier.main', 'listen']
+Starting listener with: ['D:\\Github repos\\Telegram signal Copier\\.venv\\Scripts\\python.exe', '-u', '-m', 'telegram_signal_copier.main', 'listen']
+Starting listener with: ['D:\\Github repos\\Telegram signal Copier\\.venv\\Scripts\\python.exe', '-u', '-m', 'telegram_signal_copier.main', 'listen']
+Starting listener with: ['D:\\Github repos\\Telegram signal Copier\\.venv\\Scripts\\python.exe', '-u', '-m', 'telegram_signal_copier.main', 'listen']
+Starting listener with: ['D:\\Github repos\\Telegram signal Copier\\.venv\\Scripts\\python.exe', '-u', '-m', 'telegram_signal_copier.main', 'listen']
+Starting listener with: ['D:\\Github repos\\Telegram signal Copier\\.venv\\Scripts\\python.exe', '-u', '-m', 'telegram_signal_copier.main', 'listen']
+Starting listener with: ['D:\\Github repos\\Telegram signal Copier\\.venv\\Scripts\\python.exe', '-u', '-m', 'telegram_signal_copier.main', 'listen']
+Starting listener with: ['D:\\Github repos\\Telegram signal Copier\\.venv\\Scripts\\python.exe', '-u', '-m', 'telegram_signal_copier.main', 'listen']
+Starting listener with: ['D:\\Github repos\\Telegram signal Copier\\.venv\\Scripts\\python.exe', '-u', '-m', 'telegram_signal_copier.main', 'listen']
+Starting listener with: ['D:\\Github repos\\Telegram signal Copier\\.venv\\Scripts\\python.exe', '-u', '-m', 'telegram_signal_copier.main', 'listen']
+Starting listener with: ['D:\\Github repos\\Telegram signal Copier\\.venv\\Scripts\\python.exe', '-u', '-m', 'telegram_signal_copier.main', 'listen']
+Starting listener with: ['D:\\Github repos\\Telegram signal Copier\\.venv\\Scripts\\python.exe', '-u', '-m', 'telegram_signal_copier.main', 'listen']
+Starting listener with: ['D:\\Github repos\\Telegram signal Copier\\.venv\\Scripts\\python.exe', '-u', '-m', 'telegram_signal_copier.main', 'listen']
+Starting listener with: ['D:\\Github repos\\Telegram signal Copier\\.venv\\Scripts\\python.exe', '-u', '-m', 'telegram_signal_copier.main', 'listen']
+Starting listener with: ['D:\\Github repos\\Telegram signal Copier\\.venv\\Scripts\\python.exe', '-u', '-m', 'telegram_signal_copier.main', 'listen']
+Starting listener with: ['D:\\Github repos\\Telegram signal Copier\\.venv\\Scripts\\python.exe', '-u', '-m', 'telegram_signal_copier.main', 'listen']
+Starting listener with: ['D:\\Github repos\\Telegram signal Copier\\.venv\\Scripts\\python.exe', '-u', '-m', 'telegram_signal_copier.main', 'listen']
+Starting listener with: ['D:\\Github repos\\Telegram signal Copier\\.venv\\Scripts\\python.exe', '-u', '-m', 'telegram_signal_copier.main', 'listen']
+Starting listener with: ['D:\\Github repos\\Telegram signal Copier\\.venv\\Scripts\\python.exe', '-u', '-m', 'telegram_signal_copier.main', 'listen']
+Starting listener with: ['D:\\Github repos\\Telegram signal Copier\\.venv\\Scripts\\python.exe', '-u', '-m', 'telegram_signal_copier.main', 'listen']
+Starting listener with: ['D:\\Github repos\\Telegram signal Copier\\.venv\\Scripts\\python.exe', '-u', '-m', 'telegram_signal_copier.main', 'listen']
+Starting listener with: ['D:\\Github repos\\Telegram signal Copier\\.venv\\Scripts\\python.exe', '-u', '-m', 'telegram_signal_copier.main', 'listen']
+Starting listener with: ['D:\\Github repos\\Telegram signal Copier\\.venv\\Scripts\\python.exe', '-u', '-m', 'telegram_signal_copier.main', 'listen']
+Starting listener with: ['D:\\Github repos\\Telegram signal Copier\\.venv\\Scripts\\python.exe', '-u', '-m', 'telegram_signal_copier.main', 'listen']
+Starting listener with: ['D:\\Github repos\\Telegram signal Copier\\.venv\\Scripts\\python.exe', '-u', '-m', 'telegram_signal_copier.main', 'listen']
+Starting listener with: ['D:\\Github repos\\Telegram signal Copier\\.venv\\Scripts\\python.exe', '-u', '-m', 'telegram_signal_copier.main', 'listen']
+Starting listener with: ['D:\\Github repos\\Telegram signal Copier\\.venv\\Scripts\\python.exe', '-u', '-m', 'telegram_signal_copier.main', 'listen']
+Starting listener with: ['D:\\Github repos\\Telegram signal Copier\\.venv\\Scripts\\python.exe', '-u', '-m', 'telegram_signal_copier.main', 'listen']
+Starting listener with: ['D:\\Github repos\\Telegram signal Copier\\.venv\\Scripts\\python.exe', '-u', '-m', 'telegram_signal_copier.main', 'listen']
+Starting listener with: ['D:\\Github repos\\Telegram signal Copier\\.venv\\Scripts\\python.exe', '-u', '-m', 'telegram_signal_copier.main', 'listen']
+Starting listener with: ['D:\\Github repos\\Telegram signal Copier\\.venv\\Scripts\\python.exe', '-u', '-m', 'telegram_signal_copier.main', 'listen']
+Starting listener with: ['D:\\Github repos\\Telegram signal Copier\\.venv\\Scripts\\python.exe', '-u', '-m', 'telegram_signal_copier.main', 'listen']
+Starting listener with: ['D:\\Github repos\\Telegram signal Copier\\.venv\\Scripts\\python.exe', '-u', '-m', 'telegram_signal_copier.main', 'listen']
+Starting listener with: ['D:\\Github repos\\Telegram signal Copier\\.venv\\Scripts\\python.exe', '-u', '-m', 'telegram_signal_copier.main', 'listen']
+Starting listener with: ['D:\\Github repos\\Telegram signal Copier\\.venv\\Scripts\\python.exe', '-u', '-m', 'telegram_signal_copier.main', 'listen']
+Starting listener with: ['D:\\Github repos\\Telegram signal Copier\\.venv\\Scripts\\python.exe', '-u', '-m', 'telegram_signal_copier.main', 'listen']
+Starting listener with: ['D:\\Github repos\\Telegram signal Copier\\.venv\\Scripts\\python.exe', '-u', '-m', 'telegram_signal_copier.main', 'listen']
+Starting listener with: ['D:\\Github repos\\Telegram signal Copier\\.venv\\Scripts\\python.exe', '-u', '-m', 'telegram_signal_copier.main', 'listen']
+Starting listener with: ['D:\\Github repos\\Telegram signal Copier\\.venv\\Scripts\\python.exe', '-u', '-m', 'telegram_signal_copier.main', 'listen']
+Starting listener with: ['D:\\Github repos\\Telegram signal Copier\\.venv\\Scripts\\python.exe', '-u', '-m', 'telegram_signal_copier.main', 'listen']
+Starting listener with: ['D:\\Github repos\\Telegram signal Copier\\.venv\\Scripts\\python.exe', '-u', '-m', 'telegram_signal_copier.main', 'listen']
+Starting listener with: ['D:\\Github repos\\Telegram signal Copier\\.venv\\Scripts\\python.exe', '-u', '-m', 'telegram_signal_copier.main', 'listen']
+Starting listener with: ['D:\\Github repos\\Telegram signal Copier\\.venv\\Scripts\\python.exe', '-u', '-m', 'telegram_signal_copier.main', 'listen']
+Starting listener with: ['D:\\Github repos\\Telegram signal Copier\\.venv\\Scripts\\python.exe', '-u', '-m', 'telegram_signal_copier.main', 'listen']
+Starting listener with: ['D:\\Github repos\\Telegram signal Copier\\.venv\\Scripts\\python.exe', '-u', '-m', 'telegram_signal_copier.main', 'listen']
+Starting listener with: ['D:\\Github repos\\Telegram signal Copier\\.venv\\Scripts\\python.exe', '-u', '-m', 'telegram_signal_copier.main', 'listen']
+Starting listener with: ['D:\\Github repos\\Telegram signal Copier\\.venv\\Scripts\\python.exe', '-u', '-m', 'telegram_signal_copier.main', 'listen']
+Starting listener with: ['D:\\Github repos\\Telegram signal Copier\\.venv\\Scripts\\python.exe', '-u', '-m', 'telegram_signal_copier.main', 'listen']
+Starting listener with: ['D:\\Github repos\\Telegram signal Copier\\.venv\\Scripts\\python.exe', '-u', '-m', 'telegram_signal_copier.main', 'listen']
+Starting listener with: ['D:\\Github repos\\Telegram signal Copier\\.venv\\Scripts\\python.exe', '-u', '-m', 'telegram_signal_copier.main', 'listen']
+Starting listener with: ['D:\\Github repos\\Telegram signal Copier\\.venv\\Scripts\\python.exe', '-u', '-m', 'telegram_signal_copier.main', 'listen']
+Starting listener with: ['D:\\Github repos\\Telegram signal Copier\\.venv\\Scripts\\python.exe', '-u', '-m', 'telegram_signal_copier.main', 'listen']
+Starting listener with: ['D:\\Github repos\\Telegram signal Copier\\.venv\\Scripts\\python.exe', '-u', '-m', 'telegram_signal_copier.main', 'listen']
+Starting listener with: ['D:\\Github repos\\Telegram signal Copier\\.venv\\Scripts\\python.exe', '-u', '-m', 'telegram_signal_copier.main', 'listen']
+Starting listener with: ['D:\\Github repos\\Telegram signal Copier\\.venv\\Scripts\\python.exe', '-u', '-m', 'telegram_signal_copier.main', 'listen']
+Starting listener with: ['D:\\Github repos\\Telegram signal Copier\\.venv\\Scripts\\python.exe', '-u', '-m', 'telegram_signal_copier.main', 'listen']
+Starting listener with: ['D:\\Github repos\\Telegram signal Copier\\.venv\\Scripts\\python.exe', '-u', '-m', 'telegram_signal_copier.main', 'listen']
+Starting listener with: ['D:\\Github repos\\Telegram signal Copier\\.venv\\Scripts\\python.exe', '-u', '-m', 'telegram_signal_copier.main', 'listen']
+Starting listener with: ['D:\\Github repos\\Telegram signal Copier\\.venv\\Scripts\\python.exe', '-u', '-m', 'telegram_signal_copier.main', 'listen']
+Starting listener with: ['D:\\Github repos\\Telegram signal Copier\\.venv\\Scripts\\python.exe', '-u', '-m', 'telegram_signal_copier.main', 'listen']
+Starting listener with: ['D:\\Github repos\\Telegram signal Copier\\.venv\\Scripts\\python.exe', '-u', '-m', 'telegram_signal_copier.main', 'listen']
+Starting listener with: ['D:\\Github repos\\Telegram signal Copier\\.venv\\Scripts\\python.exe', '-u', '-m', 'telegram_signal_copier.main', 'listen']
+Starting listener with: ['D:\\Github repos\\Telegram signal Copier\\.venv\\Scripts\\python.exe', '-u', '-m', 'telegram_signal_copier.main', 'listen']
+Starting listener with: ['D:\\Github repos\\Telegram signal Copier\\.venv\\Scripts\\python.exe', '-u', '-m', 'telegram_signal_copier.main', 'listen']
+Starting listener with: ['D:\\Github repos\\Telegram signal Copier\\.venv\\Scripts\\python.exe', '-u', '-m', 'telegram_signal_copier.main', 'listen']
+Starting listener with: ['D:\\Github repos\\Telegram signal Copier\\.venv\\Scripts\\python.exe', '-u', '-m', 'telegram_signal_copier.main', 'listen']
+Starting listener with: ['D:\\Github repos\\Telegram signal Copier\\.venv\\Scripts\\python.exe', '-u', '-m', 'telegram_signal_copier.main', 'listen']
+Starting listener with: ['D:\\Github repos\\Telegram signal Copier\\.venv\\Scripts\\python.exe', '-u', '-m', 'telegram_signal_copier.main', 'listen']
+Starting listener with: ['D:\\Github repos\\Telegram signal Copier\\.venv\\Scripts\\python.exe', '-u', '-m', 'telegram_signal_copier.main', 'listen']
+Starting listener with: ['D:\\Github repos\\Telegram signal Copier\\.venv\\Scripts\\python.exe', '-u', '-m', 'telegram_signal_copier.main', 'listen']
+Starting listener with: ['D:\\Github repos\\Telegram signal Copier\\.venv\\Scripts\\python.exe', '-u', '-m', 'telegram_signal_copier.main', 'listen']
+Starting listener with: ['D:\\Github repos\\Telegram signal Copier\\.venv\\Scripts\\python.exe', '-u', '-m', 'telegram_signal_copier.main', 'listen']
+Starting listener with: ['D:\\Github repos\\Telegram signal Copier\\.venv\\Scripts\\python.exe', '-u', '-m', 'telegram_signal_copier.main', 'listen']
+Starting listener with: ['D:\\Github repos\\Telegram signal Copier\\.venv\\Scripts\\python.exe', '-u', '-m', 'telegram_signal_copier.main', 'listen']
+Starting listener with: ['D:\\Github repos\\Telegram signal Copier\\.venv\\Scripts\\python.exe', '-u', '-m', 'telegram_signal_copier.main', 'listen']
+Starting listener with: ['D:\\Github repos\\Telegram signal Copier\\.venv\\Scripts\\python.exe', '-u', '-m', 'telegram_signal_copier.main', 'listen']
+Starting listener with: ['D:\\Github repos\\Telegram signal Copier\\.venv\\Scripts\\python.exe', '-u', '-m', 'telegram_signal_copier.main', 'listen']
+Starting listener with: ['D:\\Github repos\\Telegram signal Copier\\.venv\\Scripts\\python.exe', '-u', '-m', 'telegram_signal_copier.main', 'listen']
+Starting listener with: ['D:\\Github repos\\Telegram signal Copier\\.venv\\Scripts\\python.exe', '-u', '-m', 'telegram_signal_copier.main', 'listen']
+Starting listener with: ['D:\\Github repos\\Telegram signal Copier\\.venv\\Scripts\\python.exe', '-u', '-m', 'telegram_signal_copier.main', 'listen']
+Starting listener with: ['D:\\Github repos\\Telegram signal Copier\\.venv\\Scripts\\python.exe', '-u', '-m', 'telegram_signal_copier.main', 'listen']
+Starting listener with: ['D:\\Github repos\\Telegram signal Copier\\.venv\\Scripts\\python.exe', '-u', '-m', 'telegram_signal_copier.main', 'listen']
+Starting listener with: ['D:\\Github repos\\Telegram signal Copier\\.venv\\Scripts\\python.exe', '-u', '-m', 'telegram_signal_copier.main', 'listen']
+Starting listener with: ['D:\\Github repos\\Telegram signal Copier\\.venv\\Scripts\\python.exe', '-u', '-m', 'telegram_signal_copier.main', 'listen']
+Starting listener with: ['D:\\Github repos\\Telegram signal Copier\\.venv\\Scripts\\python.exe', '-u', '-m', 'telegram_signal_copier.main', 'listen']
+Starting listener with: ['D:\\Github repos\\Telegram signal Copier\\.venv\\Scripts\\python.exe', '-u', '-m', 'telegram_signal_copier.main', 'listen']
+Starting listener with: ['D:\\Github repos\\Telegram signal Copier\\.venv\\Scripts\\python.exe', '-u', '-m', 'telegram_signal_copier.main', 'listen']
+Starting listener with: ['D:\\Github repos\\Telegram signal Copier\\.venv\\Scripts\\python.exe', '-u', '-m', 'telegram_signal_copier.main', 'listen']
+Starting listener with: ['D:\\Github repos\\Telegram signal Copier\\.venv\\Scripts\\python.exe', '-u', '-m', 'telegram_signal_copier.main', 'listen']
+Starting listener with: ['D:\\Github repos\\Telegram signal Copier\\.venv\\Scripts\\python.exe', '-u', '-m', 'telegram_signal_copier.main', 'listen']
+Starting listener with: ['D:\\Github repos\\Telegram signal Copier\\.venv\\Scripts\\python.exe', '-u', '-m', 'telegram_signal_copier.main', 'listen']
+Starting listener with: ['D:\\Github repos\\Telegram signal Copier\\.venv\\Scripts\\python.exe', '-u', '-m', 'telegram_signal_copier.main', 'listen']
+Starting listener with: ['D:\\Github repos\\Telegram signal Copier\\.venv\\Scripts\\python.exe', '-u', '-m', 'telegram_signal_copier.main', 'listen']
+Starting listener with: ['D:\\Github repos\\Telegram signal Copier\\.venv\\Scripts\\python.exe', '-u', '-m', 'telegram_signal_copier.main', 'listen']
+Starting listener with: ['D:\\Github repos\\Telegram signal Copier\\.venv\\Scripts\\python.exe', '-u', '-m', 'telegram_signal_copier.main', 'listen']
+Starting detached listener with: ['D:\\Github repos\\Telegram signal Copier\\.venv\\Scripts\\python.exe', '-u', '-m', 'telegram_signal_copier.main', 'listen']
+Started PID 33668
+2026-05-14 13:22:34,825 [INFO] Startup health check: AI providers configured: 5
+2026-05-14 13:22:36,085 [INFO]     - primary: base_url=https://api.sambanova.ai/v1 vision=True status=ok probe=True
+2026-05-14 13:22:37,092 [INFO]     - cloudflare: base_url=https://api.cloudflare.com/client/v4 vision=False status=ok probe=False
+2026-05-14 13:22:37,299 [INFO]     - nvidia: base_url=https://integrate.api.nvidia.com/v1 vision=False status=ok probe=True
+2026-05-14 13:22:37,455 [INFO]     - cerebras: base_url=https://api.cerebras.ai/v1 vision=False status=ok probe=False
+2026-05-14 13:22:37,578 [INFO]     - groq: base_url=https://api.groq.com/openai/v1 vision=True status=ok probe=False
+2026-05-14 13:22:37,673 [INFO] Found tesseract binary at C:\Program Files\Tesseract-OCR\tesseract.exe
+2026-05-14 13:22:37,709 [INFO] Local OCR: python packages present, tesseract available: 5.5.0.20241111
+2026-05-14 13:22:37,712 [INFO] Wrote startup health to C:\Users\HP\AppData\Roaming\MetaQuotes\Terminal\Common\Files\startup_health.txt
+Starting listener (attempt 1)
+2026-05-14 13:22:38,096 [INFO] Failed to load SSL library: <class 'OSError'> (no library called "ssl" found)
+2026-05-14 13:22:38,100 [INFO] cryptg detected, it will be used for encryption
+2026-05-14 13:22:38,353 [INFO] Connecting to 91.108.56.163:443/TcpFull...
+2026-05-14 13:22:38,425 [INFO] Connection to 91.108.56.163:443/TcpFull complete!
+2026-05-14 13:22:50,779 [ERROR] Unhandled exception on handler
+Traceback (most recent call last):
+  File "D:\Github repos\Telegram signal Copier\.venv\Lib\site-packages\telethon\client\updates.py", line 605, in _dispatch_update
+    await callback(event)
+  File "D:\Github repos\Telegram signal Copier\src\telegram_signal_copier\adapters\telegram_client.py", line 134, in handler
+    message = await self._event_to_message(event)
+                    ^^^^^^^^^^^^^^^^^^^^^^
+AttributeError: 'TelegramSignalListener' object has no attribute '_event_to_message'
+2026-05-14 13:22:50,783 [ERROR] Unhandled exception on handler
+Traceback (most recent call last):
+  File "D:\Github repos\Telegram signal Copier\.venv\Lib\site-packages\telethon\client\updates.py", line 605, in _dispatch_update
+    await callback(event)
+  File "D:\Github repos\Telegram signal Copier\src\telegram_signal_copier\adapters\telegram_client.py", line 134, in handler
+    message = await self._event_to_message(event)
+                    ^^^^^^^^^^^^^^^^^^^^^^
+AttributeError: 'TelegramSignalListener' object has no attribute '_event_to_message'
+Starting listener with: ['D:\\Github repos\\Telegram signal Copier\\.venv\\Scripts\\python.exe', '-u', '-m', 'telegram_signal_copier.main', 'listen']
+Starting listener with: ['D:\\Github repos\\Telegram signal Copier\\.venv\\Scripts\\python.exe', '-u', '-m', 'telegram_signal_copier.main', 'listen']
+Starting listener with: ['D:\\Github repos\\Telegram signal Copier\\.venv\\Scripts\\python.exe', '-u', '-m', 'telegram_signal_copier.main', 'listen']
+Starting listener with: ['D:\\Github repos\\Telegram signal Copier\\.venv\\Scripts\\python.exe', '-u', '-m', 'telegram_signal_copier.main', 'listen']
+Starting detached listener with: ['D:\\Github repos\\Telegram signal Copier\\.venv\\Scripts\\python.exe', '-u', '-m', 'telegram_signal_copier.main', 'listen']
+Started PID 52388
+Starting listener with: ['D:\\Github repos\\Telegram signal Copier\\.venv\\Scripts\\python.exe', '-u', '-m', 'telegram_signal_copier.main', 'listen']
+Starting listener with: ['D:\\Github repos\\Telegram signal Copier\\.venv\\Scripts\\python.exe', '-u', '-m', 'telegram_signal_copier.main', 'listen']
+Starting listener with: ['D:\\Github repos\\Telegram signal Copier\\.venv\\Scripts\\python.exe', '-u', '-m', 'telegram_signal_copier.main', 'listen']
+Starting listener with: ['D:\\Github repos\\Telegram signal Copier\\.venv\\Scripts\\python.exe', '-u', '-m', 'telegram_signal_copier.main', 'listen']
+Starting detached listener with: ['D:\\Github repos\\Telegram signal Copier\\.venv\\Scripts\\python.exe', '-u', '-m', 'telegram_signal_copier.main', 'listen']
+Started PID 44932
+Starting listener with: ['D:\\Github repos\\Telegram signal Copier\\.venv\\Scripts\\python.exe', '-u', '-m', 'telegram_signal_copier.main', 'listen']
+Starting listener with: ['D:\\Github repos\\Telegram signal Copier\\.venv\\Scripts\\python.exe', '-u', '-m', 'telegram_signal_copier.main', 'listen']
+Starting listener with: ['D:\\Github repos\\Telegram signal Copier\\.venv\\Scripts\\python.exe', '-u', '-m', 'telegram_signal_copier.main', 'listen']
+Starting detached listener with: ['D:\\Github repos\\Telegram signal Copier\\.venv\\Scripts\\python.exe', '-u', '-m', 'telegram_signal_copier.main', 'listen']
+Started PID 53888
+Starting listener with: ['D:\\Github repos\\Telegram signal Copier\\.venv\\Scripts\\python.exe', '-u', '-m', 'telegram_signal_copier.main', 'listen']
+Starting listener with: ['D:\\Github repos\\Telegram signal Copier\\.venv\\Scripts\\python.exe', '-u', '-m', 'telegram_signal_copier.main', 'listen']
+Starting listener with: ['D:\\Github repos\\Telegram signal Copier\\.venv\\Scripts\\python.exe', '-u', '-m', 'telegram_signal_copier.main', 'listen']
+Starting listener with: ['D:\\Github repos\\Telegram signal Copier\\.venv\\Scripts\\python.exe', '-u', '-m', 'telegram_signal_copier.main', 'listen']
+Starting listener with: ['D:\\Github repos\\Telegram signal Copier\\.venv\\Scripts\\python.exe', '-u', '-m', 'telegram_signal_copier.main', 'listen']
+Starting listener with: ['D:\\Github repos\\Telegram signal Copier\\.venv\\Scripts\\python.exe', '-u', '-m', 'telegram_signal_copier.main', 'listen']
+Starting listener with: ['D:\\Github repos\\Telegram signal Copier\\.venv\\Scripts\\python.exe', '-u', '-m', 'telegram_signal_copier.main', 'listen']
+Starting listener with: ['D:\\Github repos\\Telegram signal Copier\\.venv\\Scripts\\python.exe', '-u', '-m', 'telegram_signal_copier.main', 'listen']
+Starting listener with: ['D:\\Github repos\\Telegram signal Copier\\.venv\\Scripts\\python.exe', '-u', '-m', 'telegram_signal_copier.main', 'listen']
+Starting listener with: ['D:\\Github repos\\Telegram signal Copier\\.venv\\Scripts\\python.exe', '-u', '-m', 'telegram_signal_copier.main', 'listen']
+Starting listener with: ['D:\\Github repos\\Telegram signal Copier\\.venv\\Scripts\\python.exe', '-u', '-m', 'telegram_signal_copier.main', 'listen']
+Starting listener with: ['D:\\Github repos\\Telegram signal Copier\\.venv\\Scripts\\python.exe', '-u', '-m', 'telegram_signal_copier.main', 'listen']
+Starting listener with: ['D:\\Github repos\\Telegram signal Copier\\.venv\\Scripts\\python.exe', '-u', '-m', 'telegram_signal_copier.main', 'listen']
+Starting listener with: ['D:\\Github repos\\Telegram signal Copier\\.venv\\Scripts\\python.exe', '-u', '-m', 'telegram_signal_copier.main', 'listen']
+Starting listener with: ['D:\\Github repos\\Telegram signal Copier\\.venv\\Scripts\\python.exe', '-u', '-m', 'telegram_signal_copier.main', 'listen']
+Starting listener with: ['D:\\Github repos\\Telegram signal Copier\\.venv\\Scripts\\python.exe', '-u', '-m', 'telegram_signal_copier.main', 'listen']
+Starting listener with: ['D:\\Github repos\\Telegram signal Copier\\.venv\\Scripts\\python.exe', '-u', '-m', 'telegram_signal_copier.main', 'listen']
+Starting listener with: ['D:\\Github repos\\Telegram signal Copier\\.venv\\Scripts\\python.exe', '-u', '-m', 'telegram_signal_copier.main', 'listen']
+Starting listener with: ['D:\\Github repos\\Telegram signal Copier\\.venv\\Scripts\\python.exe', '-u', '-m', 'telegram_signal_copier.main', 'listen']
+Starting listener with: ['D:\\Github repos\\Telegram signal Copier\\.venv\\Scripts\\python.exe', '-u', '-m', 'telegram_signal_copier.main', 'listen']
+Starting listener with: ['D:\\Github repos\\Telegram signal Copier\\.venv\\Scripts\\python.exe', '-u', '-m', 'telegram_signal_copier.main', 'listen']
+Starting listener with: ['D:\\Github repos\\Telegram signal Copier\\.venv\\Scripts\\python.exe', '-u', '-m', 'telegram_signal_copier.main', 'listen']
+Starting listener with: ['D:\\Github repos\\Telegram signal Copier\\.venv\\Scripts\\python.exe', '-u', '-m', 'telegram_signal_copier.main', 'listen']
+Starting listener with: ['D:\\Github repos\\Telegram signal Copier\\.venv\\Scripts\\python.exe', '-u', '-m', 'telegram_signal_copier.main', 'listen']
+Starting listener with: ['D:\\Github repos\\Telegram signal Copier\\.venv\\Scripts\\python.exe', '-u', '-m', 'telegram_signal_copier.main', 'listen']
+Starting listener with: ['D:\\Github repos\\Telegram signal Copier\\.venv\\Scripts\\python.exe', '-u', '-m', 'telegram_signal_copier.main', 'listen']
+Starting listener with: ['D:\\Github repos\\Telegram signal Copier\\.venv\\Scripts\\python.exe', '-u', '-m', 'telegram_signal_copier.main', 'listen']
+Starting listener with: ['D:\\Github repos\\Telegram signal Copier\\.venv\\Scripts\\python.exe', '-u', '-m', 'telegram_signal_copier.main', 'listen']
+Starting listener with: ['D:\\Github repos\\Telegram signal Copier\\.venv\\Scripts\\python.exe', '-u', '-m', 'telegram_signal_copier.main', 'listen']
+Starting listener with: ['D:\\Github repos\\Telegram signal Copier\\.venv\\Scripts\\python.exe', '-u', '-m', 'telegram_signal_copier.main', 'listen']
+Starting listener with: ['D:\\Github repos\\Telegram signal Copier\\.venv\\Scripts\\python.exe', '-u', '-m', 'telegram_signal_copier.main', 'listen']
+Starting listener with: ['D:\\Github repos\\Telegram signal Copier\\.venv\\Scripts\\python.exe', '-u', '-m', 'telegram_signal_copier.main', 'listen']
+Starting listener with: ['D:\\Github repos\\Telegram signal Copier\\.venv\\Scripts\\python.exe', '-u', '-m', 'telegram_signal_copier.main', 'listen']
+Starting listener with: ['D:\\Github repos\\Telegram signal Copier\\.venv\\Scripts\\python.exe', '-u', '-m', 'telegram_signal_copier.main', 'listen']
+Starting listener with: ['D:\\Github repos\\Telegram signal Copier\\.venv\\Scripts\\python.exe', '-u', '-m', 'telegram_signal_copier.main', 'listen']
+Starting listener with: ['D:\\Github repos\\Telegram signal Copier\\.venv\\Scripts\\python.exe', '-u', '-m', 'telegram_signal_copier.main', 'listen']
+Starting listener with: ['D:\\Github repos\\Telegram signal Copier\\.venv\\Scripts\\python.exe', '-u', '-m', 'telegram_signal_copier.main', 'listen']
+Starting listener with: ['D:\\Github repos\\Telegram signal Copier\\.venv\\Scripts\\python.exe', '-u', '-m', 'telegram_signal_copier.main', 'listen']
+Starting listener with: ['D:\\Github repos\\Telegram signal Copier\\.venv\\Scripts\\python.exe', '-u', '-m', 'telegram_signal_copier.main', 'listen']
+Starting listener with: ['D:\\Github repos\\Telegram signal Copier\\.venv\\Scripts\\python.exe', '-u', '-m', 'telegram_signal_copier.main', 'listen']
+Starting listener with: ['D:\\Github repos\\Telegram signal Copier\\.venv\\Scripts\\python.exe', '-u', '-m', 'telegram_signal_copier.main', 'listen']
+Starting listener with: ['D:\\Github repos\\Telegram signal Copier\\.venv\\Scripts\\python.exe', '-u', '-m', 'telegram_signal_copier.main', 'listen']
+Starting listener with: ['D:\\Github repos\\Telegram signal Copier\\.venv\\Scripts\\python.exe', '-u', '-m', 'telegram_signal_copier.main', 'listen']
+Starting listener with: ['D:\\Github repos\\Telegram signal Copier\\.venv\\Scripts\\python.exe', '-u', '-m', 'telegram_signal_copier.main', 'listen']
+Starting listener with: ['D:\\Github repos\\Telegram signal Copier\\.venv\\Scripts\\python.exe', '-u', '-m', 'telegram_signal_copier.main', 'listen']
+Starting listener with: ['D:\\Github repos\\Telegram signal Copier\\.venv\\Scripts\\python.exe', '-u', '-m', 'telegram_signal_copier.main', 'listen']
+Starting listener with: ['D:\\Github repos\\Telegram signal Copier\\.venv\\Scripts\\python.exe', '-u', '-m', 'telegram_signal_copier.main', 'listen']
+Starting listener with: ['D:\\Github repos\\Telegram signal Copier\\.venv\\Scripts\\python.exe', '-u', '-m', 'telegram_signal_copier.main', 'listen']
+Starting listener with: ['D:\\Github repos\\Telegram signal Copier\\.venv\\Scripts\\python.exe', '-u', '-m', 'telegram_signal_copier.main', 'listen']
+Starting listener with: ['D:\\Github repos\\Telegram signal Copier\\.venv\\Scripts\\python.exe', '-u', '-m', 'telegram_signal_copier.main', 'listen']
+Starting listener with: ['D:\\Github repos\\Telegram signal Copier\\.venv\\Scripts\\python.exe', '-u', '-m', 'telegram_signal_copier.main', 'listen']
+Starting listener with: ['D:\\Github repos\\Telegram signal Copier\\.venv\\Scripts\\python.exe', '-u', '-m', 'telegram_signal_copier.main', 'listen']
+Starting listener with: ['D:\\Github repos\\Telegram signal Copier\\.venv\\Scripts\\python.exe', '-u', '-m', 'telegram_signal_copier.main', 'listen']
+Starting listener with: ['D:\\Github repos\\Telegram signal Copier\\.venv\\Scripts\\python.exe', '-u', '-m', 'telegram_signal_copier.main', 'listen']
+Starting listener with: ['D:\\Github repos\\Telegram signal Copier\\.venv\\Scripts\\python.exe', '-u', '-m', 'telegram_signal_copier.main', 'listen']
+Starting listener with: ['D:\\Github repos\\Telegram signal Copier\\.venv\\Scripts\\python.exe', '-u', '-m', 'telegram_signal_copier.main', 'listen']
+Starting listener with: ['D:\\Github repos\\Telegram signal Copier\\.venv\\Scripts\\python.exe', '-u', '-m', 'telegram_signal_copier.main', 'listen']
+Starting listener with: ['D:\\Github repos\\Telegram signal Copier\\.venv\\Scripts\\python.exe', '-u', '-m', 'telegram_signal_copier.main', 'listen']
+Starting listener with: ['D:\\Github repos\\Telegram signal Copier\\.venv\\Scripts\\python.exe', '-u', '-m', 'telegram_signal_copier.main', 'listen']
+Starting listener with: ['D:\\Github repos\\Telegram signal Copier\\.venv\\Scripts\\python.exe', '-u', '-m', 'telegram_signal_copier.main', 'listen']
+Starting listener with: ['D:\\Github repos\\Telegram signal Copier\\.venv\\Scripts\\python.exe', '-u', '-m', 'telegram_signal_copier.main', 'listen']
+Starting listener with: ['D:\\Github repos\\Telegram signal Copier\\.venv\\Scripts\\python.exe', '-u', '-m', 'telegram_signal_copier.main', 'listen']
+Starting listener with: ['D:\\Github repos\\Telegram signal Copier\\.venv\\Scripts\\python.exe', '-u', '-m', 'telegram_signal_copier.main', 'listen']
+Starting listener with: ['D:\\Github repos\\Telegram signal Copier\\.venv\\Scripts\\python.exe', '-u', '-m', 'telegram_signal_copier.main', 'listen']
+Starting listener with: ['D:\\Github repos\\Telegram signal Copier\\.venv\\Scripts\\python.exe', '-u', '-m', 'telegram_signal_copier.main', 'listen']
+Starting listener with: ['D:\\Github repos\\Telegram signal Copier\\.venv\\Scripts\\python.exe', '-u', '-m', 'telegram_signal_copier.main', 'listen']
+Starting listener with: ['D:\\Github repos\\Telegram signal Copier\\.venv\\Scripts\\python.exe', '-u', '-m', 'telegram_signal_copier.main', 'listen']
+Starting listener with: ['D:\\Github repos\\Telegram signal Copier\\.venv\\Scripts\\python.exe', '-u', '-m', 'telegram_signal_copier.main', 'listen']
+Starting listener with: ['D:\\Github repos\\Telegram signal Copier\\.venv\\Scripts\\python.exe', '-u', '-m', 'telegram_signal_copier.main', 'listen']
+Starting listener with: ['D:\\Github repos\\Telegram signal Copier\\.venv\\Scripts\\python.exe', '-u', '-m', 'telegram_signal_copier.main', 'listen']
+Starting listener with: ['D:\\Github repos\\Telegram signal Copier\\.venv\\Scripts\\python.exe', '-u', '-m', 'telegram_signal_copier.main', 'listen']
+Starting listener with: ['D:\\Github repos\\Telegram signal Copier\\.venv\\Scripts\\python.exe', '-u', '-m', 'telegram_signal_copier.main', 'listen']
+Starting listener with: ['D:\\Github repos\\Telegram signal Copier\\.venv\\Scripts\\python.exe', '-u', '-m', 'telegram_signal_copier.main', 'listen']
+Starting listener with: ['D:\\Github repos\\Telegram signal Copier\\.venv\\Scripts\\python.exe', '-u', '-m', 'telegram_signal_copier.main', 'listen']
+Starting listener with: ['D:\\Github repos\\Telegram signal Copier\\.venv\\Scripts\\python.exe', '-u', '-m', 'telegram_signal_copier.main', 'listen']
+Starting listener with: ['D:\\Github repos\\Telegram signal Copier\\.venv\\Scripts\\python.exe', '-u', '-m', 'telegram_signal_copier.main', 'listen']
+Starting listener with: ['D:\\Github repos\\Telegram signal Copier\\.venv\\Scripts\\python.exe', '-u', '-m', 'telegram_signal_copier.main', 'listen']
+Starting listener with: ['D:\\Github repos\\Telegram signal Copier\\.venv\\Scripts\\python.exe', '-u', '-m', 'telegram_signal_copier.main', 'listen']
+Starting listener with: ['D:\\Github repos\\Telegram signal Copier\\.venv\\Scripts\\python.exe', '-u', '-m', 'telegram_signal_copier.main', 'listen']
+Starting listener with: ['D:\\Github repos\\Telegram signal Copier\\.venv\\Scripts\\python.exe', '-u', '-m', 'telegram_signal_copier.main', 'listen']
+Starting listener with: ['D:\\Github repos\\Telegram signal Copier\\.venv\\Scripts\\python.exe', '-u', '-m', 'telegram_signal_copier.main', 'listen']
+Starting listener with: ['D:\\Github repos\\Telegram signal Copier\\.venv\\Scripts\\python.exe', '-u', '-m', 'telegram_signal_copier.main', 'listen']
+Starting listener with: ['D:\\Github repos\\Telegram signal Copier\\.venv\\Scripts\\python.exe', '-u', '-m', 'telegram_signal_copier.main', 'listen']
+Starting listener with: ['D:\\Github repos\\Telegram signal Copier\\.venv\\Scripts\\python.exe', '-u', '-m', 'telegram_signal_copier.main', 'listen']
+Starting listener with: ['D:\\Github repos\\Telegram signal Copier\\.venv\\Scripts\\python.exe', '-u', '-m', 'telegram_signal_copier.main', 'listen']
+Starting listener with: ['D:\\Github repos\\Telegram signal Copier\\.venv\\Scripts\\python.exe', '-u', '-m', 'telegram_signal_copier.main', 'listen']
+Starting listener with: ['D:\\Github repos\\Telegram signal Copier\\.venv\\Scripts\\python.exe', '-u', '-m', 'telegram_signal_copier.main', 'listen']
+Starting listener with: ['D:\\Github repos\\Telegram signal Copier\\.venv\\Scripts\\python.exe', '-u', '-m', 'telegram_signal_copier.main', 'listen']
+Starting listener with: ['D:\\Github repos\\Telegram signal Copier\\.venv\\Scripts\\python.exe', '-u', '-m', 'telegram_signal_copier.main', 'listen']
+Starting listener with: ['D:\\Github repos\\Telegram signal Copier\\.venv\\Scripts\\python.exe', '-u', '-m', 'telegram_signal_copier.main', 'listen']
+Starting listener with: ['D:\\Github repos\\Telegram signal Copier\\.venv\\Scripts\\python.exe', '-u', '-m', 'telegram_signal_copier.main', 'listen']
+Starting listener with: ['D:\\Github repos\\Telegram signal Copier\\.venv\\Scripts\\python.exe', '-u', '-m', 'telegram_signal_copier.main', 'listen']
+Starting listener with: ['D:\\Github repos\\Telegram signal Copier\\.venv\\Scripts\\python.exe', '-u', '-m', 'telegram_signal_copier.main', 'listen']
+Starting listener with: ['D:\\Github repos\\Telegram signal Copier\\.venv\\Scripts\\python.exe', '-u', '-m', 'telegram_signal_copier.main', 'listen']
+Starting listener with: ['D:\\Github repos\\Telegram signal Copier\\.venv\\Scripts\\python.exe', '-u', '-m', 'telegram_signal_copier.main', 'listen']
+Starting listener with: ['D:\\Github repos\\Telegram signal Copier\\.venv\\Scripts\\python.exe', '-u', '-m', 'telegram_signal_copier.main', 'listen']
+Starting listener with: ['D:\\Github repos\\Telegram signal Copier\\.venv\\Scripts\\python.exe', '-u', '-m', 'telegram_signal_copier.main', 'listen']
+Starting listener with: ['D:\\Github repos\\Telegram signal Copier\\.venv\\Scripts\\python.exe', '-u', '-m', 'telegram_signal_copier.main', 'listen']
+Starting listener with: ['D:\\Github repos\\Telegram signal Copier\\.venv\\Scripts\\python.exe', '-u', '-m', 'telegram_signal_copier.main', 'listen']
+Starting listener with: ['D:\\Github repos\\Telegram signal Copier\\.venv\\Scripts\\python.exe', '-u', '-m', 'telegram_signal_copier.main', 'listen']
+Starting listener with: ['D:\\Github repos\\Telegram signal Copier\\.venv\\Scripts\\python.exe', '-u', '-m', 'telegram_signal_copier.main', 'listen']
+Starting listener with: ['D:\\Github repos\\Telegram signal Copier\\.venv\\Scripts\\python.exe', '-u', '-m', 'telegram_signal_copier.main', 'listen']
+Starting listener with: ['D:\\Github repos\\Telegram signal Copier\\.venv\\Scripts\\python.exe', '-u', '-m', 'telegram_signal_copier.main', 'listen']
+Starting listener with: ['D:\\Github repos\\Telegram signal Copier\\.venv\\Scripts\\python.exe', '-u', '-m', 'telegram_signal_copier.main', 'listen']
+Starting listener with: ['D:\\Github repos\\Telegram signal Copier\\.venv\\Scripts\\python.exe', '-u', '-m', 'telegram_signal_copier.main', 'listen']
+Starting listener with: ['D:\\Github repos\\Telegram signal Copier\\.venv\\Scripts\\python.exe', '-u', '-m', 'telegram_signal_copier.main', 'listen']
+Starting listener with: ['D:\\Github repos\\Telegram signal Copier\\.venv\\Scripts\\python.exe', '-u', '-m', 'telegram_signal_copier.main', 'listen']
+Starting listener with: ['D:\\Github repos\\Telegram signal Copier\\.venv\\Scripts\\python.exe', '-u', '-m', 'telegram_signal_copier.main', 'listen']
+Starting listener with: ['D:\\Github repos\\Telegram signal Copier\\.venv\\Scripts\\python.exe', '-u', '-m', 'telegram_signal_copier.main', 'listen']
+Starting listener with: ['D:\\Github repos\\Telegram signal Copier\\.venv\\Scripts\\python.exe', '-u', '-m', 'telegram_signal_copier.main', 'listen']
+Starting listener with: ['D:\\Github repos\\Telegram signal Copier\\.venv\\Scripts\\python.exe', '-u', '-m', 'telegram_signal_copier.main', 'listen']
+Starting listener with: ['D:\\Github repos\\Telegram signal Copier\\.venv\\Scripts\\python.exe', '-u', '-m', 'telegram_signal_copier.main', 'listen']
+Starting listener with: ['D:\\Github repos\\Telegram signal Copier\\.venv\\Scripts\\python.exe', '-u', '-m', 'telegram_signal_copier.main', 'listen']
+Starting listener with: ['D:\\Github repos\\Telegram signal Copier\\.venv\\Scripts\\python.exe', '-u', '-m', 'telegram_signal_copier.main', 'listen']
+Starting listener with: ['D:\\Github repos\\Telegram signal Copier\\.venv\\Scripts\\python.exe', '-u', '-m', 'telegram_signal_copier.main', 'listen']
+Starting listener with: ['D:\\Github repos\\Telegram signal Copier\\.venv\\Scripts\\python.exe', '-u', '-m', 'telegram_signal_copier.main', 'listen']
+Starting listener with: ['D:\\Github repos\\Telegram signal Copier\\.venv\\Scripts\\python.exe', '-u', '-m', 'telegram_signal_copier.main', 'listen']
+Starting listener with: ['D:\\Github repos\\Telegram signal Copier\\.venv\\Scripts\\python.exe', '-u', '-m', 'telegram_signal_copier.main', 'listen']
+Starting listener with: ['D:\\Github repos\\Telegram signal Copier\\.venv\\Scripts\\python.exe', '-u', '-m', 'telegram_signal_copier.main', 'listen']
+Starting listener with: ['D:\\Github repos\\Telegram signal Copier\\.venv\\Scripts\\python.exe', '-u', '-m', 'telegram_signal_copier.main', 'listen']
+Starting listener with: ['D:\\Github repos\\Telegram signal Copier\\.venv\\Scripts\\python.exe', '-u', '-m', 'telegram_signal_copier.main', 'listen']
+Starting listener with: ['D:\\Github repos\\Telegram signal Copier\\.venv\\Scripts\\python.exe', '-u', '-m', 'telegram_signal_copier.main', 'listen']
+Starting listener with: ['D:\\Github repos\\Telegram signal Copier\\.venv\\Scripts\\python.exe', '-u', '-m', 'telegram_signal_copier.main', 'listen']
+Starting listener with: ['D:\\Github repos\\Telegram signal Copier\\.venv\\Scripts\\python.exe', '-u', '-m', 'telegram_signal_copier.main', 'listen']
+Starting listener with: ['D:\\Github repos\\Telegram signal Copier\\.venv\\Scripts\\python.exe', '-u', '-m', 'telegram_signal_copier.main', 'listen']
+Starting listener with: ['D:\\Github repos\\Telegram signal Copier\\.venv\\Scripts\\python.exe', '-u', '-m', 'telegram_signal_copier.main', 'listen']
+Starting listener with: ['D:\\Github repos\\Telegram signal Copier\\.venv\\Scripts\\python.exe', '-u', '-m', 'telegram_signal_copier.main', 'listen']
+Starting listener with: ['D:\\Github repos\\Telegram signal Copier\\.venv\\Scripts\\python.exe', '-u', '-m', 'telegram_signal_copier.main', 'listen']
+Starting listener with: ['D:\\Github repos\\Telegram signal Copier\\.venv\\Scripts\\python.exe', '-u', '-m', 'telegram_signal_copier.main', 'listen']
+Starting listener with: ['D:\\Github repos\\Telegram signal Copier\\.venv\\Scripts\\python.exe', '-u', '-m', 'telegram_signal_copier.main', 'listen']
+Starting listener with: ['D:\\Github repos\\Telegram signal Copier\\.venv\\Scripts\\python.exe', '-u', '-m', 'telegram_signal_copier.main', 'listen']
+Starting listener with: ['D:\\Github repos\\Telegram signal Copier\\.venv\\Scripts\\python.exe', '-u', '-m', 'telegram_signal_copier.main', 'listen']
+Starting listener with: ['D:\\Github repos\\Telegram signal Copier\\.venv\\Scripts\\python.exe', '-u', '-m', 'telegram_signal_copier.main', 'listen']
+Starting listener with: ['D:\\Github repos\\Telegram signal Copier\\.venv\\Scripts\\python.exe', '-u', '-m', 'telegram_signal_copier.main', 'listen']
+Starting listener with: ['D:\\Github repos\\Telegram signal Copier\\.venv\\Scripts\\python.exe', '-u', '-m', 'telegram_signal_copier.main', 'listen']
+Starting listener with: ['D:\\Github repos\\Telegram signal Copier\\.venv\\Scripts\\python.exe', '-u', '-m', 'telegram_signal_copier.main', 'listen']
+Starting listener with: ['D:\\Github repos\\Telegram signal Copier\\.venv\\Scripts\\python.exe', '-u', '-m', 'telegram_signal_copier.main', 'listen']
+Starting listener with: ['D:\\Github repos\\Telegram signal Copier\\.venv\\Scripts\\python.exe', '-u', '-m', 'telegram_signal_copier.main', 'listen']
+Starting listener with: ['D:\\Github repos\\Telegram signal Copier\\.venv\\Scripts\\python.exe', '-u', '-m', 'telegram_signal_copier.main', 'listen']
+Starting listener with: ['D:\\Github repos\\Telegram signal Copier\\.venv\\Scripts\\python.exe', '-u', '-m', 'telegram_signal_copier.main', 'listen']
+Starting listener with: ['D:\\Github repos\\Telegram signal Copier\\.venv\\Scripts\\python.exe', '-u', '-m', 'telegram_signal_copier.main', 'listen']
+Starting listener with: ['D:\\Github repos\\Telegram signal Copier\\.venv\\Scripts\\python.exe', '-u', '-m', 'telegram_signal_copier.main', 'listen']
+Starting listener with: ['D:\\Github repos\\Telegram signal Copier\\.venv\\Scripts\\python.exe', '-u', '-m', 'telegram_signal_copier.main', 'listen']
+Starting listener with: ['D:\\Github repos\\Telegram signal Copier\\.venv\\Scripts\\python.exe', '-u', '-m', 'telegram_signal_copier.main', 'listen']
+Starting listener with: ['D:\\Github repos\\Telegram signal Copier\\.venv\\Scripts\\python.exe', '-u', '-m', 'telegram_signal_copier.main', 'listen']
+Starting listener with: ['D:\\Github repos\\Telegram signal Copier\\.venv\\Scripts\\python.exe', '-u', '-m', 'telegram_signal_copier.main', 'listen']
+Starting listener with: ['D:\\Github repos\\Telegram signal Copier\\.venv\\Scripts\\python.exe', '-u', '-m', 'telegram_signal_copier.main', 'listen']
+Starting listener with: ['D:\\Github repos\\Telegram signal Copier\\.venv\\Scripts\\python.exe', '-u', '-m', 'telegram_signal_copier.main', 'listen']
+Starting listener with: ['D:\\Github repos\\Telegram signal Copier\\.venv\\Scripts\\python.exe', '-u', '-m', 'telegram_signal_copier.main', 'listen']
+Starting listener with: ['D:\\Github repos\\Telegram signal Copier\\.venv\\Scripts\\python.exe', '-u', '-m', 'telegram_signal_copier.main', 'listen']
+Starting listener with: ['D:\\Github repos\\Telegram signal Copier\\.venv\\Scripts\\python.exe', '-u', '-m', 'telegram_signal_copier.main', 'listen']
+Starting listener with: ['D:\\Github repos\\Telegram signal Copier\\.venv\\Scripts\\python.exe', '-u', '-m', 'telegram_signal_copier.main', 'listen']
+Starting listener with: ['D:\\Github repos\\Telegram signal Copier\\.venv\\Scripts\\python.exe', '-u', '-m', 'telegram_signal_copier.main', 'listen']
+Starting listener with: ['D:\\Github repos\\Telegram signal Copier\\.venv\\Scripts\\python.exe', '-u', '-m', 'telegram_signal_copier.main', 'listen']
+Starting listener with: ['D:\\Github repos\\Telegram signal Copier\\.venv\\Scripts\\python.exe', '-u', '-m', 'telegram_signal_copier.main', 'listen']
+Starting listener with: ['D:\\Github repos\\Telegram signal Copier\\.venv\\Scripts\\python.exe', '-u', '-m', 'telegram_signal_copier.main', 'listen']
+Starting listener with: ['D:\\Github repos\\Telegram signal Copier\\.venv\\Scripts\\python.exe', '-u', '-m', 'telegram_signal_copier.main', 'listen']
+Starting listener with: ['D:\\Github repos\\Telegram signal Copier\\.venv\\Scripts\\python.exe', '-u', '-m', 'telegram_signal_copier.main', 'listen']
+Starting listener with: ['D:\\Github repos\\Telegram signal Copier\\.venv\\Scripts\\python.exe', '-u', '-m', 'telegram_signal_copier.main', 'listen']
+Starting listener with: ['D:\\Github repos\\Telegram signal Copier\\.venv\\Scripts\\python.exe', '-u', '-m', 'telegram_signal_copier.main', 'listen']
+Starting listener with: ['D:\\Github repos\\Telegram signal Copier\\.venv\\Scripts\\python.exe', '-u', '-m', 'telegram_signal_copier.main', 'listen']
+Starting listener with: ['D:\\Github repos\\Telegram signal Copier\\.venv\\Scripts\\python.exe', '-u', '-m', 'telegram_signal_copier.main', 'listen']
+Starting listener with: ['D:\\Github repos\\Telegram signal Copier\\.venv\\Scripts\\python.exe', '-u', '-m', 'telegram_signal_copier.main', 'listen']
+Starting listener with: ['D:\\Github repos\\Telegram signal Copier\\.venv\\Scripts\\python.exe', '-u', '-m', 'telegram_signal_copier.main', 'listen']
+Starting listener with: ['D:\\Github repos\\Telegram signal Copier\\.venv\\Scripts\\python.exe', '-u', '-m', 'telegram_signal_copier.main', 'listen']
+Starting listener with: ['D:\\Github repos\\Telegram signal Copier\\.venv\\Scripts\\python.exe', '-u', '-m', 'telegram_signal_copier.main', 'listen']
+Starting listener with: ['D:\\Github repos\\Telegram signal Copier\\.venv\\Scripts\\python.exe', '-u', '-m', 'telegram_signal_copier.main', 'listen']
+Starting listener with: ['D:\\Github repos\\Telegram signal Copier\\.venv\\Scripts\\python.exe', '-u', '-m', 'telegram_signal_copier.main', 'listen']
+Starting listener with: ['D:\\Github repos\\Telegram signal Copier\\.venv\\Scripts\\python.exe', '-u', '-m', 'telegram_signal_copier.main', 'listen']
+Starting listener with: ['D:\\Github repos\\Telegram signal Copier\\.venv\\Scripts\\python.exe', '-u', '-m', 'telegram_signal_copier.main', 'listen']
+Starting listener with: ['D:\\Github repos\\Telegram signal Copier\\.venv\\Scripts\\python.exe', '-u', '-m', 'telegram_signal_copier.main', 'listen']
+Starting listener with: ['D:\\Github repos\\Telegram signal Copier\\.venv\\Scripts\\python.exe', '-u', '-m', 'telegram_signal_copier.main', 'listen']
+Starting listener with: ['D:\\Github repos\\Telegram signal Copier\\.venv\\Scripts\\python.exe', '-u', '-m', 'telegram_signal_copier.main', 'listen']
+Starting listener with: ['D:\\Github repos\\Telegram signal Copier\\.venv\\Scripts\\python.exe', '-u', '-m', 'telegram_signal_copier.main', 'listen']
+Starting listener with: ['D:\\Github repos\\Telegram signal Copier\\.venv\\Scripts\\python.exe', '-u', '-m', 'telegram_signal_copier.main', 'listen']
+Starting listener with: ['D:\\Github repos\\Telegram signal Copier\\.venv\\Scripts\\python.exe', '-u', '-m', 'telegram_signal_copier.main', 'listen']
+Starting listener with: ['D:\\Github repos\\Telegram signal Copier\\.venv\\Scripts\\python.exe', '-u', '-m', 'telegram_signal_copier.main', 'listen']
+Starting listener with: ['D:\\Github repos\\Telegram signal Copier\\.venv\\Scripts\\python.exe', '-u', '-m', 'telegram_signal_copier.main', 'listen']
+Starting listener with: ['D:\\Github repos\\Telegram signal Copier\\.venv\\Scripts\\python.exe', '-u', '-m', 'telegram_signal_copier.main', 'listen']
+Starting listener with: ['D:\\Github repos\\Telegram signal Copier\\.venv\\Scripts\\python.exe', '-u', '-m', 'telegram_signal_copier.main', 'listen']
+Starting listener with: ['D:\\Github repos\\Telegram signal Copier\\.venv\\Scripts\\python.exe', '-u', '-m', 'telegram_signal_copier.main', 'listen']
+Starting listener with: ['D:\\Github repos\\Telegram signal Copier\\.venv\\Scripts\\python.exe', '-u', '-m', 'telegram_signal_copier.main', 'listen']
+Starting listener with: ['D:\\Github repos\\Telegram signal Copier\\.venv\\Scripts\\python.exe', '-u', '-m', 'telegram_signal_copier.main', 'listen']
+Starting listener with: ['D:\\Github repos\\Telegram signal Copier\\.venv\\Scripts\\python.exe', '-u', '-m', 'telegram_signal_copier.main', 'listen']
+Starting listener with: ['D:\\Github repos\\Telegram signal Copier\\.venv\\Scripts\\python.exe', '-u', '-m', 'telegram_signal_copier.main', 'listen']
+Starting listener with: ['D:\\Github repos\\Telegram signal Copier\\.venv\\Scripts\\python.exe', '-u', '-m', 'telegram_signal_copier.main', 'listen']
+Starting listener with: ['D:\\Github repos\\Telegram signal Copier\\.venv\\Scripts\\python.exe', '-u', '-m', 'telegram_signal_copier.main', 'listen']
+Starting listener with: ['D:\\Github repos\\Telegram signal Copier\\.venv\\Scripts\\python.exe', '-u', '-m', 'telegram_signal_copier.main', 'listen']
+Starting listener with: ['D:\\Github repos\\Telegram signal Copier\\.venv\\Scripts\\python.exe', '-u', '-m', 'telegram_signal_copier.main', 'listen']
+Starting listener with: ['D:\\Github repos\\Telegram signal Copier\\.venv\\Scripts\\python.exe', '-u', '-m', 'telegram_signal_copier.main', 'listen']
+Starting listener with: ['D:\\Github repos\\Telegram signal Copier\\.venv\\Scripts\\python.exe', '-u', '-m', 'telegram_signal_copier.main', 'listen']
+Starting listener with: ['D:\\Github repos\\Telegram signal Copier\\.venv\\Scripts\\python.exe', '-u', '-m', 'telegram_signal_copier.main', 'listen']
+Starting listener with: ['D:\\Github repos\\Telegram signal Copier\\.venv\\Scripts\\python.exe', '-u', '-m', 'telegram_signal_copier.main', 'listen']
+Starting listener with: ['D:\\Github repos\\Telegram signal Copier\\.venv\\Scripts\\python.exe', '-u', '-m', 'telegram_signal_copier.main', 'listen']
+Starting listener with: ['D:\\Github repos\\Telegram signal Copier\\.venv\\Scripts\\python.exe', '-u', '-m', 'telegram_signal_copier.main', 'listen']
+Starting listener with: ['D:\\Github repos\\Telegram signal Copier\\.venv\\Scripts\\python.exe', '-u', '-m', 'telegram_signal_copier.main', 'listen']
+Starting listener with: ['D:\\Github repos\\Telegram signal Copier\\.venv\\Scripts\\python.exe', '-u', '-m', 'telegram_signal_copier.main', 'listen']
+Starting listener with: ['D:\\Github repos\\Telegram signal Copier\\.venv\\Scripts\\python.exe', '-u', '-m', 'telegram_signal_copier.main', 'listen']
+Starting listener with: ['D:\\Github repos\\Telegram signal Copier\\.venv\\Scripts\\python.exe', '-u', '-m', 'telegram_signal_copier.main', 'listen']
+Starting listener with: ['D:\\Github repos\\Telegram signal Copier\\.venv\\Scripts\\python.exe', '-u', '-m', 'telegram_signal_copier.main', 'listen']
+Starting listener with: ['D:\\Github repos\\Telegram signal Copier\\.venv\\Scripts\\python.exe', '-u', '-m', 'telegram_signal_copier.main', 'listen']
+Starting listener with: ['D:\\Github repos\\Telegram signal Copier\\.venv\\Scripts\\python.exe', '-u', '-m', 'telegram_signal_copier.main', 'listen']
+Starting listener with: ['D:\\Github repos\\Telegram signal Copier\\.venv\\Scripts\\python.exe', '-u', '-m', 'telegram_signal_copier.main', 'listen']
+Starting listener with: ['D:\\Github repos\\Telegram signal Copier\\.venv\\Scripts\\python.exe', '-u', '-m', 'telegram_signal_copier.main', 'listen']
+Starting listener with: ['D:\\Github repos\\Telegram signal Copier\\.venv\\Scripts\\python.exe', '-u', '-m', 'telegram_signal_copier.main', 'listen']
+Starting listener with: ['D:\\Github repos\\Telegram signal Copier\\.venv\\Scripts\\python.exe', '-u', '-m', 'telegram_signal_copier.main', 'listen']
+Starting listener with: ['D:\\Github repos\\Telegram signal Copier\\.venv\\Scripts\\python.exe', '-u', '-m', 'telegram_signal_copier.main', 'listen']
+Starting listener with: ['D:\\Github repos\\Telegram signal Copier\\.venv\\Scripts\\python.exe', '-u', '-m', 'telegram_signal_copier.main', 'listen']
+Starting listener with: ['D:\\Github repos\\Telegram signal Copier\\.venv\\Scripts\\python.exe', '-u', '-m', 'telegram_signal_copier.main', 'listen']
+Starting listener with: ['D:\\Github repos\\Telegram signal Copier\\.venv\\Scripts\\python.exe', '-u', '-m', 'telegram_signal_copier.main', 'listen']
+Starting listener with: ['D:\\Github repos\\Telegram signal Copier\\.venv\\Scripts\\python.exe', '-u', '-m', 'telegram_signal_copier.main', 'listen']
+Starting listener with: ['D:\\Github repos\\Telegram signal Copier\\.venv\\Scripts\\python.exe', '-u', '-m', 'telegram_signal_copier.main', 'listen']
+Starting listener with: ['D:\\Github repos\\Telegram signal Copier\\.venv\\Scripts\\python.exe', '-u', '-m', 'telegram_signal_copier.main', 'listen']
+Starting listener with: ['D:\\Github repos\\Telegram signal Copier\\.venv\\Scripts\\python.exe', '-u', '-m', 'telegram_signal_copier.main', 'listen']
+Starting listener with: ['D:\\Github repos\\Telegram signal Copier\\.venv\\Scripts\\python.exe', '-u', '-m', 'telegram_signal_copier.main', 'listen']
+Starting listener with: ['D:\\Github repos\\Telegram signal Copier\\.venv\\Scripts\\python.exe', '-u', '-m', 'telegram_signal_copier.main', 'listen']
+Starting listener with: ['D:\\Github repos\\Telegram signal Copier\\.venv\\Scripts\\python.exe', '-u', '-m', 'telegram_signal_copier.main', 'listen']
+Starting listener with: ['D:\\Github repos\\Telegram signal Copier\\.venv\\Scripts\\python.exe', '-u', '-m', 'telegram_signal_copier.main', 'listen']
+Starting listener with: ['D:\\Github repos\\Telegram signal Copier\\.venv\\Scripts\\python.exe', '-u', '-m', 'telegram_signal_copier.main', 'listen']
+Starting listener with: ['D:\\Github repos\\Telegram signal Copier\\.venv\\Scripts\\python.exe', '-u', '-m', 'telegram_signal_copier.main', 'listen']
+Starting listener with: ['D:\\Github repos\\Telegram signal Copier\\.venv\\Scripts\\python.exe', '-u', '-m', 'telegram_signal_copier.main', 'listen']
+Starting listener with: ['D:\\Github repos\\Telegram signal Copier\\.venv\\Scripts\\python.exe', '-u', '-m', 'telegram_signal_copier.main', 'listen']
+Starting listener with: ['D:\\Github repos\\Telegram signal Copier\\.venv\\Scripts\\python.exe', '-u', '-m', 'telegram_signal_copier.main', 'listen']
+Starting listener with: ['D:\\Github repos\\Telegram signal Copier\\.venv\\Scripts\\python.exe', '-u', '-m', 'telegram_signal_copier.main', 'listen']
+Starting listener with: ['D:\\Github repos\\Telegram signal Copier\\.venv\\Scripts\\python.exe', '-u', '-m', 'telegram_signal_copier.main', 'listen']
+Starting listener with: ['D:\\Github repos\\Telegram signal Copier\\.venv\\Scripts\\python.exe', '-u', '-m', 'telegram_signal_copier.main', 'listen']
+Starting listener with: ['D:\\Github repos\\Telegram signal Copier\\.venv\\Scripts\\python.exe', '-u', '-m', 'telegram_signal_copier.main', 'listen']
+Starting listener with: ['D:\\Github repos\\Telegram signal Copier\\.venv\\Scripts\\python.exe', '-u', '-m', 'telegram_signal_copier.main', 'listen']
+Starting listener with: ['D:\\Github repos\\Telegram signal Copier\\.venv\\Scripts\\python.exe', '-u', '-m', 'telegram_signal_copier.main', 'listen']
+Starting listener with: ['D:\\Github repos\\Telegram signal Copier\\.venv\\Scripts\\python.exe', '-u', '-m', 'telegram_signal_copier.main', 'listen']
+Starting listener with: ['D:\\Github repos\\Telegram signal Copier\\.venv\\Scripts\\python.exe', '-u', '-m', 'telegram_signal_copier.main', 'listen']
+Starting listener with: ['D:\\Github repos\\Telegram signal Copier\\.venv\\Scripts\\python.exe', '-u', '-m', 'telegram_signal_copier.main', 'listen']
+Starting listener with: ['D:\\Github repos\\Telegram signal Copier\\.venv\\Scripts\\python.exe', '-u', '-m', 'telegram_signal_copier.main', 'listen']
+Starting listener with: ['D:\\Github repos\\Telegram signal Copier\\.venv\\Scripts\\python.exe', '-u', '-m', 'telegram_signal_copier.main', 'listen']
+Starting listener with: ['D:\\Github repos\\Telegram signal Copier\\.venv\\Scripts\\python.exe', '-u', '-m', 'telegram_signal_copier.main', 'listen']
+Starting listener with: ['D:\\Github repos\\Telegram signal Copier\\.venv\\Scripts\\python.exe', '-u', '-m', 'telegram_signal_copier.main', 'listen']
+Starting listener with: ['D:\\Github repos\\Telegram signal Copier\\.venv\\Scripts\\python.exe', '-u', '-m', 'telegram_signal_copier.main', 'listen']
+Starting listener with: ['D:\\Github repos\\Telegram signal Copier\\.venv\\Scripts\\python.exe', '-u', '-m', 'telegram_signal_copier.main', 'listen']
+Starting listener with: ['D:\\Github repos\\Telegram signal Copier\\.venv\\Scripts\\python.exe', '-u', '-m', 'telegram_signal_copier.main', 'listen']
+Starting listener with: ['D:\\Github repos\\Telegram signal Copier\\.venv\\Scripts\\python.exe', '-u', '-m', 'telegram_signal_copier.main', 'listen']
+Starting listener with: ['D:\\Github repos\\Telegram signal Copier\\.venv\\Scripts\\python.exe', '-u', '-m', 'telegram_signal_copier.main', 'listen']
+Starting listener with: ['D:\\Github repos\\Telegram signal Copier\\.venv\\Scripts\\python.exe', '-u', '-m', 'telegram_signal_copier.main', 'listen']
+Starting listener with: ['D:\\Github repos\\Telegram signal Copier\\.venv\\Scripts\\python.exe', '-u', '-m', 'telegram_signal_copier.main', 'listen']
+Starting listener with: ['D:\\Github repos\\Telegram signal Copier\\.venv\\Scripts\\python.exe', '-u', '-m', 'telegram_signal_copier.main', 'listen']
+Starting listener with: ['D:\\Github repos\\Telegram signal Copier\\.venv\\Scripts\\python.exe', '-u', '-m', 'telegram_signal_copier.main', 'listen']
+Starting listener with: ['D:\\Github repos\\Telegram signal Copier\\.venv\\Scripts\\python.exe', '-u', '-m', 'telegram_signal_copier.main', 'listen']
+Starting listener with: ['D:\\Github repos\\Telegram signal Copier\\.venv\\Scripts\\python.exe', '-u', '-m', 'telegram_signal_copier.main', 'listen']
+Starting listener with: ['D:\\Github repos\\Telegram signal Copier\\.venv\\Scripts\\python.exe', '-u', '-m', 'telegram_signal_copier.main', 'listen']
+Starting listener with: ['D:\\Github repos\\Telegram signal Copier\\.venv\\Scripts\\python.exe', '-u', '-m', 'telegram_signal_copier.main', 'listen']
+Starting listener with: ['D:\\Github repos\\Telegram signal Copier\\.venv\\Scripts\\python.exe', '-u', '-m', 'telegram_signal_copier.main', 'listen']
+Starting listener with: ['D:\\Github repos\\Telegram signal Copier\\.venv\\Scripts\\python.exe', '-u', '-m', 'telegram_signal_copier.main', 'listen']
+Starting listener with: ['D:\\Github repos\\Telegram signal Copier\\.venv\\Scripts\\python.exe', '-u', '-m', 'telegram_signal_copier.main', 'listen']
+Starting listener with: ['D:\\Github repos\\Telegram signal Copier\\.venv\\Scripts\\python.exe', '-u', '-m', 'telegram_signal_copier.main', 'listen']
+Starting listener with: ['D:\\Github repos\\Telegram signal Copier\\.venv\\Scripts\\python.exe', '-u', '-m', 'telegram_signal_copier.main', 'listen']
+Starting listener with: ['D:\\Github repos\\Telegram signal Copier\\.venv\\Scripts\\python.exe', '-u', '-m', 'telegram_signal_copier.main', 'listen']
+Starting listener with: ['D:\\Github repos\\Telegram signal Copier\\.venv\\Scripts\\python.exe', '-u', '-m', 'telegram_signal_copier.main', 'listen']
+Starting listener with: ['D:\\Github repos\\Telegram signal Copier\\.venv\\Scripts\\python.exe', '-u', '-m', 'telegram_signal_copier.main', 'listen']
+Starting listener with: ['D:\\Github repos\\Telegram signal Copier\\.venv\\Scripts\\python.exe', '-u', '-m', 'telegram_signal_copier.main', 'listen']
+Starting listener with: ['D:\\Github repos\\Telegram signal Copier\\.venv\\Scripts\\python.exe', '-u', '-m', 'telegram_signal_copier.main', 'listen']
+Starting listener with: ['D:\\Github repos\\Telegram signal Copier\\.venv\\Scripts\\python.exe', '-u', '-m', 'telegram_signal_copier.main', 'listen']
+Starting listener with: ['D:\\Github repos\\Telegram signal Copier\\.venv\\Scripts\\python.exe', '-u', '-m', 'telegram_signal_copier.main', 'listen']
+Starting listener with: ['D:\\Github repos\\Telegram signal Copier\\.venv\\Scripts\\python.exe', '-u', '-m', 'telegram_signal_copier.main', 'listen']
+Starting listener with: ['D:\\Github repos\\Telegram signal Copier\\.venv\\Scripts\\python.exe', '-u', '-m', 'telegram_signal_copier.main', 'listen']
+Starting listener with: ['D:\\Github repos\\Telegram signal Copier\\.venv\\Scripts\\python.exe', '-u', '-m', 'telegram_signal_copier.main', 'listen']
+Starting listener with: ['D:\\Github repos\\Telegram signal Copier\\.venv\\Scripts\\python.exe', '-u', '-m', 'telegram_signal_copier.main', 'listen']
+Starting listener with: ['D:\\Github repos\\Telegram signal Copier\\.venv\\Scripts\\python.exe', '-u', '-m', 'telegram_signal_copier.main', 'listen']
+Starting listener with: ['D:\\Github repos\\Telegram signal Copier\\.venv\\Scripts\\python.exe', '-u', '-m', 'telegram_signal_copier.main', 'listen']
+Starting listener with: ['D:\\Github repos\\Telegram signal Copier\\.venv\\Scripts\\python.exe', '-u', '-m', 'telegram_signal_copier.main', 'listen']
+Starting listener with: ['D:\\Github repos\\Telegram signal Copier\\.venv\\Scripts\\python.exe', '-u', '-m', 'telegram_signal_copier.main', 'listen']
+Starting listener with: ['D:\\Github repos\\Telegram signal Copier\\.venv\\Scripts\\python.exe', '-u', '-m', 'telegram_signal_copier.main', 'listen']
+Starting listener with: ['D:\\Github repos\\Telegram signal Copier\\.venv\\Scripts\\python.exe', '-u', '-m', 'telegram_signal_copier.main', 'listen']
+Starting listener with: ['D:\\Github repos\\Telegram signal Copier\\.venv\\Scripts\\python.exe', '-u', '-m', 'telegram_signal_copier.main', 'listen']
+Starting listener with: ['D:\\Github repos\\Telegram signal Copier\\.venv\\Scripts\\python.exe', '-u', '-m', 'telegram_signal_copier.main', 'listen']
+Starting listener with: ['D:\\Github repos\\Telegram signal Copier\\.venv\\Scripts\\python.exe', '-u', '-m', 'telegram_signal_copier.main', 'listen']
+Starting listener with: ['D:\\Github repos\\Telegram signal Copier\\.venv\\Scripts\\python.exe', '-u', '-m', 'telegram_signal_copier.main', 'listen']
+Starting listener with: ['D:\\Github repos\\Telegram signal Copier\\.venv\\Scripts\\python.exe', '-u', '-m', 'telegram_signal_copier.main', 'listen']
+Starting listener with: ['D:\\Github repos\\Telegram signal Copier\\.venv\\Scripts\\python.exe', '-u', '-m', 'telegram_signal_copier.main', 'listen']
+Starting listener with: ['D:\\Github repos\\Telegram signal Copier\\.venv\\Scripts\\python.exe', '-u', '-m', 'telegram_signal_copier.main', 'listen']
+Starting listener with: ['D:\\Github repos\\Telegram signal Copier\\.venv\\Scripts\\python.exe', '-u', '-m', 'telegram_signal_copier.main', 'listen']
+Starting listener with: ['D:\\Github repos\\Telegram signal Copier\\.venv\\Scripts\\python.exe', '-u', '-m', 'telegram_signal_copier.main', 'listen']
+Starting listener with: ['D:\\Github repos\\Telegram signal Copier\\.venv\\Scripts\\python.exe', '-u', '-m', 'telegram_signal_copier.main', 'listen']
+Starting listener with: ['D:\\Github repos\\Telegram signal Copier\\.venv\\Scripts\\python.exe', '-u', '-m', 'telegram_signal_copier.main', 'listen']
+Starting listener with: ['D:\\Github repos\\Telegram signal Copier\\.venv\\Scripts\\python.exe', '-u', '-m', 'telegram_signal_copier.main', 'listen']
+Starting listener with: ['D:\\Github repos\\Telegram signal Copier\\.venv\\Scripts\\python.exe', '-u', '-m', 'telegram_signal_copier.main', 'listen']
+Starting listener with: ['D:\\Github repos\\Telegram signal Copier\\.venv\\Scripts\\python.exe', '-u', '-m', 'telegram_signal_copier.main', 'listen']
+Starting listener with: ['D:\\Github repos\\Telegram signal Copier\\.venv\\Scripts\\python.exe', '-u', '-m', 'telegram_signal_copier.main', 'listen']
+Starting listener with: ['D:\\Github repos\\Telegram signal Copier\\.venv\\Scripts\\python.exe', '-u', '-m', 'telegram_signal_copier.main', 'listen']
+Starting listener with: ['D:\\Github repos\\Telegram signal Copier\\.venv\\Scripts\\python.exe', '-u', '-m', 'telegram_signal_copier.main', 'listen']
+Starting listener with: ['D:\\Github repos\\Telegram signal Copier\\.venv\\Scripts\\python.exe', '-u', '-m', 'telegram_signal_copier.main', 'listen']
+Starting listener with: ['D:\\Github repos\\Telegram signal Copier\\.venv\\Scripts\\python.exe', '-u', '-m', 'telegram_signal_copier.main', 'listen']
+Starting listener with: ['D:\\Github repos\\Telegram signal Copier\\.venv\\Scripts\\python.exe', '-u', '-m', 'telegram_signal_copier.main', 'listen']
+Starting listener with: ['D:\\Github repos\\Telegram signal Copier\\.venv\\Scripts\\python.exe', '-u', '-m', 'telegram_signal_copier.main', 'listen']
+Starting listener with: ['D:\\Github repos\\Telegram signal Copier\\.venv\\Scripts\\python.exe', '-u', '-m', 'telegram_signal_copier.main', 'listen']
+Starting listener with: ['D:\\Github repos\\Telegram signal Copier\\.venv\\Scripts\\python.exe', '-u', '-m', 'telegram_signal_copier.main', 'listen']
+Starting detached listener with: ['D:\\Github repos\\Telegram signal Copier\\.venv\\Scripts\\python.exe', '-u', '-m', 'telegram_signal_copier.main', 'listen']
+Started PID 44580
+Starting listener with: ['D:\\Github repos\\Telegram signal Copier\\.venv\\Scripts\\python.exe', '-u', '-m', 'telegram_signal_copier.main', 'listen']

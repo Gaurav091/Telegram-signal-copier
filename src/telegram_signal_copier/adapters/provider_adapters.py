@@ -19,9 +19,44 @@ class ProviderAdapter:
     def supports_vision(self) -> bool:
         return False
 
+    def _normalize_payload(self, payload: dict[str, Any]) -> dict[str, Any]:
+        if self.supports_vision:
+            return payload
+
+        normalized = dict(payload)
+        messages = normalized.get("messages")
+        if not isinstance(messages, list):
+            return normalized
+
+        normalized_messages: list[dict[str, Any]] = []
+        for message in messages:
+            if not isinstance(message, dict):
+                normalized_messages.append(message)
+                continue
+            normalized_message = dict(message)
+            normalized_message["content"] = self._normalize_message_content(message.get("content"))
+            normalized_messages.append(normalized_message)
+        normalized["messages"] = normalized_messages
+        return normalized
+
+    @staticmethod
+    def _normalize_message_content(content: Any) -> Any:
+        if not isinstance(content, list):
+            return content
+
+        text_parts: list[str] = []
+        for item in content:
+            if not isinstance(item, dict):
+                continue
+            if item.get("type") == "text":
+                text = item.get("text")
+                if isinstance(text, str) and text:
+                    text_parts.append(text)
+        return "\n\n".join(text_parts)
+
     def post(self, path: str, payload: dict[str, Any]) -> dict[str, Any]:
         url = f"{self.base_url}{path}"
-        body = json.dumps(payload).encode("utf-8")
+        body = json.dumps(self._normalize_payload(payload)).encode("utf-8")
         headers = {"Content-Type": "application/json"}
         if self.api_key:
             headers["Authorization"] = f"Bearer {self.api_key}"
@@ -79,7 +114,7 @@ class CloudflareAdapter(ProviderAdapter):
             url = f"{self.base_url}{path}"
 
         # Cloudflare expects json_schema and may reject json_object.
-        cf_payload = dict(payload)
+        cf_payload = self._normalize_payload(payload)
         rf = cf_payload.get("response_format")
         if isinstance(rf, dict) and rf.get("type") == "json_object":
             cf_payload.pop("response_format", None)
@@ -103,7 +138,7 @@ class NvidiaAdapter(ProviderAdapter):
         if "api.ngc.nvidia.com" in base:
             base = "https://integrate.api.nvidia.com/v1"
         url = f"{base}{path}"
-        body = json.dumps(payload).encode("utf-8")
+        body = json.dumps(self._normalize_payload(payload)).encode("utf-8")
         headers = {"Content-Type": "application/json"}
         if self.api_key:
             headers["Authorization"] = f"Bearer {self.api_key}"
