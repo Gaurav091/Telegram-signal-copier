@@ -232,18 +232,51 @@ class SignalParser:
         symbol = self._detect_symbol(upper_text)
         side = self._normalize_side("BUY" if "BUY" in upper_text or "LONG" in upper_text else "SELL" if "SELL" in upper_text or "SHORT" in upper_text else None)
         order_type = self._detect_order_type(upper_text)
-        entry_price = self._first_float(ENTRY_PATTERN.findall(upper_text))
-        if entry_price is None:
-            entry_price = self._first_float(AT_SYMBOL_PATTERN.findall(upper_text))
-        stop_loss = self._first_float(SL_PATTERN.findall(upper_text))
-        take_profits = [float(value) for value in TP_PATTERN.findall(upper_text)]
 
+        # --- Entry range support ---
+        entry_range_low = None
+        entry_range_high = None
+        entry_price = None
+        # Match 'NEAR 4542/4545' or '4542/4545' or '4542 - 4545'
+        entry_range_match = re.search(r"(?:NEAR|AROUND)?\s*(\d{4,5})\s*[/\-] *?(\d{4,5})", upper_text)
+        if entry_range_match:
+            entry_range_low = float(entry_range_match.group(1))
+            entry_range_high = float(entry_range_match.group(2))
+            entry_price = round((entry_range_low + entry_range_high) / 2, 2)
+        else:
+            entry_price = self._first_float(ENTRY_PATTERN.findall(upper_text))
+            if entry_price is None:
+                entry_price = self._first_float(AT_SYMBOL_PATTERN.findall(upper_text))
+
+        # --- SL/TP extraction (multi-line robust) ---
+        stop_loss = None
+        take_profits = []
+        # Accept 'SL 4550' and 'TP 4536' on separate lines
+        for line in combined_text.splitlines():
+            line_u = line.upper()
+            if not stop_loss:
+                m = SL_PATTERN.search(line_u)
+                if m:
+                    try:
+                        stop_loss = float(m.group(1))
+                    except Exception:
+                        pass
+            tps = TP_PATTERN.findall(line_u)
+            for tp in tps:
+                try:
+                    tp_val = float(tp)
+                    if tp_val not in take_profits:
+                        take_profits.append(tp_val)
+                except Exception:
+                    pass
+
+        # If still missing TPs, fallback to price pattern
         if not take_profits:
             numbers = [float(value) for value in PRICE_PATTERN.findall(upper_text)]
             protected = {value for value in [entry_price, stop_loss] if value is not None}
             take_profits = [value for value in numbers if value not in protected][1:3]
 
-        # ── Overlay cluster-context levels (if MessageClusterAgent injected them) ──
+        # Overlay cluster-context levels (if MessageClusterAgent injected them)
         ctx = self._parse_cluster_context(combined_text)
         if ctx:
             symbol = ctx.get("symbol") or symbol
@@ -264,6 +297,8 @@ class SignalParser:
         )
         confidence = min(0.95, 0.25 + fields_found * 0.12)
         notes: list[str] = []
+        if entry_range_low and entry_range_high:
+            notes.append(f"Entry range detected: {entry_range_low}-{entry_range_high}, midpoint={entry_price}")
         if message.image_path:
             notes.append("Image attached; heuristic parser may need AI vision for full accuracy")
         if ctx:
@@ -276,6 +311,8 @@ class SignalParser:
             side=side,
             order_type=order_type,
             entry_price=entry_price,
+            entry_range_low=entry_range_low,
+            entry_range_high=entry_range_high,
             stop_loss=stop_loss,
             take_profits=take_profits,
             confidence=confidence,
