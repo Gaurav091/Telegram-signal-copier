@@ -117,11 +117,21 @@ def validation_agent_node(state: AgentState, app_config: AppConfig) -> dict[str,
 
     rr = 0.0
     if tps and entry_price is not None:
-        rr = _rr_ratio(signal.side, entry_price, sl, tps[0])
+        # For multi-TP signals the trade is NOT forced to close at TP1.
+        # Use the best achievable R:R (farthest TP) so that valid multi-TP
+        # setups like "TP1 4543 / TP2 4557 / TP3 4570" aren't rejected just
+        # because the first partial-profit target is close to entry.
+        rr_values = [_rr_ratio(signal.side, entry_price, sl, tp) for tp in tps]
+        rr = max(rr_values)                 # best R:R across all targets
+        rr_tp1 = rr_values[0]              # kept for logging clarity
         if rr < min_rr:
-            reasons.append(f"{RejectionReason.INVALID_RR}: {rr:.2f} < {min_rr:.2f}")
-            logger.warning("[VALIDATE] REJECTED R:R %.2f below minimum %.2f", rr, min_rr)
+            reasons.append(f"{RejectionReason.INVALID_RR}: best_rr={rr:.2f} < {min_rr:.2f}")
+            logger.warning(
+                "[VALIDATE] REJECTED R:R best=%.2f (tp1=%.2f) below minimum %.2f",
+                rr, rr_tp1, min_rr,
+            )
             return {"rejection_reasons": reasons, "next_node": "reject"}
+        logger.debug("[VALIDATE] R:R tp1=%.2f best=%.2f (using best for threshold check)", rr_tp1, rr)
     elif not tps:
         logger.info("[VALIDATE] No take-profit levels — proceeding without R:R check")
 
@@ -148,7 +158,7 @@ def validation_agent_node(state: AgentState, app_config: AppConfig) -> dict[str,
         stop_loss=sl,
         take_profits=tps,
         volume=volume,
-        risk_reward_ratio=round(rr, 2),
+        risk_reward_ratio=round(rr, 2),  # best R:R across all TPs
         source_group=state.source_group,
         message_id=state.message_id,
         comment=f"TG|{state.source_group[:16]}|{state.message_id[-8:]}",
