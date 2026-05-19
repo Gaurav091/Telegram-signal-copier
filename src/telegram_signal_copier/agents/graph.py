@@ -32,6 +32,7 @@ from pathlib import Path
 from typing import Any, Optional
 
 from telegram_signal_copier.adapters.bridge import FileBridgeExecutor
+from telegram_signal_copier.adapters.telegram_client import _normalize_source_name
 from telegram_signal_copier.agents._llm_shim import SimpleLLM
 from telegram_signal_copier.agents.extraction_agent import extraction_agent_node
 from telegram_signal_copier.agents.execution_agent import execution_agent_node
@@ -229,9 +230,19 @@ async def start_listener(
 
     client = TelegramClient(session, api_id, api_hash)
 
-    source_ids: set[str] = set()
+    from telegram_signal_copier.config import _parse_source_spec  # type: ignore[attr-defined]
+
+    source_ids: set[str] = set()      # normalized labels
+    source_numeric_ids: set[str] = set()  # raw numeric chat IDs
+    source_usernames: set[str] = set()    # @usernames (stripped)
     for src in config.telegram_sources:
-        source_ids.add(src.strip().lstrip("@").lower())
+        label, identifier = _parse_source_spec(src)
+        source_ids.add(_normalize_source_name(label))
+        ident = identifier.lstrip("@").strip()
+        if ident.isdigit():
+            source_numeric_ids.add(ident)
+        elif ident:
+            source_usernames.add(ident.lower())
 
     # Where to save downloaded images
     media_dir = config.project_root / "runtime" / "media"
@@ -251,12 +262,14 @@ async def start_listener(
                 or str(chat.id)
             )
 
-            if source_ids:
-                username = (getattr(chat, "username", "") or "").lower()
+            if source_ids or source_numeric_ids or source_usernames:
+                username = (getattr(chat, "username", "") or "").lower().lstrip("@")
+                chat_id_str = str(chat.id) if hasattr(chat, "id") else ""
+                normalized_title = _normalize_source_name(chat_title)
                 if not (
-                    chat_title.lower() in source_ids
-                    or username in source_ids
-                    or str(chat.id) in source_ids
+                    normalized_title in source_ids
+                    or username in source_usernames
+                    or chat_id_str in source_numeric_ids
                 ):
                     return
 

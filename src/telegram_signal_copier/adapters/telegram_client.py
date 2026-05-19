@@ -4,6 +4,7 @@ import asyncio
 import logging
 import os
 import platform
+import unicodedata
 from collections.abc import Awaitable, Callable
 from contextlib import contextmanager
 from pathlib import Path
@@ -14,6 +15,18 @@ from telegram_signal_copier.config import AppConfig
 from telegram_signal_copier.models import TelegramSignalMessage
 
 logger = logging.getLogger(__name__)
+
+
+def _normalize_source_name(name: str) -> str:
+    """NFKD-normalize + casefold a source name for comparison.
+
+    NFKD compatibility decomposition converts Unicode mathematical bold/italic
+    letters (e.g. \U0001D406 '\U0001d406' → 'G') to their plain ASCII
+    equivalents, so a .env entry of 'GOLD BIG LOT SIGNALS' will match a
+    Telegram group titled '\U0001d406\U0001d41e\U0001d41b\U0001d403 \U0001d401\U0001d408\U0001d40a \U0001d40b\U0001d41e\U0001d42c \U0001d42c\U0001d408\U0001d42c\U0001d407\U0001d400\U0001d41b\U0001d42c' automatically.
+    Emojis are preserved because they have no compatibility decomposition.
+    """
+    return unicodedata.normalize("NFKD", name).casefold().strip()
 
 
 @contextmanager
@@ -261,12 +274,20 @@ class TelegramSignalListener:
                 )
                 skipped.append(label)
             except Exception as exc:  # type: ignore[misc]
-                raise RuntimeError(f"Failed to resolve configured source '{label}' ({identifier}): {exc}") from exc
+                # For name-only sources (no numeric ID / @username) resolution can fail
+                # if the account is not yet a member or the group is private.
+                # Warn and skip rather than crashing the whole listener.
+                logger.warning(
+                    "Could not resolve source '%s' (%s): %s — skipping (ensure the account is a member)",
+                    label, identifier, exc,
+                )
+                skipped.append(label)
         if skipped:
-            logger.warning("Skipped %d source(s) due to flood wait: %s", len(skipped), skipped)
+            logger.warning("Skipped %d source(s): %s", len(skipped), skipped)
         if not resolved:
             raise RuntimeError(
-                f"All configured sources are unavailable (flood wait or error). Skipped: {skipped}"
+                f"No sources could be resolved. Skipped: {skipped}. "
+                "Ensure the account is a member of all configured channels."
             )
         return resolved
 
@@ -326,8 +347,8 @@ class TelegramSignalListener:
         except FloodWaitError as exc:
             raise _FloodWaitSkip(str(exc)) from exc
 
-        normalized_label = label.casefold()
-        normalized_identifier = identifier.casefold()
+        normalized_label = _normalize_source_name(label)
+        normalized_identifier = _normalize_source_name(identifier)
 
         for chat in result.chats:
             chat_id = str(getattr(chat, "id", ""))
@@ -335,12 +356,15 @@ class TelegramSignalListener:
             chat_title = str(getattr(chat, "title", "") or "")
             if chat_id == identifier:
                 return chat
-            if chat_username.casefold() == normalized_identifier:
+            if _normalize_source_name(chat_username) == normalized_identifier:
                 return chat
-            if chat_title.casefold() == normalized_label:
+            if _normalize_source_name(chat_title) == normalized_label:
                 return chat
 
-        raise ValueError("No matching Telegram chat found via search fallback")
+        raise ValueError(
+            f"No matching Telegram chat found for '{label}' in search results "
+            "(ensure the account has joined the group)"
+        )
 
     async def _event_to_message(self, event: object) -> TelegramSignalMessage:
         chat = await event.get_chat()  # type: ignore[attr-defined]
