@@ -1,36 +1,33 @@
 """Smart Supervisor — self-optimizing monitoring loop.
 
-Combines real-time pipeline health monitoring with autonomous code fixing.
+Combines real-time pipeline health monitoring with autonomous code fixing
+AND missed-trade analysis from raw Telegram message logs.
 
 Architecture
 ------------
 
-  ┌─────────────────────────────────────────────────────────────────┐
-  │                      SMART SUPERVISOR                           │
-  │                                                                 │
-  │  Every --interval seconds:                                      │
-  │  1. READ   pipeline_*.jsonl  (last N entries)                   │
-  │  2. CHECK  bridge health  (ea_status.txt, bridge inbox)         │
-  │  3. DETECT failure pattern  (classify_failures)                 │
-  │  4. FIX    → developer_agent generates & applies patch          │
-  │  5. VERIFY → restart listener, watch next N signals             │
-  │  6. ROLLBACK if failure recurs within grace period              │
-  │                                                                 │
-  │  Verdicts: HEALTHY / DEGRADED / BLOCKED / FIXING / RECOVERING  │
-  └─────────────────────────────────────────────────────────────────┘
+  ┌─────────────────────────────────────────────────────────────────────┐
+  │                       SMART SUPERVISOR                              │
+  │                                                                     │
+  │  Every --interval seconds:                                          │
+  │  1. READ   pipeline_*.jsonl          (last N processed signals)     │
+  │  2. READ   telegram_messages_*.jsonl (last 200 raw messages)        │
+  │  3. CHECK  bridge health             (ea_status.txt, inbox)         │
+  │  4. CROSS-REFERENCE: find messages received but not in pipeline     │
+  │  5. DRY-RUN missed / rejected messages through pipeline             │
+  │  6. DETECT failure pattern  → classify root cause                   │
+  │  7. FIX    → developer_agent generates & applies patch              │
+  │  8. VERIFY → restart listener, watch next N signals                 │
+  │  9. ROLLBACK if failure recurs within grace window                  │
+  │                                                                     │
+  │  Verdicts: HEALTHY / DEGRADED / BLOCKED / FIXING / RECOVERING      │
+  └─────────────────────────────────────────────────────────────────────┘
 
 Usage
 -----
-  # Full autonomy (monitor + fix + restart):
-  python tools/smart_supervisor.py
-
-  # Monitor only (no code changes):
-  python tools/smart_supervisor.py --no-fix
-
-  # Aggressive mode (shorter windows):
-  python tools/smart_supervisor.py --interval 10 --sample-window 30
-
-  # Log to file:
+  python tools/smart_supervisor.py                  # full autonomy
+  python tools/smart_supervisor.py --no-fix         # monitor only
+  python tools/smart_supervisor.py --interval 10    # faster checks
   python tools/smart_supervisor.py 2>&1 | tee logs/smart_supervisor.log
 """
 from __future__ import annotations
@@ -42,7 +39,7 @@ import os
 import subprocess
 import sys
 import time
-from collections import deque
+from collections import Counter
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -104,7 +101,6 @@ def _current_pipeline_log() -> Path | None:
         p = LOGS_DIR / f"pipeline_{date}.jsonl"
         if p.exists():
             return p
-    # fallback: most recent
     logs = sorted(LOGS_DIR.glob("pipeline_*.jsonl"), key=lambda p: p.stat().st_mtime, reverse=True)
     return logs[0] if logs else None
 
@@ -130,6 +126,33 @@ def _read_recent_pipeline_logs(n: int = 100) -> list[dict]:
     except Exception as exc:
         logger.warning("Failed to read pipeline log: %s", exc)
         return []
+
+
+def _read_raw_messages(n: int = 200) -> list[dict]:
+    """Read last *n* entries from telegram_messages_*.jsonl raw message logs."""
+    today = datetime.now(tz=UTC).strftime("%Y%m%d")
+    yesterday = datetime.fromtimestamp(time.time() - 86400, tz=UTC).strftime("%Y%m%d")
+    entries: list[dict] = []
+    for date in (today, yesterday):
+        p = LOGS_DIR / f"telegram_messages_{date}.jsonl"
+        if not p.exists():
+            continue
+        try:
+            for line in reversed(p.read_text(encoding="utf-8").splitlines()):
+                line = line.strip()
+                if not line:
+                    continue
+                try:
+                    entries.append(json.loads(line))
+                except json.JSONDecodeError:
+                    continue
+                if len(entries) >= n:
+                    break
+        except Exception as exc:
+            logger.warning("Failed to read raw message log %s: %s", p, exc)
+        if len(entries) >= n:
+            break
+    return list(reversed(entries[-n:]))
 
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -168,6 +191,155 @@ def _bridge_health() -> dict:
         "last_exec_status":  tg.get("last_execution_status", ""),
         "pending_cmds":      len(cmds),
         "stale_cmds":        len(stale),
+    }
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# Missed-trade analysis
+# ══════════════════════════════════════════════════════════════════════════════
+
+# Simple keyword heuristic — messages matching these are candidate trade signals
+_SIGNAL_KEYWORDS = (
+    "buy", "sell", "long", "short", "xauusd", "gold", "btc", "nas100",
+    "forex", "sl:", "sl ", "tp:", "tp ", "stop loss", "take profit",
+    "entry", "open", "signal",
+)
+
+
+def _looks_like_signal(text: str) -> bool:
+    low = text.lower()
+    return any(k in low for k in _SIGNAL_KEYWORDS)
+
+
+def _dry_run_message(raw_text: str, source_group: str) -> dict:
+    """Run a single message through the pipeline without executing any trade.
+
+    Returns a summary dict:
+        {"intent": str, "action": str, "rejection_reasons": list, "extracted": dict|None}
+    """
+    try:
+        from telegram_signal_copier.config import AppConfig
+        from telegram_signal_copier.agents.graph import build_graph, run_on_message
+        from telegram_signal_copier.agents._llm_shim import SimpleLLM
+        from telegram_signal_copier.services.openai_client import OpenAIClient
+        from telegram_signal_copier.adapters.bridge import FileBridgeExecutor
+
+        cfg = AppConfig.from_env(ROOT)
+
+        # NullExecutor — same interface as FileBridgeExecutor but never writes
+        class _NullExecutor:
+            def submit(self, cmd):
+                from telegram_signal_copier.models import ExecutionResult
+                return ExecutionResult(
+                    request_id=cmd.request_id,
+                    status="DRY_RUN",
+                    order_ticket="DRY_RUN",
+                    error_message=None,
+                )
+            # FileBridgeExecutor attributes used by execution_agent_node
+            inbox_dir = ROOT / "bridge" / "inbox"
+            outbox_dir = ROOT / "bridge" / "outbox"
+            timeout_seconds = 5.0
+            symbol_suffix = getattr(cfg, "mt5_symbol_suffix", "m")
+            legacy_inbox_mirror_delay_seconds = 0.0
+
+        client = OpenAIClient(cfg)
+        llm = SimpleLLM(client)
+
+        # Build executor — we're using the real one but that's OK because
+        # the pipeline will only reach "execute" for valid signals; we want
+        # to see if they reach that point.
+        executor = _NullExecutor()
+        graph = build_graph(cfg, llm, executor)
+        state = run_on_message(graph, raw_text, source_group=source_group)
+
+        ext = None
+        if state.extracted_signal:
+            s = state.extracted_signal
+            ext = {
+                "symbol": s.symbol_raw,
+                "side": str(s.side),
+                "entry": s.entry_price,
+                "sl": s.stop_loss,
+                "tps": s.take_profits,
+            }
+        return {
+            "intent": state.intent,
+            "action": "OPEN_TRADE" if state.execution_status in ("DRY_RUN", "FILLED", "SUBMITTED") else "REJECTED",
+            "rejection_reasons": list(state.rejection_reasons or []),
+            "extracted": ext,
+        }
+    except Exception as exc:
+        logger.debug("[DRY_RUN] Error: %s", exc)
+        return {"intent": None, "action": "ERROR", "rejection_reasons": [str(exc)], "extracted": None}
+
+
+def analyse_missed_trades(raw_messages: list[dict], pipeline_entries: list[dict]) -> dict:
+    """Cross-reference raw Telegram messages against pipeline outcomes.
+
+    Returns a report dict with:
+        not_in_pipeline   — messages received by listener but never processed
+        rejected          — pipeline entries with action=REJECTED
+        dry_run_results   — dry-run outcomes for not_in_pipeline signal candidates
+        rejection_summary — Counter of rejection reason strings
+        missed_count      — signals that look like trades but were not executed
+    """
+    # Build lookup: (source_group, message_id) → pipeline entry
+    pipeline_map: dict[tuple[str, str], dict] = {}
+    for e in pipeline_entries:
+        key = (e.get("source_group", ""), str(e.get("message_id", "")))
+        pipeline_map[key] = e
+
+    # Messages received but not in pipeline log
+    not_in_pipeline: list[dict] = []
+    for msg in raw_messages:
+        key = (msg.get("source_group", ""), str(msg.get("message_id", "")))
+        if key not in pipeline_map:
+            not_in_pipeline.append(msg)
+
+    # Rejected entries (signal reached pipeline but was rejected)
+    rejected = [e for e in pipeline_entries if e.get("action_taken") == "REJECTED"]
+
+    # Rejection reason summary
+    reason_ctr: Counter[str] = Counter()
+    for e in rejected:
+        for r in (e.get("rejection_reasons") or []):
+            # strip prefix like "RejectionReason.X: ..." → keep just the key
+            short = r.split(":")[0].replace("RejectionReason.", "").strip()
+            reason_ctr[short] += 1
+
+    # Dry-run signal candidates that were not in pipeline
+    dry_run_results: list[dict] = []
+    signal_candidates = [m for m in not_in_pipeline if _looks_like_signal(m.get("text", ""))]
+    # Limit to 10 dry-runs per cycle to avoid LLM overload
+    for msg in signal_candidates[:10]:
+        result = _dry_run_message(msg.get("text", ""), msg.get("source_group", ""))
+        dry_run_results.append({
+            "source_group": msg.get("source_group"),
+            "message_id":   msg.get("message_id"),
+            "ts":           msg.get("ts"),
+            "text_snippet": (msg.get("text") or "")[:120],
+            **result,
+        })
+
+    # Count missed potential trades (dry-ran as OPEN_TRADE but never in pipeline)
+    missed_trades = [r for r in dry_run_results if r.get("action") == "OPEN_TRADE"]
+
+    return {
+        "raw_received":       len(raw_messages),
+        "not_in_pipeline":    len(not_in_pipeline),
+        "signal_candidates":  len(signal_candidates),
+        "dry_run_count":      len(dry_run_results),
+        "missed_trades":      missed_trades,
+        "missed_count":       len(missed_trades),
+        "rejected_count":     len(rejected),
+        "rejection_summary":  dict(reason_ctr.most_common(10)),
+        "dry_run_details":    dry_run_results,
+        "not_in_pipeline_samples": [
+            {"source_group": m.get("source_group"), "message_id": m.get("message_id"),
+             "ts": m.get("ts"), "text": (m.get("text") or "")[:100]}
+            for m in not_in_pipeline[:5]
+        ],
     }
 
 
@@ -325,7 +497,14 @@ def _do_rollback(category: str) -> None:
 # Report output
 # ══════════════════════════════════════════════════════════════════════════════
 
-def _emit_report(verdict: str, reasons: list[str], bridge: dict, failure, actions: list[str]) -> None:
+def _emit_report(
+    verdict: str,
+    reasons: list[str],
+    bridge: dict,
+    failure,
+    actions: list[str],
+    retro: dict | None = None,
+) -> None:
     report = {
         "ts":       datetime.now(tz=UTC).strftime("%Y-%m-%d %H:%M:%S UTC"),
         "verdict":  verdict,
@@ -346,6 +525,16 @@ def _emit_report(verdict: str, reasons: list[str], bridge: dict, failure, action
             "total":    failure.total_signals,
         } if failure else None,
     }
+    if retro:
+        report["retro"] = {
+            "raw_received":      retro.get("raw_received", 0),
+            "not_in_pipeline":   retro.get("not_in_pipeline", 0),
+            "signal_candidates": retro.get("signal_candidates", 0),
+            "missed_count":      retro.get("missed_count", 0),
+            "rejected_count":    retro.get("rejected_count", 0),
+            "rejection_summary": retro.get("rejection_summary", {}),
+            "missed_trades":     retro.get("missed_trades", []),
+        }
     line = json.dumps(report)
     print(line, flush=True)
 
@@ -368,15 +557,18 @@ def run(args) -> None:
     from telegram_signal_copier.agents.developer_agent import classify_failures
 
     state = SupervisorState()
-    logger.info("Smart Supervisor started. interval=%ds fix=%s", args.interval, not args.no_fix)
+    logger.info("Smart Supervisor started. interval=%ds fix=%s retro=%s",
+                args.interval, not args.no_fix, not args.no_retro)
     logger.info("Pipeline logs: %s", LOGS_DIR)
     logger.info("Bridge root:   %s", BRIDGE_ROOT)
 
     report_interval = args.report_interval
+    _last_retro_ts: float = 0.0  # epoch of last retrospective analysis
 
     while True:
         loop_start = time.time()
         actions: list[str] = []
+        retro_report: dict | None = None
 
         # 1. Read pipeline logs
         recent_logs = _read_recent_pipeline_logs(n=args.sample_window)
@@ -384,7 +576,7 @@ def run(args) -> None:
         # 2. Bridge health
         bridge = _bridge_health()
 
-        # 3. Classify failures
+        # 3. Classify failures (pipeline-log-based)
         failure = classify_failures(recent_logs, window=args.sample_window)
 
         # 4. Check post-fix grace windows
@@ -410,14 +602,58 @@ def run(args) -> None:
             if fixed:
                 actions.append(f"dev_agent_fix={failure.category}")
 
-        # 7. Compute verdict
+        # 7. Retrospective Telegram analysis
+        now = time.time()
+        retro_due = (now - _last_retro_ts) >= args.retro_interval
+        if retro_due and not args.no_retro:
+            raw_msgs = _read_raw_messages(n=args.retro_messages)
+            if raw_msgs:
+                logger.info("[RETRO] Analysing %d raw messages vs %d pipeline entries…",
+                            len(raw_msgs), len(recent_logs))
+                retro_report = analyse_missed_trades(raw_msgs, recent_logs)
+                _last_retro_ts = now
+
+                missed = retro_report.get("missed_trades", [])
+                if missed:
+                    logger.warning(
+                        "[RETRO] %d potential missed trade(s) detected!", len(missed)
+                    )
+                    for m in missed:
+                        logger.warning(
+                            "[RETRO]   group=%s msg=%s intent=%s extract=%s  snippet: %s",
+                            m.get("source_group", "?"),
+                            m.get("message_id", "?"),
+                            m.get("intent", "?"),
+                            m.get("extracted"),
+                            (m.get("text_snippet") or "")[:80],
+                        )
+                    actions.append(f"retro_missed={len(missed)}")
+
+                    # Feed missed trades into developer agent as synthetic failures
+                    if not args.no_fix:
+                        _retro_fix_missed(missed, state, args)
+
+                rr = retro_report.get("rejection_summary", {})
+                if rr:
+                    logger.info("[RETRO] Rejection reasons (last %d msgs): %s",
+                                args.retro_messages, rr)
+
+                not_proc = retro_report.get("not_in_pipeline", 0)
+                if not_proc:
+                    logger.info("[RETRO] %d message(s) received by listener but never hit pipeline", not_proc)
+            else:
+                logger.debug("[RETRO] No raw message log yet — skipping retro analysis "
+                             "(will populate once listener receives a message)")
+                _last_retro_ts = now  # don't retry every cycle
+
+        # 8. Compute verdict
+        now2 = time.time()
         verdict, reasons = _compute_verdict(bridge, failure)
 
-        # 8. Emit report at report_interval
-        now = time.time()
-        if now - state.last_report_ts >= report_interval or verdict != state.last_verdict:
-            _emit_report(verdict, reasons, bridge, failure, actions)
-            state.last_report_ts = now
+        # 9. Emit report at report_interval
+        if now2 - state.last_report_ts >= report_interval or verdict != state.last_verdict:
+            _emit_report(verdict, reasons, bridge, failure, actions, retro_report)
+            state.last_report_ts = now2
             if verdict != state.last_verdict:
                 state.last_verdict = verdict
 
@@ -425,6 +661,76 @@ def run(args) -> None:
         elapsed = time.time() - loop_start
         sleep_time = max(0.5, args.interval - elapsed)
         time.sleep(sleep_time)
+
+
+def _retro_fix_missed(missed_trades: list[dict], state: "SupervisorState", args) -> None:
+    """Synthesize a FailureReport from retrospective missed trades and attempt a fix."""
+    from telegram_signal_copier.agents.developer_agent import FailureReport, _try_fix_report  # noqa: F401
+
+    # Group by likely root cause
+    cause_count: dict[str, int] = Counter()
+    examples: list[str] = []
+    for m in missed_trades:
+        intent = m.get("intent") or "UNKNOWN"
+        reasons = m.get("rejection_reasons") or []
+        cause = reasons[0] if reasons else f"INTENT_{intent}"
+        cause_count[cause] += 1
+        if len(examples) < 5:
+            examples.append(m.get("text_snippet", "")[:200])
+
+    if not cause_count:
+        return
+
+    top_cause, top_count = cause_count.most_common(1)[0]
+    logger.info("[RETRO] Top failure cause: %s (%d misses)", top_cause, top_count)
+
+    # Build a lightweight FailureReport and delegate to the normal fix pathway
+    try:
+        from telegram_signal_copier.agents.developer_agent import (
+            FailureReport, generate_patch, apply_patch
+        )
+        from telegram_signal_copier.services.openai_client import OpenAIClient
+        from telegram_signal_copier.config import AppConfig
+
+        cfg = AppConfig.from_env(ROOT)
+        llm = OpenAIClient(cfg)
+
+        synthetic_logs = [
+            {
+                "intent": m.get("intent", "UNKNOWN"),
+                "action_taken": m.get("action"),
+                "rejection_reasons": m.get("rejection_reasons", []),
+                "text_snippet": m.get("text_snippet", ""),
+                "source_group": m.get("source_group", ""),
+            }
+            for m in missed_trades
+        ]
+        report = FailureReport(
+            category=top_cause,
+            count=top_count,
+            examples=examples,
+            raw_logs=synthetic_logs,
+        )
+        if top_cause in state.post_fix_watch:
+            logger.info("[RETRO] Cause %s already under post-fix watch — skipping", top_cause)
+            return
+        if state.fixes_this_session >= 10:
+            logger.warning("[RETRO] Max fixes/session reached — skipping retro fix")
+            return
+
+        patch = generate_patch(report, ROOT, llm)
+        if patch:
+            ok = apply_patch(patch, ROOT)
+            if ok:
+                state.fixes_this_session += 1
+                state.post_fix_watch[top_cause] = time.time()
+                logger.info("[RETRO] Patch applied for %s", top_cause)
+            else:
+                logger.warning("[RETRO] Patch apply failed for %s", top_cause)
+        else:
+            logger.info("[RETRO] Developer agent produced no patch for %s", top_cause)
+    except Exception as exc:
+        logger.warning("[RETRO] _retro_fix_missed error: %s", exc)
 
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -459,11 +765,14 @@ OUTPUT
   JSON lines to stdout + logs/smart_supervisor_YYYY-MM-DD.jsonl
 """,
     )
-    parser.add_argument("--interval",       type=int,   default=30,  help="Check interval in seconds (default: 30)")
-    parser.add_argument("--sample-window",  type=int,   default=50,  help="Number of recent log entries to analyse (default: 50)")
-    parser.add_argument("--min-failures",   type=int,   default=3,   help="Minimum failure count to trigger a fix (default: 3)")
-    parser.add_argument("--report-interval",type=int,   default=60,  help="Seconds between report lines when verdict unchanged (default: 60)")
-    parser.add_argument("--no-fix",         action="store_true",     help="Disable code fixing (monitor only)")
+    parser.add_argument("--interval",        type=int,   default=30,   help="Check interval in seconds (default: 30)")
+    parser.add_argument("--sample-window",   type=int,   default=50,   help="Number of recent pipeline log entries to analyse (default: 50)")
+    parser.add_argument("--min-failures",    type=int,   default=3,    help="Minimum failure count to trigger a fix (default: 3)")
+    parser.add_argument("--report-interval", type=int,   default=60,   help="Seconds between report lines when verdict unchanged (default: 60)")
+    parser.add_argument("--no-fix",          action="store_true",      help="Disable code fixing (monitor only)")
+    parser.add_argument("--retro-interval",  type=int,   default=3600, help="Seconds between Telegram retro analyses (default: 3600 = 1h)")
+    parser.add_argument("--retro-messages",  type=int,   default=200,  help="Number of recent Telegram messages to scan per retro (default: 200)")
+    parser.add_argument("--no-retro",        action="store_true",      help="Disable retrospective Telegram message analysis")
     args = parser.parse_args()
 
     try:

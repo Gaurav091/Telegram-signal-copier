@@ -34,6 +34,7 @@ from typing import Any, Optional
 from telegram_signal_copier.adapters.bridge import FileBridgeExecutor
 from telegram_signal_copier.adapters.telegram_client import _normalize_source_name
 from telegram_signal_copier.agents._llm_shim import SimpleLLM
+from telegram_signal_copier.services import message_logger as _msg_logger
 from telegram_signal_copier.agents.extraction_agent import extraction_agent_node
 from telegram_signal_copier.agents.execution_agent import execution_agent_node
 from telegram_signal_copier.agents.intent_filter import intent_filter_node
@@ -248,6 +249,9 @@ async def start_listener(
     media_dir = config.project_root / "runtime" / "media"
     media_dir.mkdir(parents=True, exist_ok=True)
 
+    # Initialise raw message logger so every received message is captured
+    _msg_logger.init(config.project_root / "logs")
+
     logger.info("[LISTENER] Connecting session=%s sources=%s", session, source_ids)
     await client.start(phone=config.telegram_phone_number)
     logger.info("[LISTENER] Connected.")
@@ -275,6 +279,18 @@ async def start_listener(
 
             raw_text: str = event.message.message or ""
             message_id: str = str(event.message.id)
+            chat_id_for_log = str(chat.id) if hasattr(chat, "id") else ""
+
+            # Log raw message for missed-trade analysis
+            _raw_logger = _msg_logger.get()
+            if _raw_logger is not None:
+                _raw_logger.log(
+                    source_group=chat_title,
+                    message_id=message_id,
+                    chat_id=chat_id_for_log,
+                    raw_text=raw_text,
+                    has_image=bool(event.message.media),
+                )
 
             # Download attached image if present
             image_path: str | None = None
