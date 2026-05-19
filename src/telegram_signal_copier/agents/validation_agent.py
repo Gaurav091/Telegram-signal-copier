@@ -59,6 +59,45 @@ def _rr_ratio(side: Side, entry: float, sl: float, tp: float) -> float:
 
 _SEEN_FINGERPRINTS: set[str] = set()
 
+# Plausible price ranges per canonical symbol (base, without broker suffix).
+# Signals whose SL *and* TP both fall outside this range are rejected as
+# malformed — the LLM likely extracted prices from the wrong context.
+# These are wide bounds covering extreme historical moves; update via
+# SYMBOL_PRICE_RANGE_<SYMBOL>=min,max env var if needed.
+_SYMBOL_PRICE_RANGES: dict[str, tuple[float, float]] = {
+    "XAUUSD":  (3000.0,  8000.0),   # Gold — hasn't been below 3000 since early 2025
+    "XAGUSD":  (15.0,    150.0),
+    "EURUSD":  (0.80,    1.60),
+    "GBPUSD":  (1.00,    2.00),
+    "USDJPY":  (80.0,    200.0),
+    "USDCHF":  (0.70,    1.40),
+    "AUDUSD":  (0.50,    1.10),
+    "NZDUSD":  (0.40,    1.00),
+    "USDCAD":  (0.90,    1.80),
+    "BTCUSD":  (5000.0,  250000.0),
+    "ETHUSD":  (100.0,   25000.0),
+    "USOIL":   (20.0,    200.0),
+    "UKOIL":   (20.0,    220.0),
+    "DJ30":    (20000.0, 60000.0),
+    "NAS100":  (8000.0,  30000.0),
+    "SPX500":  (2000.0,  8000.0),
+    "GER40":   (10000.0, 25000.0),
+}
+
+# Minimum distance (in price units) between entry and SL that the broker
+# will accept.  Stops closer than this will be rejected by MT5 with
+# "Invalid stops".  Override via SYMBOL_MIN_STOP_<SYMBOL>=N env var.
+_SYMBOL_MIN_STOP: dict[str, float] = {
+    "XAUUSD":  10.0,
+    "XAGUSD":  0.20,
+    "BTCUSD":  50.0,
+    "ETHUSD":  5.0,
+    "NAS100":  5.0,
+    "DJ30":    10.0,
+    "SPX500":  2.0,
+    "GER40":   5.0,
+}
+
 
 def _fingerprint(symbol: str, side: str, entry: float | None, sl: float) -> str:
     key = f"{symbol}|{side}|{entry or ''}|{sl}"
@@ -108,12 +147,76 @@ def validation_agent_node(state: AgentState, app_config: AppConfig) -> dict[str,
                 logger.warning("[VALIDATE] REJECTED symbol not allowed: %s", broker_symbol)
                 return {"rejection_reasons": reasons, "next_node": "reject"}
 
+    # ── Price-range sanity check ──────────────────────────────────────────
+    # Reject signals where ALL price levels are outside the known range for
+    # the symbol — this catches LLM extractions from wrong market context
+    # (e.g. XAUUSD signal with prices at 2340 when market is at 4540).
+    base_sym_for_range = _strip_suffix(broker_symbol) or broker_symbol
+    env_range = os.getenv(f"SYMBOL_PRICE_RANGE_{base_sym_for_range}")
+    price_range = None
+    if env_range:
+        try:
+            lo, hi = env_range.split(",")
+            price_range = (float(lo), float(hi))
+        except Exception:
+            pass
+    if price_range is None:
+        price_range = _SYMBOL_PRICE_RANGES.get(base_sym_for_range)
+
+    if price_range is not None:
+        lo, hi = price_range
+        candidate_prices = [
+            p for p in [
+                signal.entry_price, signal.stop_loss, *(signal.take_profits or [])
+            ] if p is not None and p > 0
+        ]
+        if candidate_prices and all(not (lo <= p <= hi) for p in candidate_prices):
+            reasons.append(
+                f"{RejectionReason.INVALID_PRICE_RANGE}: prices={candidate_prices[:3]} "
+                f"outside {base_sym_for_range} range ({lo}-{hi})"
+            )
+            logger.warning(
+                "[VALIDATE] REJECTED price range: symbol=%s prices=%s range=(%s,%s)",
+                broker_symbol, candidate_prices[:3], lo, hi,
+            )
+            return {"rejection_reasons": reasons, "next_node": "reject"}
+
     min_rr: float = float(
         os.getenv("AGENT_MIN_RR") or app_config.minimum_rr_ratio
     )
     entry_price = signal.entry_price
     sl = signal.stop_loss
     tps = signal.take_profits
+
+    # ── Minimum stop distance check ──────────────────────────────────────
+    # Reject signals where SL is too close to entry for the broker to accept.
+    # Uses entry_price if provided, else falls back to checking TP-SL gap.
+    env_min_stop = os.getenv(f"SYMBOL_MIN_STOP_{base_sym_for_range}")
+    min_stop: float | None = None
+    if env_min_stop:
+        try:
+            min_stop = float(env_min_stop)
+        except Exception:
+            pass
+    if min_stop is None:
+        min_stop = _SYMBOL_MIN_STOP.get(base_sym_for_range)
+
+    if min_stop is not None and sl is not None:
+        if entry_price is not None and entry_price > 0:
+            stop_dist = abs(entry_price - sl)
+        elif tps:
+            stop_dist = abs(tps[0] - sl)   # proxy: TP1-SL as minimum trade range
+        else:
+            stop_dist = None
+        if stop_dist is not None and stop_dist < min_stop:
+            reasons.append(
+                f"{RejectionReason.STOP_TOO_CLOSE}: stop_dist={stop_dist:.1f} < min={min_stop:.1f}"
+            )
+            logger.warning(
+                "[VALIDATE] REJECTED stop too close: symbol=%s stop_dist=%.1f min=%.1f",
+                broker_symbol, stop_dist, min_stop,
+            )
+            return {"rejection_reasons": reasons, "next_node": "reject"}
 
     rr = 0.0
     if tps and entry_price is not None:

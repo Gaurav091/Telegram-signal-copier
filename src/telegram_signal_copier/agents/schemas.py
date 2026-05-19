@@ -123,6 +123,8 @@ class RejectionReason(str, Enum):
     INVALID_RR = "INVALID_RR"
     DUPLICATE = "DUPLICATE"
     LOW_CONFIDENCE = "LOW_CONFIDENCE"
+    INVALID_PRICE_RANGE = "INVALID_PRICE_RANGE"   # prices outside known symbol range
+    STOP_TOO_CLOSE = "STOP_TOO_CLOSE"             # stop distance below broker minimum
 
 
 @dataclass
