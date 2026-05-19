@@ -4,6 +4,7 @@ from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from hashlib import sha256
 import re
+import unicodedata
 from typing import Iterable
 from uuid import uuid4
 
@@ -28,7 +29,12 @@ def _iso_to_epoch_text(value: str | None) -> str:
 
 
 def _comment_source_slug(value: str) -> str:
-    cleaned = re.sub(r"[^A-Za-z0-9]+", "-", value).strip("-").upper()
+    # Normalise Unicode: converts bold/italic math letters (e.g. 𝐒𝐭𝐚𝐫 → Star),
+    # trademark ™ → TM, and other compatibility characters to their ASCII
+    # equivalents.  Emoji and other non-ASCII characters are then dropped.
+    nfkd = unicodedata.normalize("NFKD", value)
+    ascii_value = nfkd.encode("ascii", errors="ignore").decode("ascii")
+    cleaned = re.sub(r"[^A-Za-z0-9]+", "-", ascii_value).strip("-").upper()
     return cleaned or "UNKNOWN"
 
 
