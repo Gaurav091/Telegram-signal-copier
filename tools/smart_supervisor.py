@@ -504,6 +504,7 @@ def _emit_report(
     failure,
     actions: list[str],
     retro: dict | None = None,
+    rejection_analysis: dict | None = None,
 ) -> None:
     report = {
         "ts":       datetime.now(tz=UTC).strftime("%Y-%m-%d %H:%M:%S UTC"),
@@ -535,6 +536,12 @@ def _emit_report(
             "rejection_summary": retro.get("rejection_summary", {}),
             "missed_trades":     retro.get("missed_trades", []),
         }
+    if rejection_analysis:
+        report["rejection_analysis"] = {
+            "rejected_count":    rejection_analysis.get("rejected_count", 0),
+            "fp_reports":        rejection_analysis.get("fp_reports", []),
+            "fixed_categories":  rejection_analysis.get("fixed_categories", []),
+        }
     line = json.dumps(report)
     print(line, flush=True)
 
@@ -557,18 +564,22 @@ def run(args) -> None:
     from telegram_signal_copier.agents.developer_agent import classify_failures
 
     state = SupervisorState()
-    logger.info("Smart Supervisor started. interval=%ds fix=%s retro=%s",
-                args.interval, not args.no_fix, not args.no_retro)
+    logger.info(
+        "Smart Supervisor started. interval=%ds fix=%s retro=%s rejection_check=%s",
+        args.interval, not args.no_fix, not args.no_retro, not args.no_rejection_check,
+    )
     logger.info("Pipeline logs: %s", LOGS_DIR)
     logger.info("Bridge root:   %s", BRIDGE_ROOT)
 
     report_interval = args.report_interval
-    _last_retro_ts: float = 0.0  # epoch of last retrospective analysis
+    _last_retro_ts: float = 0.0
+    _last_rejection_check_ts: float = 0.0
 
     while True:
         loop_start = time.time()
         actions: list[str] = []
         retro_report: dict | None = None
+        rejection_report: dict | None = None
 
         # 1. Read pipeline logs
         recent_logs = _read_recent_pipeline_logs(n=args.sample_window)
@@ -602,10 +613,9 @@ def run(args) -> None:
             if fixed:
                 actions.append(f"dev_agent_fix={failure.category}")
 
-        # 7. Retrospective Telegram analysis
+        # 7. Retrospective Telegram message analysis (periodic, default 1 h)
         now = time.time()
-        retro_due = (now - _last_retro_ts) >= args.retro_interval
-        if retro_due and not args.no_retro:
+        if (now - _last_retro_ts) >= args.retro_interval and not args.no_retro:
             raw_msgs = _read_raw_messages(n=args.retro_messages)
             if raw_msgs:
                 logger.info("[RETRO] Analysing %d raw messages vs %d pipeline entries…",
@@ -615,21 +625,15 @@ def run(args) -> None:
 
                 missed = retro_report.get("missed_trades", [])
                 if missed:
-                    logger.warning(
-                        "[RETRO] %d potential missed trade(s) detected!", len(missed)
-                    )
+                    logger.warning("[RETRO] %d potential missed trade(s) detected!", len(missed))
                     for m in missed:
                         logger.warning(
                             "[RETRO]   group=%s msg=%s intent=%s extract=%s  snippet: %s",
-                            m.get("source_group", "?"),
-                            m.get("message_id", "?"),
-                            m.get("intent", "?"),
-                            m.get("extracted"),
+                            m.get("source_group", "?"), m.get("message_id", "?"),
+                            m.get("intent", "?"), m.get("extracted"),
                             (m.get("text_snippet") or "")[:80],
                         )
                     actions.append(f"retro_missed={len(missed)}")
-
-                    # Feed missed trades into developer agent as synthetic failures
                     if not args.no_fix:
                         _retro_fix_missed(missed, state, args)
 
@@ -637,22 +641,34 @@ def run(args) -> None:
                 if rr:
                     logger.info("[RETRO] Rejection reasons (last %d msgs): %s",
                                 args.retro_messages, rr)
-
                 not_proc = retro_report.get("not_in_pipeline", 0)
                 if not_proc:
-                    logger.info("[RETRO] %d message(s) received by listener but never hit pipeline", not_proc)
+                    logger.info("[RETRO] %d message(s) never reached pipeline", not_proc)
             else:
-                logger.debug("[RETRO] No raw message log yet — skipping retro analysis "
-                             "(will populate once listener receives a message)")
-                _last_retro_ts = now  # don't retry every cycle
+                logger.debug("[RETRO] No raw message log yet — skipping")
+                _last_retro_ts = now
 
-        # 8. Compute verdict
+        # 8. Rejection false-positive analysis (periodic, default 30 min)
+        if (now - _last_rejection_check_ts) >= args.rejection_interval and not args.no_rejection_check:
+            rejection_report = _analyse_rejections(recent_logs, state, args)
+            _last_rejection_check_ts = now
+            fp_fixed = rejection_report.get("fixed_categories", [])
+            if fp_fixed:
+                actions.append(f"fp_fix={'|'.join(fp_fixed)}")
+            fp_count = sum(
+                1 for r in rejection_report.get("fp_reports", [])
+                if r.get("verdict") == "FALSE_POSITIVE"
+            )
+            if fp_count:
+                actions.append(f"false_positives_detected={fp_count}")
+
+        # 9. Compute verdict
         now2 = time.time()
         verdict, reasons = _compute_verdict(bridge, failure)
 
-        # 9. Emit report at report_interval
+        # 10. Emit report at report_interval
         if now2 - state.last_report_ts >= report_interval or verdict != state.last_verdict:
-            _emit_report(verdict, reasons, bridge, failure, actions, retro_report)
+            _emit_report(verdict, reasons, bridge, failure, actions, retro_report, rejection_report)
             state.last_report_ts = now2
             if verdict != state.last_verdict:
                 state.last_verdict = verdict
@@ -734,6 +750,115 @@ def _retro_fix_missed(missed_trades: list[dict], state: "SupervisorState", args)
 
 
 # ══════════════════════════════════════════════════════════════════════════════
+# Rejection analysis — false-positive detector
+# ══════════════════════════════════════════════════════════════════════════════
+
+def _analyse_rejections(
+    recent_logs: list[dict],
+    state: "SupervisorState",
+    args,
+) -> dict:
+    """Analyse rejected pipeline log entries to find false-positive rejections.
+
+    Workflow:
+    1. Extract all entries where action_taken == REJECTED
+    2. Group by primary rejection reason
+    3. For each group, ask the LLM: "is this rule over-strict?"
+    4. For confirmed false positives, generate + apply a code fix
+    5. Return a structured report
+
+    Returns dict with keys: rejected_count, fp_reports, fixed_categories, errors
+    """
+    result = {
+        "rejected_count": 0,
+        "fp_reports": [],
+        "fixed_categories": [],
+        "errors": [],
+    }
+
+    try:
+        from telegram_signal_copier.agents.developer_agent import (
+            assess_false_positives, fix_false_positives,
+        )
+        from telegram_signal_copier.services.openai_client import OpenAIClient
+        from telegram_signal_copier.config import AppConfig
+
+        rejected = [e for e in recent_logs if e.get("action_taken") == "REJECTED"]
+        result["rejected_count"] = len(rejected)
+
+        if not rejected:
+            logger.info("[REJECTION_ANALYSIS] No rejected entries in last %d log records", len(recent_logs))
+            return result
+
+        logger.info(
+            "[REJECTION_ANALYSIS] Analysing %d rejected signals for false positives…", len(rejected)
+        )
+
+        # Group rejections for readable log output
+        from collections import Counter
+        reason_ctr: Counter[str] = Counter()
+        for e in rejected:
+            for r in (e.get("rejection_reasons") or []):
+                short = r.split(":")[0].replace("RejectionReason.", "").strip()
+                reason_ctr[short] += 1
+        if reason_ctr:
+            logger.info("[REJECTION_ANALYSIS] Rejection breakdown: %s", dict(reason_ctr.most_common(10)))
+
+        cfg = AppConfig.from_env(ROOT)
+        llm = OpenAIClient(cfg)
+
+        fp_reports = assess_false_positives(
+            rejected_entries=rejected,
+            repo_root=ROOT,
+            llm_client=llm,
+            min_count=args.rejection_min_count,
+        )
+
+        for fp in fp_reports:
+            logger.info(
+                "[REJECTION_ANALYSIS] %s → verdict=%s count=%d  %s",
+                fp.rejection_reason, fp.verdict, fp.count, fp.llm_reasoning[:100],
+            )
+            if fp.verdict == "FALSE_POSITIVE" and fp.suggested_fix:
+                logger.warning(
+                    "[REJECTION_ANALYSIS] FALSE POSITIVE DETECTED: '%s' is incorrectly blocking "
+                    "valid trades. Suggested fix: %s",
+                    fp.rejection_reason, fp.suggested_fix,
+                )
+
+        result["fp_reports"] = [
+            {
+                "rejection_reason": fp.rejection_reason,
+                "verdict": fp.verdict,
+                "count": fp.count,
+                "reasoning": fp.llm_reasoning,
+                "suggested_fix": fp.suggested_fix,
+                "examples": fp.examples[:2],
+            }
+            for fp in fp_reports
+        ]
+
+        if not args.no_fix:
+            fixed = fix_false_positives(
+                fp_reports=fp_reports,
+                repo_root=ROOT,
+                llm_client=llm,
+                session_state=state,
+            )
+            result["fixed_categories"] = fixed
+            if fixed:
+                logger.info("[REJECTION_ANALYSIS] Fixed false-positive rules: %s", fixed)
+                # Restart listener to pick up patched validation
+                _restart_listener()
+
+    except Exception as exc:
+        logger.warning("[REJECTION_ANALYSIS] Error: %s", exc)
+        result["errors"].append(str(exc))
+
+    return result
+
+
+# ══════════════════════════════════════════════════════════════════════════════
 # Entry point
 # ══════════════════════════════════════════════════════════════════════════════
 
@@ -765,14 +890,17 @@ OUTPUT
   JSON lines to stdout + logs/smart_supervisor_YYYY-MM-DD.jsonl
 """,
     )
-    parser.add_argument("--interval",        type=int,   default=30,   help="Check interval in seconds (default: 30)")
-    parser.add_argument("--sample-window",   type=int,   default=50,   help="Number of recent pipeline log entries to analyse (default: 50)")
-    parser.add_argument("--min-failures",    type=int,   default=3,    help="Minimum failure count to trigger a fix (default: 3)")
-    parser.add_argument("--report-interval", type=int,   default=60,   help="Seconds between report lines when verdict unchanged (default: 60)")
-    parser.add_argument("--no-fix",          action="store_true",      help="Disable code fixing (monitor only)")
-    parser.add_argument("--retro-interval",  type=int,   default=3600, help="Seconds between Telegram retro analyses (default: 3600 = 1h)")
-    parser.add_argument("--retro-messages",  type=int,   default=200,  help="Number of recent Telegram messages to scan per retro (default: 200)")
-    parser.add_argument("--no-retro",        action="store_true",      help="Disable retrospective Telegram message analysis")
+    parser.add_argument("--interval",           type=int,   default=30,   help="Check interval in seconds (default: 30)")
+    parser.add_argument("--sample-window",       type=int,   default=50,   help="Number of recent pipeline log entries to analyse (default: 50)")
+    parser.add_argument("--min-failures",        type=int,   default=3,    help="Minimum failure count to trigger a fix (default: 3)")
+    parser.add_argument("--report-interval",     type=int,   default=60,   help="Seconds between report lines when verdict unchanged (default: 60)")
+    parser.add_argument("--no-fix",              action="store_true",      help="Disable code fixing (monitor only)")
+    parser.add_argument("--retro-interval",      type=int,   default=3600, help="Seconds between Telegram retro analyses (default: 3600 = 1h)")
+    parser.add_argument("--retro-messages",      type=int,   default=200,  help="Number of recent Telegram messages to scan per retro (default: 200)")
+    parser.add_argument("--no-retro",            action="store_true",      help="Disable retrospective Telegram message analysis")
+    parser.add_argument("--rejection-interval",  type=int,   default=1800, help="Seconds between rejection false-positive checks (default: 1800 = 30 min)")
+    parser.add_argument("--rejection-min-count", type=int,   default=2,    help="Min rejection count per reason to trigger FP assessment (default: 2)")
+    parser.add_argument("--no-rejection-check",  action="store_true",      help="Disable rejection false-positive analysis")
     args = parser.parse_args()
 
     try:
