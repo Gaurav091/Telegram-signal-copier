@@ -49,6 +49,26 @@ class SignalParserTests(unittest.TestCase):
             self.assertEqual(result.signal.take_profits, [2330.0, 2338.0])
             self.assertGreaterEqual(result.signal.confidence, 0.85)
 
+    def test_heuristic_parser_accepts_slash_style_sl_tp_labels(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            tmp_path = Path(temp_dir)
+            parser = SignalParser(config=build_config(tmp_path), ai_client=None)
+            result = parser.parse(
+                TelegramSignalMessage(
+                    source_group="ALGO TRADING forex.",
+                    message_id="11722",
+                    raw_text="XAUUSD SELL NOW: 4582 4586\nS/L: 4600\nT/P1: 4580\nT/P2: 4575\nT/P3: 4556",
+                )
+            )
+
+            self.assertEqual(result.signal.symbol, "XAUUSD")
+            self.assertEqual(result.signal.side, "SELL")
+            self.assertEqual(result.signal.entry_range_low, 4582.0)
+            self.assertEqual(result.signal.entry_range_high, 4586.0)
+            self.assertEqual(result.signal.entry_price, 4584.0)
+            self.assertEqual(result.signal.stop_loss, 4600.0)
+            self.assertEqual(result.signal.take_profits, [4580.0, 4575.0, 4556.0])
+
 
 if __name__ == "__main__":
     unittest.main()

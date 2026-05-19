@@ -3,6 +3,7 @@
 #include <Trade/Trade.mqh>
 
 input string BridgeFolderName = "TelegramSignalCopierBridge";
+input int    MagicNumber = 20260001;       // Unique tag for positions opened by this EA
 input int TimerIntervalSeconds = 1;
 input int TelegramHeartbeatTimeoutSeconds = 15;
 input int MaxSlippagePoints = 30;
@@ -66,6 +67,7 @@ string g_last_bridge_message = "";
 int OnInit()
 {
    trade.SetDeviationInPoints(MaxSlippagePoints);
+   trade.SetExpertMagicNumber(MagicNumber);
    EnsureBridgeFolders();
    WriteEAStatus();
    UpdateChartStatus();
@@ -369,7 +371,12 @@ void ProcessBridgeCommands()
 
 bool ReadTradeCommand(const string relative_path, TradeCommand &command, string &error_message)
 {
-   int file_handle = FileOpen(relative_path, FILE_READ | FILE_ANSI | FILE_COMMON);
+   // FILE_BIN | FILE_ANSI: binary mode with 1-byte ANSI characters.
+   // FILE_BIN alone (without FILE_ANSI) reads 2-byte Unicode chars — wrong for ANSI files.
+   // FILE_ANSI alone (without FILE_BIN) implies text mode — FileReadString reads one line
+   // and ignores the length argument, so only the first field is ever parsed.
+   // The combination FILE_BIN | FILE_ANSI reads the whole file as 1-byte chars in one call.
+   int file_handle = FileOpen(relative_path, FILE_READ | FILE_BIN | FILE_ANSI | FILE_COMMON);
    if(file_handle == INVALID_HANDLE)
    {
       error_message = "Failed to open bridge command file";
@@ -443,7 +450,13 @@ void ApplyField(TradeCommand &command, const string key, const string value)
    else if(key == "order_type")
       command.order_type = value;
    else if(key == "volume")
+   {
       command.volume = ParseBridgeDouble(value);
+      // Fallback: ParseBridgeDouble may return 0 for edge-case inputs; StringToDouble
+      // handles standard numeric strings and serves as a second-chance parse.
+      if(command.volume <= 0.0 && StringLen(value) > 0)
+         command.volume = StringToDouble(value);
+   }
    else if(key == "entry_price" && value != "")
    {
       command.entry_price = ParseBridgeDouble(value);

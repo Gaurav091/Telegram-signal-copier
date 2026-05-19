@@ -135,7 +135,8 @@ class TradeCommand:
         )
 
     def to_bridge_payload(self) -> dict[str, str]:
-        return {
+        volume_value = f"{self.volume:.2f}"
+        payload = {
             "request_id": self.request_id,
             "submitted_at": self.submitted_at,
             "submitted_epoch": _iso_to_epoch_text(self.submitted_at),
@@ -144,13 +145,14 @@ class TradeCommand:
             "symbol": self.symbol,
             "action": self.action,
             "order_type": self.order_type,
-            "volume": f"{self.volume:.2f}",
+            "volume": volume_value,
             "entry_price": "" if self.entry_price is None else str(self.entry_price),
             "stop_loss": "" if self.stop_loss is None else str(self.stop_loss),
             "take_profit": "" if self.take_profit is None else str(self.take_profit),
             "take_profit_targets": ",".join(str(value) for value in self.take_profit_targets),
             "comment": _normalize_text(self.comment),
         }
+        return payload
 
     def to_bridge_file(self) -> str:
         return "\n".join(f"{key}={value}" for key, value in self.to_bridge_payload().items()) + "\n"

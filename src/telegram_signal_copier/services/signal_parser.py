@@ -21,6 +21,17 @@ TP_PATTERN = re.compile(
 ENTRY_PATTERN = re.compile(r"(?:ENTRY|AT|BUY|SELL)\s*[:=@-]?\s*(\d{1,6}(?:\.\d{1,5})?)", re.IGNORECASE)
 AT_SYMBOL_PATTERN = re.compile(r"@\s*(\d{1,6}(?:\.\d{1,5})?)", re.IGNORECASE)
 
+# MT5 open-position screenshot: "XAUUSD, sell 0.01" header line
+_MT5_SCREENSHOT_HEADER_RE = re.compile(
+    r"^([A-Z0-9]{4,10}),\s*(buy|sell)\s+[\d.]+",
+    re.IGNORECASE | re.MULTILINE,
+)
+# Normalise OCR thousands-space artifacts: "4 491.53" → "4491.53"
+_OCR_SPACE_NUMBER_RE = re.compile(r"(\d{1,4})\s+(\d{3}(?:[.,]\d+)?)(?=\D|$)")
+
+# Caption keywords that signal a new trade from ALGO TRADING forex-style groups
+_NEW_TRADE_CAPTIONS = re.compile(r"^\s*(new|both\s*new)\s*$", re.IGNORECASE)
+
 # Cluster context block injected by MessageClusterAgent
 _CLUSTER_BLOCK_RE = re.compile(
     r"\[CLUSTER CONTEXT\](.*?)\[/CLUSTER CONTEXT\]",
@@ -233,7 +244,85 @@ class SignalParser:
             notes=[str(note) for note in notes],
         )
 
+    def _parse_mt5_screenshot(
+        self, message: TelegramSignalMessage, combined_text: str
+    ) -> ParsedSignal | None:
+        """Parse an MT5 open-position screenshot (e.g. 'XAUUSD, sell 0.01 ...\nS/L: ...\nT/P: ...').
+
+        Returns a ParsedSignal when the format is recognised, None otherwise.
+        """
+        header = _MT5_SCREENSHOT_HEADER_RE.search(combined_text)
+        if not header:
+            return None
+
+        symbol = self._normalize_symbol(header.group(1))
+        side = self._normalize_side(header.group(2))
+
+        # Normalise OCR spacing in numbers before extracting prices
+        clean = _OCR_SPACE_NUMBER_RE.sub(lambda m: m.group(1) + m.group(2), combined_text)
+
+        stop_loss: float | None = None
+        take_profits: list[float] = []
+        for line in clean.splitlines():
+            if not stop_loss:
+                m = SL_PATTERN.search(line)
+                if m:
+                    try:
+                        stop_loss = float(m.group(1))
+                    except Exception:
+                        pass
+            for tp in TP_PATTERN.findall(line):
+                try:
+                    tp_val = float(tp)
+                    if tp_val >= 100 and tp_val not in take_profits:
+                        take_profits.append(tp_val)
+                except Exception:
+                    pass
+
+        if not (symbol and side and (stop_loss or take_profits)):
+            return None
+
+        fields_found = sum(
+            1 for v in [symbol, side, stop_loss, take_profits[0] if take_profits else None]
+            if v not in (None, "")
+        )
+        confidence = min(0.95, 0.25 + fields_found * 0.12)
+        return ParsedSignal(
+            source_group=message.source_group,
+            message_id=message.message_id,
+            symbol=symbol,
+            side=side,
+            order_type="MARKET",
+            entry_price=None,
+            entry_range_low=None,
+            entry_range_high=None,
+            stop_loss=stop_loss,
+            take_profits=take_profits,
+            confidence=confidence,
+            raw_text=combined_text,
+            image_used=bool(message.image_path),
+            parser_name="mt5_screenshot",
+            notes=["Parsed from MT5 position screenshot format"],
+        )
+
     def _heuristic_parse(self, message: TelegramSignalMessage, combined_text: str) -> ParsedSignal:
+        # ── OCR preprocessing: normalise thousands-space artifacts ──────────────
+        # e.g. "T/P: 4 491.53" → "T/P: 4491.53"  (OCR sometimes splits large numbers)
+        combined_text = _OCR_SPACE_NUMBER_RE.sub(
+            lambda m: m.group(1) + m.group(2), combined_text
+        )
+
+        # ── MT5 position screenshot fast-path ────────────────────────────────────
+        # "New" / "Both New" captions from ALGO TRADING forex carry a position card
+        # image whose OCR text looks like "XAUUSD, sell 0.01 ... S/L: ... T/P: ...".
+        # Detect this format and parse it directly instead of falling through to the
+        # generic heuristic which mis-parses the spaced number in "T/P: 4 491.53".
+        caption = (message.raw_text or "").strip()
+        if _NEW_TRADE_CAPTIONS.match(caption):
+            screenshot = self._parse_mt5_screenshot(message, combined_text)
+            if screenshot is not None:
+                return screenshot
+
         upper_text = combined_text.upper()
         symbol = self._detect_symbol(upper_text)
         side = self._normalize_side("BUY" if "BUY" in upper_text or "LONG" in upper_text else "SELL" if "SELL" in upper_text or "SHORT" in upper_text else None)

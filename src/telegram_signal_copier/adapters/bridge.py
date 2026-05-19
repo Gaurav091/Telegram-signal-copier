@@ -70,6 +70,9 @@ class FileBridgeExecutor:
                 # Last resort: write directly without temp file.
                 command_path.write_text(text, encoding="utf-8")
 
+    def _payload_text(self, payload: dict[str, str]) -> str:
+        return "\n".join(f"{k}={v}" for k, v in payload.items()) + "\n"
+
     def submit(self, command: TradeCommand, wait_for_result: bool = True, timeout_seconds: float | None = None) -> ExecutionResult:
         # Normalize bridge root: if caller passed a path that points to
         # an "inbox" subdirectory (common when users set MT5_BRIDGE_DIR
@@ -114,7 +117,7 @@ class FileBridgeExecutor:
         top_level_command_path = self._top_level_command_path(command.request_id)
         queue_path = bridge_root / "command_queue.txt"
         # write payload as key=value lines atomically using a temp file
-        text = "\n".join(f"{k}={v}" for k, v in payload.items()) + "\n"
+        text = self._payload_text(payload)
         self._write_command_file(command_path, text)
         if top_level_command_path != command_path:
             self._write_command_file(top_level_command_path, text)
@@ -135,6 +138,8 @@ class FileBridgeExecutor:
         while monotonic() < deadline:
             if result_path.exists():
                 lines = result_path.read_text(encoding="utf-8").splitlines()
+                result = ExecutionResult.from_bridge_lines(lines)
+
                 with suppress(FileNotFoundError):
                     command_path.unlink()
                 with suppress(FileNotFoundError):
@@ -142,7 +147,7 @@ class FileBridgeExecutor:
                 if top_level_command_path != command_path:
                     with suppress(FileNotFoundError):
                         top_level_command_path.unlink()
-                return ExecutionResult.from_bridge_lines(lines)
+                return result
 
             if (
                 not mirrored_to_legacy_inbox
