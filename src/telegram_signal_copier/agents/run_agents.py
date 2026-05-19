@@ -27,6 +27,7 @@ from langchain_openai import ChatOpenAI
 from telegram_signal_copier.adapters.bridge import FileBridgeExecutor
 from telegram_signal_copier.agents.graph import build_graph, start_listener
 from telegram_signal_copier.config import AppConfig
+from telegram_signal_copier.services.pipeline_logger import PipelineLogger
 
 logging.basicConfig(
     level=logging.INFO,
@@ -61,7 +62,9 @@ async def main() -> None:
         symbol_suffix=getattr(config, "symbol_suffix", ""),
     )
 
-    graph = build_graph(config, llm, executor)
+    pipeline_log = PipelineLogger(logs_dir=project_root / "logs")
+
+    graph = build_graph(config, llm, executor, pipeline_log=pipeline_log)
     logger.info("[INIT] Graph compiled — starting Telegram listener…")
 
     await start_listener(graph, config)

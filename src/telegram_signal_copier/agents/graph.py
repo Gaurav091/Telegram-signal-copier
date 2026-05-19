@@ -26,7 +26,7 @@ import asyncio
 import logging
 from functools import partial
 from pathlib import Path
-from typing import Any
+from typing import Any, Optional
 
 from langchain_openai import ChatOpenAI
 from langgraph.graph import END, START, StateGraph
@@ -38,6 +38,7 @@ from telegram_signal_copier.agents.intent_filter import intent_filter_node
 from telegram_signal_copier.agents.schemas import AgentState
 from telegram_signal_copier.agents.validation_agent import validation_agent_node
 from telegram_signal_copier.config import AppConfig
+from telegram_signal_copier.services.pipeline_logger import PipelineLogger
 
 logger = logging.getLogger(__name__)
 
@@ -76,10 +77,71 @@ def _route(state: AgentState) -> str:
 # Graph builder
 # ---------------------------------------------------------------------------
 
+class _LoggingGraph:
+    """Thin wrapper that logs every invocation to ``PipelineLogger``."""
+
+    def __init__(self, compiled_graph: Any, pipeline_log: PipelineLogger) -> None:
+        self._graph = compiled_graph
+        self._log = pipeline_log
+
+    def invoke(self, initial_state: Any, *args, **kwargs) -> Any:
+        result = self._graph.invoke(initial_state, *args, **kwargs)
+        self._emit(initial_state, result)
+        return result
+
+    # Support any other CompiledGraph methods transparently
+    def __getattr__(self, name: str) -> Any:
+        return getattr(self._graph, name)
+
+    def _emit(self, initial: Any, result: Any) -> None:
+        try:
+            state: AgentState
+            if isinstance(result, dict):
+                state = AgentState.model_validate(result)
+            elif isinstance(result, AgentState):
+                state = result
+            else:
+                return
+
+            image_count = 0
+            if hasattr(initial, "image_path") and initial.image_path:
+                image_count += 1
+            if hasattr(initial, "image_paths"):
+                image_count += len(initial.image_paths or [])
+
+            action = "IGNORE"
+            if state.execution_status in ("FILLED", "SUBMITTED", "DRY_RUN"):
+                action = "OPEN_TRADE"
+            elif state.rejection_reasons:
+                action = "REJECTED"
+
+            self._log.log(
+                group_id=state.message_id or "unknown",
+                channel_id=0,
+                message_count=1,
+                image_count=image_count,
+                intent=state.intent,
+                intent_confidence=state.intent_confidence,
+                extraction=state.extracted_signal,
+                validation=state.validated_signal,
+                rejection_reasons=list(state.rejection_reasons or []),
+                action_taken=action,
+                execution_status=state.execution_status,
+                order_ticket=state.order_ticket,
+                execution_error=state.execution_error,
+                source_group=state.source_group,
+                message_id=state.message_id,
+                raw_text_snippet=state.raw_text[:200] if state.raw_text else "",
+            )
+        except Exception:
+            logger.exception("[PIPELINE_LOG] Failed to emit log entry")
+
+
 def build_graph(
     config: AppConfig,
     llm: ChatOpenAI,
     executor: FileBridgeExecutor,
+    pipeline_log: Optional[PipelineLogger] = None,
 ) -> Any:
     """Compile and return the LangGraph StateGraph."""
     filter_node  = partial(intent_filter_node, llm=llm)
@@ -113,7 +175,12 @@ def build_graph(
     )
     graph.add_edge("reject", END)
 
-    return graph.compile()
+    compiled = graph.compile()
+
+    # Wrap compile result so every invocation is automatically logged.
+    if pipeline_log is not None:
+        return _LoggingGraph(compiled, pipeline_log)
+    return compiled
 
 
 # ---------------------------------------------------------------------------

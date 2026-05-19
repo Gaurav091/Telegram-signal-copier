@@ -68,6 +68,36 @@ class RiskEngine:
         if signal.confidence < self.config.minimum_confidence:
             reasons.append(f"Confidence {signal.confidence:.2f} below minimum {self.config.minimum_confidence:.2f}")
 
+        # ── SL / TP direction sanity checks (AGENT_SPEC §11 rules 6 & 7) ────────
+        # Only enforceable when entry_price is known (limit/stop orders).
+        # Market orders without explicit entry skip the check.
+        entry = signal.entry_price
+        sl = signal.stop_loss
+        side = (signal.side or "").upper()
+
+        if entry is not None and sl is not None and side:
+            if side == "BUY" and sl >= entry:
+                reasons.append(
+                    f"SL {sl} must be BELOW entry {entry} for BUY "
+                    f"(inverted SL would cause immediate stop-out)"
+                )
+            elif side == "SELL" and sl <= entry:
+                reasons.append(
+                    f"SL {sl} must be ABOVE entry {entry} for SELL "
+                    f"(inverted SL would cause immediate stop-out)"
+                )
+
+        if entry is not None and signal.take_profits and side:
+            tp1 = signal.take_profits[0]
+            if side == "BUY" and tp1 <= entry:
+                reasons.append(
+                    f"TP1 {tp1} must be ABOVE entry {entry} for BUY"
+                )
+            elif side == "SELL" and tp1 >= entry:
+                reasons.append(
+                    f"TP1 {tp1} must be BELOW entry {entry} for SELL"
+                )
+
         signature = signal.signature()
         if signature in self._seen_signatures:
             reasons.append("Duplicate signal")

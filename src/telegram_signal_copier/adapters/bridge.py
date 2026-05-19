@@ -4,6 +4,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from time import monotonic, sleep
 from contextlib import suppress
+from uuid import uuid4
 
 from telegram_signal_copier.models import ExecutionResult, TradeCommand
 
@@ -176,3 +177,94 @@ class FileBridgeExecutor:
             status="NO_RESULT",
             message="MT5 EA consumed the command but did not write a result file before timeout",
         )
+
+    # ------------------------------------------------------------------
+    # High-level helpers for modify / close operations
+    # ------------------------------------------------------------------
+
+    def modify_trade(
+        self,
+        symbol: str,
+        ticket: int,
+        new_sl: float | str | None = None,
+        new_tp: float | None = None,
+        source_group: str = "",
+        message_id: str = "",
+        wait_for_result: bool = True,
+        timeout_seconds: float | None = None,
+    ) -> ExecutionResult:
+        """Send a MODIFY command to the MT5 EA.
+
+        ``new_sl`` may be a price (float) or the string ``"BREAKEVEN"``.
+        """
+        cmd = TradeCommand(
+            request_id=str(uuid4()),
+            source_group=source_group,
+            message_id=message_id,
+            symbol=symbol,
+            action="MODIFY",
+            order_type="",
+            volume=0.0,
+            entry_price=None,
+            stop_loss=None,
+            take_profit=None,
+            take_profit_targets=[],
+            ticket=ticket,
+            new_sl=new_sl,
+            new_tp=new_tp,
+        )
+        return self.submit(cmd, wait_for_result=wait_for_result, timeout_seconds=timeout_seconds)
+
+    def close_partial(
+        self,
+        symbol: str,
+        ticket: int,
+        close_percent: float,
+        source_group: str = "",
+        message_id: str = "",
+        wait_for_result: bool = True,
+        timeout_seconds: float | None = None,
+    ) -> ExecutionResult:
+        """Send a CLOSE_PARTIAL command.  ``close_percent`` must be 0 < x ≤ 100."""
+        cmd = TradeCommand(
+            request_id=str(uuid4()),
+            source_group=source_group,
+            message_id=message_id,
+            symbol=symbol,
+            action="CLOSE_PARTIAL",
+            order_type="",
+            volume=0.0,
+            entry_price=None,
+            stop_loss=None,
+            take_profit=None,
+            take_profit_targets=[],
+            ticket=ticket,
+            close_percent=close_percent,
+        )
+        return self.submit(cmd, wait_for_result=wait_for_result, timeout_seconds=timeout_seconds)
+
+    def close_full(
+        self,
+        symbol: str,
+        ticket: int,
+        source_group: str = "",
+        message_id: str = "",
+        wait_for_result: bool = True,
+        timeout_seconds: float | None = None,
+    ) -> ExecutionResult:
+        """Send a CLOSE_FULL command to close the entire position."""
+        cmd = TradeCommand(
+            request_id=str(uuid4()),
+            source_group=source_group,
+            message_id=message_id,
+            symbol=symbol,
+            action="CLOSE_FULL",
+            order_type="",
+            volume=0.0,
+            entry_price=None,
+            stop_loss=None,
+            take_profit=None,
+            take_profit_targets=[],
+            ticket=ticket,
+        )
+        return self.submit(cmd, wait_for_result=wait_for_result, timeout_seconds=timeout_seconds)

@@ -30,6 +30,15 @@ struct TradeCommand
    double take_profit;
    bool has_take_profit;
    string comment;
+   // --- Modify / Close fields ---
+   long   ticket;
+   bool   has_ticket;
+   string new_sl;         // numeric price string OR "BREAKEVEN"
+   bool   has_new_sl;
+   double new_tp;
+   bool   has_new_tp;
+   double close_percent;  // 0‥100, used by CLOSE_PARTIAL
+   bool   has_close_percent;
 };
 
 struct TelegramStatus
@@ -421,7 +430,10 @@ bool ReadTradeCommand(const string relative_path, TradeCommand &command, string 
       error_message = "Command missing action";
       return(false);
    }
-   if(command.volume <= 0.0)
+
+   // Volume is only required for OPEN (BUY/SELL) commands.
+   bool is_open_action = (command.action == "BUY" || command.action == "SELL");
+   if(is_open_action && command.volume <= 0.0)
    {
       error_message = "Command volume must be greater than zero";
       return(false);
@@ -474,6 +486,26 @@ void ApplyField(TradeCommand &command, const string key, const string value)
    }
    else if(key == "comment")
       command.comment = value;
+   else if(key == "ticket" && value != "")
+   {
+      command.ticket = StringToInteger(value);
+      command.has_ticket = true;
+   }
+   else if(key == "new_sl" && value != "")
+   {
+      command.new_sl = value;
+      command.has_new_sl = true;
+   }
+   else if(key == "new_tp" && value != "")
+   {
+      command.new_tp = ParseBridgeDouble(value);
+      command.has_new_tp = true;
+   }
+   else if(key == "close_percent" && value != "")
+   {
+      command.close_percent = ParseBridgeDouble(value);
+      command.has_close_percent = true;
+   }
 }
 
 double ParseBridgeDouble(const string raw_value)
@@ -565,10 +597,27 @@ void ExecuteTradeCommand(TradeCommand &command)
    string error_message = "";
    ResetLastError();
 
-   if(command.order_type == "MARKET")
+   // ── Route by high-level action ─────────────────────────────────────────
+   if(command.action == "MODIFY")
+   {
+      success = ExecuteModifyTrade(command, error_message);
+   }
+   else if(command.action == "CLOSE_PARTIAL")
+   {
+      success = ExecuteClosePartialTrade(command, error_message);
+   }
+   else if(command.action == "CLOSE_FULL")
+   {
+      success = ExecuteCloseFullTrade(command, error_message);
+   }
+   else if(command.order_type == "MARKET")
+   {
       success = ExecuteMarketOrder(command, error_message);
+   }
    else
+   {
       success = ExecutePendingOrder(command, error_message);
+   }
 
    if(success)
    {
@@ -642,6 +691,117 @@ bool ExecutePendingOrder(TradeCommand &command, string &error_message)
 
    error_message = "Unsupported pending order type";
    return(false);
+}
+
+// ---------------------------------------------------------------------------
+// MODIFY — move SL and/or TP on an existing position
+// ---------------------------------------------------------------------------
+bool ExecuteModifyTrade(TradeCommand &command, string &error_message)
+{
+   if(!command.has_ticket)
+   {
+      error_message = "MODIFY command missing ticket";
+      return(false);
+   }
+
+   if(!PositionSelectByTicket(command.ticket))
+   {
+      error_message = "Position not found for ticket " + IntegerToString(command.ticket);
+      return(false);
+   }
+
+   double current_sl = PositionGetDouble(POSITION_SL);
+   double current_tp = PositionGetDouble(POSITION_TP);
+   string pos_symbol = PositionGetString(POSITION_SYMBOL);
+   int digits = (int)SymbolInfoInteger(pos_symbol, SYMBOL_DIGITS);
+
+   double new_sl_value = current_sl;
+   if(command.has_new_sl)
+   {
+      string sl_upper = command.new_sl;
+      StringToUpper(sl_upper);
+      if(sl_upper == "BREAKEVEN")
+      {
+         new_sl_value = NormalizeDouble(PositionGetDouble(POSITION_PRICE_OPEN), digits);
+         PrintFormat("TelegramSignalCopierEA MODIFY ticket=%d: SL → BREAKEVEN (%.5f)",
+            command.ticket, new_sl_value);
+      }
+      else
+      {
+         new_sl_value = NormalizeDouble(ParseBridgeDouble(command.new_sl), digits);
+         PrintFormat("TelegramSignalCopierEA MODIFY ticket=%d: SL → %.5f",
+            command.ticket, new_sl_value);
+      }
+   }
+
+   double new_tp_value = current_tp;
+   if(command.has_new_tp)
+   {
+      new_tp_value = NormalizeDouble(command.new_tp, digits);
+      PrintFormat("TelegramSignalCopierEA MODIFY ticket=%d: TP → %.5f",
+         command.ticket, new_tp_value);
+   }
+
+   return(trade.PositionModify(pos_symbol, new_sl_value, new_tp_value));
+}
+
+// ---------------------------------------------------------------------------
+// CLOSE_PARTIAL — close a percentage of an existing position
+// ---------------------------------------------------------------------------
+bool ExecuteClosePartialTrade(TradeCommand &command, string &error_message)
+{
+   if(!command.has_ticket)
+   {
+      error_message = "CLOSE_PARTIAL command missing ticket";
+      return(false);
+   }
+
+   if(!command.has_close_percent || command.close_percent <= 0.0 || command.close_percent > 100.0)
+   {
+      error_message = "CLOSE_PARTIAL: close_percent must be 0 < x <= 100";
+      return(false);
+   }
+
+   if(!PositionSelectByTicket(command.ticket))
+   {
+      error_message = "Position not found for ticket " + IntegerToString(command.ticket);
+      return(false);
+   }
+
+   double current_volume = PositionGetDouble(POSITION_VOLUME);
+   double close_volume = NormalizeDouble(current_volume * command.close_percent / 100.0, 2);
+
+   // Ensure we don't attempt a zero-volume close (broker minimum lot protection)
+   if(close_volume <= 0.0)
+      close_volume = current_volume;
+
+   PrintFormat("TelegramSignalCopierEA CLOSE_PARTIAL ticket=%d: volume=%.2f (%.0f%% of %.2f)",
+      command.ticket, close_volume, command.close_percent, current_volume);
+
+   return(trade.PositionClosePartial(command.ticket, close_volume));
+}
+
+// ---------------------------------------------------------------------------
+// CLOSE_FULL — close an entire position
+// ---------------------------------------------------------------------------
+bool ExecuteCloseFullTrade(TradeCommand &command, string &error_message)
+{
+   if(!command.has_ticket)
+   {
+      error_message = "CLOSE_FULL command missing ticket";
+      return(false);
+   }
+
+   if(!PositionSelectByTicket(command.ticket))
+   {
+      error_message = "Position not found for ticket " + IntegerToString(command.ticket);
+      return(false);
+   }
+
+   PrintFormat("TelegramSignalCopierEA CLOSE_FULL ticket=%d symbol=%s",
+      command.ticket, command.symbol);
+
+   return(trade.PositionClose(command.ticket));
 }
 
 string BuildTradeComment(TradeCommand &command)

@@ -35,7 +35,12 @@ def _comment_source_slug(value: str) -> str:
     nfkd = unicodedata.normalize("NFKD", value)
     ascii_value = nfkd.encode("ascii", errors="ignore").decode("ascii")
     cleaned = re.sub(r"[^A-Za-z0-9]+", "-", ascii_value).strip("-").upper()
-    return cleaned or "UNKNOWN"
+    if cleaned:
+        return cleaned
+    # Fallback for channels whose names are entirely non-Latin (e.g. Arabic,
+    # Chinese, Cyrillic): use a short SHA-256 prefix so the tag is unique and
+    # stable across restarts instead of the generic "UNKNOWN".
+    return "SRC" + sha256(value.encode("utf-8")).hexdigest()[:5].upper()
 
 
 @dataclass(slots=True)
@@ -118,6 +123,12 @@ class TradeCommand:
     take_profit_targets: list[float]
     submitted_at: str = field(default_factory=_now_iso)
     comment: str = ""
+    # ── Modify / Close fields ──────────────────────────────────────────────
+    # Present when action is MODIFY, CLOSE_PARTIAL, or CLOSE_FULL.
+    ticket: int | None = None
+    new_sl: float | str | None = None   # float price OR "BREAKEVEN"
+    new_tp: float | None = None
+    close_percent: float | None = None  # 0 < x ≤ 100
 
     @classmethod
     def from_signal(cls, signal: ParsedSignal, volume: float, comment_prefix: str = "TG Copier") -> "TradeCommand":
@@ -158,6 +169,15 @@ class TradeCommand:
             "take_profit_targets": ",".join(str(value) for value in self.take_profit_targets),
             "comment": _normalize_text(self.comment),
         }
+        # ── Modify / Close fields (only written when present) ──────────────
+        if self.ticket is not None:
+            payload["ticket"] = str(self.ticket)
+        if self.new_sl is not None:
+            payload["new_sl"] = str(self.new_sl)
+        if self.new_tp is not None:
+            payload["new_tp"] = str(self.new_tp)
+        if self.close_percent is not None:
+            payload["close_percent"] = str(self.close_percent)
         return payload
 
     def to_bridge_file(self) -> str:
