@@ -1,14 +1,19 @@
-"""Pydantic schemas shared across all agents in the LangGraph pipeline."""
+"""Agent schemas — pure stdlib dataclasses, no external dependencies.
+
+Replaces the previous pydantic-based models so the agent pipeline works
+without ``pydantic``, ``langchain``, ``langgraph``, or the ``openai`` package.
+All enumerations remain ``(str, Enum)`` so existing code using ``.value``
+or string comparisons continues to work unchanged.
+"""
 from __future__ import annotations
 
+from dataclasses import dataclass, field
 from enum import Enum
-from typing import Annotated, Any
-
-from pydantic import BaseModel, Field, model_validator
+from typing import Any
 
 
 # ---------------------------------------------------------------------------
-# Enumerations
+# Enumerations (stdlib — no change needed)
 # ---------------------------------------------------------------------------
 
 
@@ -26,59 +31,82 @@ class Side(str, Enum):
 
 
 # ---------------------------------------------------------------------------
-# Stage 1 output: LLM extraction result (strict, fails-safe)
+# Helpers
 # ---------------------------------------------------------------------------
 
 
-class ExtractedSignal(BaseModel):
+def _maybe_float(v: Any) -> float | None:
+    if v is None or v == "":
+        return None
+    try:
+        return float(v)
+    except (TypeError, ValueError):
+        return None
+
+
+# ---------------------------------------------------------------------------
+# Stage 1 output: LLM extraction result
+# ---------------------------------------------------------------------------
+
+
+@dataclass
+class ExtractedSignal:
     """Raw signal as extracted by the LLM from unstructured text.
 
-    All fields are deliberately Optional so the model returns a partial object
-    rather than raising when the signal provider omits information.  The
-    validation agent is responsible for rejecting incomplete signals.
+    All fields are deliberately optional so the model returns a partial
+    object rather than raising when the signal provider omits information.
+    The validation agent is responsible for rejecting incomplete signals.
     """
 
-    symbol_raw: str | None = Field(
-        default=None,
-        description=(
-            "Symbol or name as stated by the provider, e.g. 'Gold', 'XAU', 'EURUSD'."
-        ),
-    )
-    side: Side | None = Field(
-        default=None,
-        description="Trade direction: BUY or SELL.",
-    )
-    order_type: OrderType = Field(
-        default=OrderType.MARKET,
-        description="Order type inferred from the message.",
-    )
-    entry_price: float | None = Field(
-        default=None,
-        description="Entry price. None for pure market orders.",
-    )
-    stop_loss: float | None = Field(
-        default=None,
-        description="Stop-loss level. Required for the signal to be tradeable.",
-    )
-    take_profits: list[Annotated[float, Field(gt=0)]] = Field(
-        default_factory=list,
-        description="One or more take-profit levels, ordered nearest first.",
-    )
-    confidence: float = Field(
-        default=0.0,
-        ge=0.0,
-        le=1.0,
-        description="LLM self-reported extraction confidence.",
-    )
-    notes: list[str] = Field(
-        default_factory=list,
-        description="Extraction warnings or observations from the LLM.",
-    )
+    symbol_raw: str | None = None
+    side: Side | None = None
+    order_type: OrderType = OrderType.MARKET
+    entry_price: float | None = None
+    stop_loss: float | None = None
+    take_profits: list[float] = field(default_factory=list)
+    confidence: float = 0.0
+    notes: list[str] = field(default_factory=list)
 
-    @model_validator(mode="after")
-    def _clamp_confidence(self) -> "ExtractedSignal":
-        self.confidence = max(0.0, min(1.0, self.confidence))
-        return self
+    def __post_init__(self) -> None:
+        # Clamp confidence to [0, 1]
+        self.confidence = max(0.0, min(1.0, float(self.confidence or 0)))
+        # Normalise side string → enum (LLM may return a plain string)
+        if isinstance(self.side, str) and self.side:
+            try:
+                self.side = Side(self.side.strip().upper())
+            except ValueError:
+                self.side = None
+        # Normalise order_type string → enum
+        if isinstance(self.order_type, str):
+            try:
+                self.order_type = OrderType(self.order_type.strip().upper())
+            except ValueError:
+                self.order_type = OrderType.MARKET
+
+    @classmethod
+    def from_dict(cls, data: dict[str, Any]) -> "ExtractedSignal":
+        """Construct from a raw LLM JSON dict (permissive — never raises)."""
+        tps = data.get("take_profits") or []
+        if not isinstance(tps, list):
+            tps = []
+        notes = data.get("notes") or []
+        if isinstance(notes, str):
+            notes = [notes]
+        return cls(
+            symbol_raw=data.get("symbol_raw") or data.get("symbol"),
+            side=data.get("side"),
+            order_type=data.get("order_type") or "MARKET",
+            entry_price=_maybe_float(data.get("entry_price")),
+            stop_loss=_maybe_float(data.get("stop_loss")),
+            take_profits=[float(v) for v in tps if v not in (None, "")],
+            confidence=float(data.get("confidence") or 0),
+            notes=[str(n) for n in notes],
+        )
+
+    # Alias used by code previously written against pydantic
+    @classmethod
+    def model_validate(cls, data: dict[str, Any]) -> "ExtractedSignal":
+        return cls.from_dict(data)
 
 
 # ---------------------------------------------------------------------------
@@ -97,18 +125,20 @@ class RejectionReason(str, Enum):
     LOW_CONFIDENCE = "LOW_CONFIDENCE"
 
 
-class ValidatedSignal(BaseModel):
+@dataclass
+class ValidatedSignal:
     """Broker-ready payload produced by the Risk & Validation Agent."""
 
-    # Mapped broker symbol (e.g. 'XAUUSD' from 'Gold')
+    # Required fields — always supplied by the validation agent
     symbol: str
     side: Side
-    order_type: OrderType
-    entry_price: float | None
     stop_loss: float
-    take_profits: list[float]
-    volume: float = Field(default=0.01, gt=0)
-    risk_reward_ratio: float = Field(default=0.0, ge=0)
+    # Optional / defaulted fields
+    order_type: OrderType = OrderType.MARKET
+    entry_price: float | None = None
+    take_profits: list[float] = field(default_factory=list)
+    volume: float = 0.01
+    risk_reward_ratio: float = 0.0
     source_group: str = ""
     message_id: str = ""
     comment: str = ""
@@ -123,23 +153,24 @@ class ValidatedSignal(BaseModel):
 # ---------------------------------------------------------------------------
 
 
-class AgentState(BaseModel):
-    """Mutable state dict that flows through the LangGraph pipeline.
+@dataclass
+class AgentState:
+    """Mutable state that flows through every pipeline node.
 
-    Each agent reads from and writes to this object.  Fields are all Optional
-    so the state is valid at every intermediate stage.
+    Each node receives the state, reads what it needs, and returns a
+    ``dict`` of fields to update.  The pipeline merges those updates back
+    into the state before invoking the next node.
     """
 
     # ── Input ──────────────────────────────────────────────────────────────
     raw_text: str = ""
     source_group: str = ""
     message_id: str = ""
-    # Primary image path (local file) and all additional images for multi-chart signals
     image_path: str | None = None
-    image_paths: list[str] = Field(default_factory=list)
+    image_paths: list[str] = field(default_factory=list)
 
     # ── Intent pre-filter ──────────────────────────────────────────────────
-    intent: str | None = None          # NEW_SIGNAL | TRADE_UPDATE | INFORMATIONAL | UNKNOWN
+    intent: str | None = None
     intent_confidence: float = 0.0
 
     # ── Stage 1: Extraction ────────────────────────────────────────────────
@@ -148,14 +179,29 @@ class AgentState(BaseModel):
 
     # ── Stage 2: Validation ────────────────────────────────────────────────
     validated_signal: ValidatedSignal | None = None
-    rejection_reasons: list[str] = Field(default_factory=list)
+    rejection_reasons: list[str] = field(default_factory=list)
 
     # ── Stage 3: Execution ─────────────────────────────────────────────────
-    execution_status: str | None = None  # "FILLED" | "SUBMITTED" | "REJECTED" | ...
+    execution_status: str | None = None
     order_ticket: str | None = None
     execution_error: str | None = None
 
     # ── Routing flag set by each node ──────────────────────────────────────
-    next_node: str = "extract"  # "extract" | "validate" | "execute" | "reject" | "end"
+    next_node: str = "extract"
 
-    model_config = {"arbitrary_types_allowed": True}
+    @classmethod
+    def from_dict(cls, data: dict[str, Any]) -> "AgentState":
+        """Build an AgentState from a partial-or-full dict (ignores unknown keys)."""
+        known = cls.__dataclass_fields__  # type: ignore[attr-defined]
+        return cls(**{k: v for k, v in data.items() if k in known})
+
+    # Alias kept for code previously written against pydantic
+    @classmethod
+    def model_validate(cls, data: dict[str, Any]) -> "AgentState":
+        return cls.from_dict(data)
+
+    def _apply(self, updates: dict[str, Any]) -> None:
+        """Merge a partial update dict into this state in-place."""
+        for k, v in updates.items():
+            if hasattr(self, k):
+                setattr(self, k, v)

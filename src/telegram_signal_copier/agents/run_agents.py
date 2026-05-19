@@ -22,9 +22,9 @@ import logging
 import os
 from pathlib import Path
 
-from langchain_openai import ChatOpenAI
-
 from telegram_signal_copier.adapters.bridge import FileBridgeExecutor
+from telegram_signal_copier.adapters.openai_client import OpenAIClient
+from telegram_signal_copier.agents._llm_shim import SimpleLLM
 from telegram_signal_copier.agents.graph import build_graph, start_listener
 from telegram_signal_copier.config import AppConfig
 from telegram_signal_copier.services.pipeline_logger import PipelineLogger
@@ -37,18 +37,13 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 
-def _build_llm(config: AppConfig) -> ChatOpenAI:
-    base_url = os.getenv("AGENT_OPENAI_BASE_URL") or config.openai_base_url or "https://api.openai.com/v1"
-    model = os.getenv("AGENT_OPENAI_MODEL") or config.openai_model or "gpt-4o-mini"
-    api_key = config.openai_api_key or os.getenv("OPENAI_API_KEY") or "no-key"
-    logger.info("[INIT] LLM base_url=%s model=%s", base_url, model)
-    return ChatOpenAI(
-        model=model,
-        api_key=api_key,
-        base_url=base_url,
-        temperature=0,
-        max_tokens=512,
+def _build_llm(config: AppConfig) -> SimpleLLM:
+    logger.info(
+        "[INIT] LLM via OpenAIClient (stdlib) model=%s",
+        getattr(config, "openai_model", "gpt-4o-mini"),
     )
+    client = OpenAIClient(config)
+    return SimpleLLM(client)
 
 
 async def main() -> None:

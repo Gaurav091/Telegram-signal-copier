@@ -1,7 +1,7 @@
-﻿"""LangGraph multi-agent pipeline for Telegram trade signal copying.
+﻿"""Agent pipeline — stdlib-only replacement for langgraph.StateGraph.
 
-Graph topology (with intent pre-filter)
-----------------------------------------
+Graph topology (intent pre-filter → extract → validate → execute)
+------------------------------------------------------------------
 
   [START]
      |
@@ -19,6 +19,9 @@ Graph topology (with intent pre-filter)
      |
      v (success)
    [END]
+
+Routing is driven by ``state.next_node`` which each node sets before
+returning.  The ``_Pipeline`` class replaces ``langgraph.StateGraph``.
 """
 from __future__ import annotations
 
@@ -28,10 +31,8 @@ from functools import partial
 from pathlib import Path
 from typing import Any, Optional
 
-from langchain_openai import ChatOpenAI
-from langgraph.graph import END, START, StateGraph
-
 from telegram_signal_copier.adapters.bridge import FileBridgeExecutor
+from telegram_signal_copier.agents._llm_shim import SimpleLLM
 from telegram_signal_copier.agents.extraction_agent import extraction_agent_node
 from telegram_signal_copier.agents.execution_agent import execution_agent_node
 from telegram_signal_copier.agents.intent_filter import intent_filter_node
@@ -51,7 +52,6 @@ def _reject_node(state: AgentState) -> dict[str, Any]:
     reasons = state.rejection_reasons or []
     error = state.extraction_error or state.execution_error
     intent = state.intent
-    # Only log WARN for genuine rejections (not routine intent-filter skips)
     if intent in {"TRADE_UPDATE", "INFORMATIONAL"}:
         logger.info(
             "[SKIP] source=%s msg_id=%s intent=%s",
@@ -66,48 +66,70 @@ def _reject_node(state: AgentState) -> dict[str, Any]:
 
 
 # ---------------------------------------------------------------------------
-# Conditional edge router
+# _Pipeline — lightweight replacement for langgraph.StateGraph
 # ---------------------------------------------------------------------------
 
-def _route(state: AgentState) -> str:
-    return state.next_node if state.next_node != "end" else END
+_TERMINAL = {"end", ""}
 
 
-# ---------------------------------------------------------------------------
-# Graph builder
-# ---------------------------------------------------------------------------
+class _Pipeline:
+    """Sequential pipeline that routes via ``state.next_node``.
 
-class _LoggingGraph:
-    """Thin wrapper that logs every invocation to ``PipelineLogger``."""
+    Replaces ``langgraph.StateGraph`` with zero external dependencies.
+    The execution model is identical: each node returns a ``dict`` of
+    partial-state updates; the pipeline merges them and follows the
+    routing flag until it reaches ``"end"``.
+    """
 
-    def __init__(self, compiled_graph: Any, pipeline_log: PipelineLogger) -> None:
-        self._graph = compiled_graph
+    def __init__(
+        self,
+        nodes: dict[str, Any],
+        pipeline_log: Optional[PipelineLogger] = None,
+    ) -> None:
+        self._nodes = nodes
         self._log = pipeline_log
 
-    def invoke(self, initial_state: Any, *args, **kwargs) -> Any:
-        result = self._graph.invoke(initial_state, *args, **kwargs)
-        self._emit(initial_state, result)
-        return result
+    def invoke(self, initial_state: AgentState | dict[str, Any], *_a, **_kw) -> AgentState:
+        """Run the pipeline synchronously and return the final state."""
+        if isinstance(initial_state, dict):
+            state = AgentState.from_dict(initial_state)
+        else:
+            state = initial_state
 
-    # Support any other CompiledGraph methods transparently
+        current = "intent_filter"
+        visited: set[str] = set()
+
+        while current not in _TERMINAL:
+            if current in visited:
+                logger.error("[PIPELINE] Routing loop detected at node=%s — aborting", current)
+                break
+            visited.add(current)
+
+            node_fn = self._nodes.get(current)
+            if node_fn is None:
+                logger.warning("[PIPELINE] Unknown node=%s — stopping", current)
+                break
+
+            updates = node_fn(state)
+            if isinstance(updates, dict):
+                state._apply(updates)
+
+            current = state.next_node or "end"
+
+        if self._log is not None:
+            self._emit_log(initial_state, state)
+
+        return state
+
+    # Support attribute-style access so code doing ``graph.invoke(...)``
+    # and ``graph.some_other_attr`` still works transparently.
     def __getattr__(self, name: str) -> Any:
-        return getattr(self._graph, name)
+        raise AttributeError(f"_Pipeline has no attribute {name!r}")
 
-    def _emit(self, initial: Any, result: Any) -> None:
+    def _emit_log(self, initial: Any, state: AgentState) -> None:
         try:
-            state: AgentState
-            if isinstance(result, dict):
-                state = AgentState.model_validate(result)
-            elif isinstance(result, AgentState):
-                state = result
-            else:
-                return
-
-            image_count = 0
-            if hasattr(initial, "image_path") and initial.image_path:
-                image_count += 1
-            if hasattr(initial, "image_paths"):
-                image_count += len(initial.image_paths or [])
+            image_count = 1 if state.image_path else 0
+            image_count += len(state.image_paths or [])
 
             action = "IGNORE"
             if state.execution_status in ("FILLED", "SUBMITTED", "DRY_RUN"):
@@ -139,48 +161,24 @@ class _LoggingGraph:
 
 def build_graph(
     config: AppConfig,
-    llm: ChatOpenAI,
+    llm: SimpleLLM,
     executor: FileBridgeExecutor,
     pipeline_log: Optional[PipelineLogger] = None,
-) -> Any:
-    """Compile and return the LangGraph StateGraph."""
-    filter_node  = partial(intent_filter_node, llm=llm)
-    extract_node = partial(extraction_agent_node, llm=llm)
+) -> _Pipeline:
+    """Build and return the agent pipeline."""
+    filter_node   = partial(intent_filter_node,   llm=llm)
+    extract_node  = partial(extraction_agent_node, llm=llm)
     validate_node = partial(validation_agent_node, app_config=config)
-    execute_node  = partial(execution_agent_node, executor=executor, app_config=config)
+    execute_node  = partial(execution_agent_node,  executor=executor, app_config=config)
 
-    graph = StateGraph(AgentState)
-    graph.add_node("intent_filter", filter_node)
-    graph.add_node("extract",       extract_node)
-    graph.add_node("validate",      validate_node)
-    graph.add_node("execute",       execute_node)
-    graph.add_node("reject",        _reject_node)
-
-    graph.add_edge(START, "intent_filter")
-    graph.add_conditional_edges(
-        "intent_filter", _route,
-        {"extract": "extract", "reject": "reject", END: END},
-    )
-    graph.add_conditional_edges(
-        "extract", _route,
-        {"validate": "validate", "reject": "reject", END: END},
-    )
-    graph.add_conditional_edges(
-        "validate", _route,
-        {"execute": "execute", "reject": "reject", END: END},
-    )
-    graph.add_conditional_edges(
-        "execute", _route,
-        {"reject": "reject", END: END},
-    )
-    graph.add_edge("reject", END)
-
-    compiled = graph.compile()
-
-    # Wrap compile result so every invocation is automatically logged.
-    if pipeline_log is not None:
-        return _LoggingGraph(compiled, pipeline_log)
-    return compiled
+    nodes = {
+        "intent_filter": filter_node,
+        "extract":        extract_node,
+        "validate":       validate_node,
+        "execute":        execute_node,
+        "reject":         _reject_node,
+    }
+    return _Pipeline(nodes, pipeline_log=pipeline_log)
 
 
 # ---------------------------------------------------------------------------

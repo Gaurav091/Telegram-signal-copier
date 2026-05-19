@@ -21,10 +21,7 @@ import mimetypes
 from pathlib import Path
 from typing import Any
 
-from langchain_core.messages import HumanMessage, SystemMessage
-from langchain_openai import ChatOpenAI
-from pydantic import ValidationError
-
+from telegram_signal_copier.agents._llm_shim import SimpleLLM
 from telegram_signal_copier.agents.schemas import AgentState, ExtractedSignal
 
 logger = logging.getLogger(__name__)
@@ -93,11 +90,11 @@ def _encode_image(image_path: str) -> tuple[str, str]:
 
 def _build_messages(raw_text: str, image_path: str | None, extra_images: list[str]) -> list:
     """Build LangChain message list with optional inline images."""
-    content: list[dict[str, Any]] = []
+    human_content: list[dict[str, Any]] = []
 
     # Text part
     text_body = raw_text.strip() or "(no caption — analyse the chart image only)"
-    content.append({"type": "text", "text": text_body})
+    human_content.append({"type": "text", "text": text_body})
 
     # Images
     all_images = []
@@ -108,15 +105,17 @@ def _build_messages(raw_text: str, image_path: str | None, extra_images: list[st
     for img_path in all_images[:4]:  # cap at 4 images per LLM call
         try:
             b64, mime = _encode_image(img_path)
-            content.append({
+            human_content.append({
                 "type": "image_url",
                 "image_url": {"url": f"data:{mime};base64,{b64}", "detail": "high"},
             })
         except Exception as exc:
             logger.warning("[EXTRACT] Could not encode image %s: %s", img_path, exc)
 
-    human_msg = HumanMessage(content=content)
-    return [SystemMessage(content=_SYSTEM_PROMPT), human_msg]
+    return [
+        {"role": "system", "content": _SYSTEM_PROMPT},
+        {"role": "user",   "content": human_content},
+    ]
 
 
 # ---------------------------------------------------------------------------
@@ -124,7 +123,7 @@ def _build_messages(raw_text: str, image_path: str | None, extra_images: list[st
 # ---------------------------------------------------------------------------
 
 
-def extraction_agent_node(state: AgentState, llm: ChatOpenAI) -> dict[str, Any]:
+def extraction_agent_node(state: AgentState, llm: SimpleLLM) -> dict[str, Any]:
     """LangGraph node: extract structured trade signal from text and/or chart image."""
     has_image = bool(state.image_path or state.image_paths)
     logger.info(
@@ -154,7 +153,7 @@ def extraction_agent_node(state: AgentState, llm: ChatOpenAI) -> dict[str, Any]:
             cleaned = "\n".join(lines[1:-1] if lines[-1].strip() == "`" else lines[1:])
 
         data = json.loads(cleaned)
-        signal = ExtractedSignal.model_validate(data)
+        signal = ExtractedSignal.from_dict(data)
 
         logger.info(
             "[EXTRACT] OK symbol_raw=%r side=%s order_type=%s entry=%s sl=%s tp=%s conf=%.2f",
@@ -163,7 +162,7 @@ def extraction_agent_node(state: AgentState, llm: ChatOpenAI) -> dict[str, Any]:
         )
         return {"extracted_signal": signal, "next_node": "validate"}
 
-    except (json.JSONDecodeError, ValidationError) as exc:
+    except (json.JSONDecodeError, ValueError, KeyError) as exc:
         logger.error("[EXTRACT] Schema parse failed: %s", exc)
         return {"extraction_error": f"Schema parse failed: {exc}", "next_node": "reject"}
     except Exception as exc:  # noqa: BLE001

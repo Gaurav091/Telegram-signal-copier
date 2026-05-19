@@ -19,10 +19,8 @@ import logging
 import re
 from typing import Any
 
-from langchain_core.messages import HumanMessage, SystemMessage
-from langchain_openai import ChatOpenAI
-
 from telegram_signal_copier.agents.schemas import AgentState
+from telegram_signal_copier.agents._llm_shim import SimpleLLM
 
 logger = logging.getLogger(__name__)
 
@@ -84,7 +82,7 @@ def _keyword_decision(text: str) -> str | None:
     return None
 
 
-def intent_filter_node(state: AgentState, llm: ChatOpenAI) -> dict[str, Any]:
+def intent_filter_node(state: AgentState, llm: SimpleLLM) -> dict[str, Any]:
     """LangGraph node: classify intent and decide whether to proceed."""
     import json
 
@@ -121,7 +119,10 @@ def intent_filter_node(state: AgentState, llm: ChatOpenAI) -> dict[str, Any]:
         except Exception as exc:
             logger.warning("[INTENT] Could not encode image for intent check: %s", exc)
 
-    messages = [SystemMessage(content=_INTENT_PROMPT), HumanMessage(content=content)]
+    messages = [
+        {"role": "system", "content": _INTENT_PROMPT},
+        {"role": "user",   "content": content},
+    ]
 
     try:
         response = llm.invoke(messages)
