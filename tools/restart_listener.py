@@ -6,6 +6,11 @@ ROOT = Path(__file__).resolve().parents[1]
 LOG = ROOT / "logs" / "listener-restart.log"
 PID_FILE = ROOT / "runtime" / "listener.pid"
 LOG.parent.mkdir(parents=True, exist_ok=True)
+PID_FILE.parent.mkdir(parents=True, exist_ok=True)
+
+
+def _write_pid(pid: int) -> None:
+    PID_FILE.write_text(f"{pid}\n", encoding="utf-8")
 
 try:
     pid_text = PID_FILE.read_text(encoding="utf-8").strip()
@@ -29,10 +34,13 @@ else:
 cmd = [PY, "-u", "-m", "telegram_signal_copier.main", "listen"]
 with open(LOG, "a", encoding="utf-8") as fh:
     fh.write(f"Starting listener with: {cmd}\n")
-# Start attached when interactive; otherwise redirect child stdout/stderr to log
+# Keep the listener in the current terminal when launched interactively.
 workspace_dir = str(Path(__file__).resolve().parents[1])
 if sys.stdout.isatty() and sys.stderr.isatty():
     proc = subprocess.Popen(cmd, cwd=workspace_dir)
+    _write_pid(proc.pid)
+    print("Started new listener PID:", proc.pid)
+    raise SystemExit(proc.wait())
 else:
     # Running non-interactively (e.g., called by supervisor / log monitor).
     # Use DEVNULL + CREATE_NO_WINDOW so the child process does not inherit any
@@ -47,6 +55,7 @@ else:
         stderr=subprocess.DEVNULL,
         creationflags=CREATE_NO_WINDOW,
     )
+    _write_pid(proc.pid)
     with open(LOG, "a", encoding="utf-8") as fh_tmp:
         fh_tmp.write(f"Started PID {proc.pid}\n")
 print("Started new listener PID:", proc.pid)

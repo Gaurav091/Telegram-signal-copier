@@ -27,6 +27,31 @@ class _UnusedSignalParser:
         raise AssertionError("full parser should not run for forced trade updates")
 
 
+class _StaticIntentClient:
+    def __init__(self, intent: str, confidence: float, reasoning: str = "") -> None:
+        self._intent = intent
+        self._confidence = confidence
+        self._reasoning = reasoning
+
+    def classify_intent(self, *args, **kwargs):
+        return {
+            "intent": self._intent,
+            "confidence": self._confidence,
+            "reasoning": self._reasoning,
+        }
+
+
+class _IntentOnlySignalParser:
+    def __init__(self, ai_client) -> None:
+        self.ai_client = ai_client
+
+    def _heuristic_parse(self, *args, **kwargs):  # pragma: no cover - must not be called
+        raise AssertionError("heuristic parser should not run for skipped informational messages")
+
+    def parse(self, *args, **kwargs):  # pragma: no cover - must not be called
+        raise AssertionError("full parser should not run for skipped informational messages")
+
+
 def build_config(tmp_path: Path) -> AppConfig:
     bridge_root = tmp_path / "Common" / "Files" / "TelegramSignalCopierBridge"
     return AppConfig(
@@ -294,6 +319,92 @@ class PipelineTests(unittest.TestCase):
             self.assertEqual(outcome.decision.status, "SKIPPED")
             self.assertIsNone(outcome.execution_result)
             self.assertTrue(any("Trade update" in reason for reason in outcome.decision.reasons))
+            executor.submit.assert_not_called()
+
+    def test_pipeline_skips_cancel_order_trade_update_with_image_without_ocr(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            tmp_path = Path(temp_dir)
+            config = build_config(tmp_path)
+            executor = Mock(spec=FileBridgeExecutor)
+            pipeline = CopierPipeline(
+                config=config,
+                image_processor=_UnusedImageProcessor(),
+                signal_parser=_UnusedSignalParser(),
+                risk_engine=RiskEngine(config=config),
+                executor=executor,
+            )
+
+            outcome = pipeline.process_message(
+                TelegramSignalMessage(
+                    source_group="Crypto with kevin 3.0",
+                    message_id="9231..9233",
+                    raw_text="Cancel this order",
+                    image_path=tmp_path / "9233.jpg",
+                )
+            )
+
+            self.assertEqual(outcome.decision.status, "SKIPPED")
+            self.assertIsNone(outcome.execution_result)
+            self.assertTrue(any("Trade update" in reason for reason in outcome.decision.reasons))
+            executor.submit.assert_not_called()
+
+    def test_pipeline_skips_stop_loss_update_caption_with_image_without_ocr(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            tmp_path = Path(temp_dir)
+            config = build_config(tmp_path)
+            executor = Mock(spec=FileBridgeExecutor)
+            pipeline = CopierPipeline(
+                config=config,
+                image_processor=_UnusedImageProcessor(),
+                signal_parser=_UnusedSignalParser(),
+                risk_engine=RiskEngine(config=config),
+                executor=executor,
+            )
+
+            outcome = pipeline.process_message(
+                TelegramSignalMessage(
+                    source_group="Adam Gold Master",
+                    message_id="5625",
+                    raw_text="Just Kiss My Stop Loss And Fly",
+                    image_path=tmp_path / "5625.jpg",
+                )
+            )
+
+            self.assertEqual(outcome.decision.status, "SKIPPED")
+            self.assertIsNone(outcome.execution_result)
+            self.assertTrue(any("Trade update" in reason for reason in outcome.decision.reasons))
+            executor.submit.assert_not_called()
+
+    def test_pipeline_skips_text_only_high_confidence_informational_message(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            tmp_path = Path(temp_dir)
+            config = build_config(tmp_path)
+            executor = Mock(spec=FileBridgeExecutor)
+            pipeline = CopierPipeline(
+                config=config,
+                image_processor=_UnusedImageProcessor(),
+                signal_parser=_IntentOnlySignalParser(
+                    _StaticIntentClient(
+                        intent="INFORMATIONAL",
+                        confidence=0.90,
+                        reasoning="Pure commentary or promo message",
+                    )
+                ),
+                risk_engine=RiskEngine(config=config),
+                executor=executor,
+            )
+
+            outcome = pipeline.process_message(
+                TelegramSignalMessage(
+                    source_group="XAUUSD GOLD SIGNAL",
+                    message_id="32963",
+                    raw_text="[CLUSTER CONTEXT] Symbol: XAUUSD [/CLUSTER CONTEXT]\n---\nNot Related to Us\n---\nSTAY ACTIVE FOR SIGNAL",
+                )
+            )
+
+            self.assertEqual(outcome.decision.status, "SKIPPED")
+            self.assertIsNone(outcome.execution_result)
+            self.assertTrue(any("Informational" in reason for reason in outcome.decision.reasons))
             executor.submit.assert_not_called()
 
 

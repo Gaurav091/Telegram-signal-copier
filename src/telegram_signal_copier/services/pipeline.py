@@ -31,15 +31,19 @@ _NEW_SIGNAL_OVERRIDE = re.compile(
 # These are operational follow-ups, not new entries.
 _TRADE_UPDATE_OVERRIDE = re.compile(
     r"\b(exit\s*(both|all)?|close\s*(both|all|trade)?|book\s*profit|tp\s*\d*\s*hit|"
-    r"tp\s*\d*\s*done|sl\s*hit|target\s*(hit|done|achieved)|move\s*sl|"
-    r"move\s*stop|breakeven|break\s*even|partial\s*(close|profit)|trade\s*closed|"
-    r"trail(?:ing)?\s*sl|(?:\d+\s*)?pips?\s*(done|booked)|profit\s*done|"
+    r"tp\s*\d*\s*done|sl\s*hit|target\s*(hit|done|achieved)|"
+    r"all\s*targets?\s*(complete|completed|hit|done|achieved)|targets?\s*complete|"
+    r"move\s*sl|move\s*stop|breakeven|break\s*even|partial\s*(close|profit)|"
+    r"trade\s*closed|trade\s*setup\s*invalid|setup\s*invalid|"
+    r"cancel(?:led)?\s*(this|the)?\s*(order|trade|setup)?|trail(?:ing)?\s*sl|"
+    r"(?:\d+\s*)?pips?\s*(done|booked)|profit\s*done|"
+    r"kiss\s*my\s*stop\s*loss|stop\s*loss\s*(hit|kiss(?:ed)?|taken|touched|and\s*fly)|"
     r"congratulation(?:s)?)\b",
     re.IGNORECASE,
 )
 
-# Raise these thresholds — intent AI must be very sure before we DISCARD a message that has an image
-_INFO_SKIP_THRESHOLD = 0.92   # was 0.80
+# Text-only informational messages can be skipped at 0.90 without risking image-backed entries.
+_INFO_SKIP_THRESHOLD = 0.90
 _UPDATE_SKIP_THRESHOLD = 0.90  # was 0.75
 
 
