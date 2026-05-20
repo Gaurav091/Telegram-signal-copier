@@ -3,11 +3,13 @@ from __future__ import annotations
 import logging
 import re
 from dataclasses import asdict, dataclass
+from typing import Optional
 
 from telegram_signal_copier.adapters.bridge import FileBridgeExecutor
 from telegram_signal_copier.config import AppConfig
 from telegram_signal_copier.models import ExecutionResult, ParsedSignal, TelegramSignalMessage, TradeCommand
 from telegram_signal_copier.services.image_processor import ImageProcessor, ImageProcessingResult
+from telegram_signal_copier.services.pipeline_logger import PipelineLogger
 from telegram_signal_copier.services.risk_engine import RiskEngine, ValidationDecision
 from telegram_signal_copier.services.signal_parser import ParseResult, SignalParser
 
@@ -22,6 +24,17 @@ _TRADEABLE_INTENTS = {"NEW_TRADE_SIGNAL", "CHART_ANALYSIS", "UNKNOWN"}
 # Matches: "New", "NEW", "New Trade", "New Signal", "new entry", "📊 New", etc.
 _NEW_SIGNAL_OVERRIDE = re.compile(
     r"\b(new\s*(trade|signal|entry|setup|call|idea)?|buy\s*now|sell\s*now|open\s*trade)\b",
+    re.IGNORECASE,
+)
+
+# Explicit trade-update captions should short-circuit even when an image is attached.
+# These are operational follow-ups, not new entries.
+_TRADE_UPDATE_OVERRIDE = re.compile(
+    r"\b(exit\s*(both|all)?|close\s*(both|all|trade)?|book\s*profit|tp\s*\d*\s*hit|"
+    r"tp\s*\d*\s*done|sl\s*hit|target\s*(hit|done|achieved)|move\s*sl|"
+    r"move\s*stop|breakeven|break\s*even|partial\s*(close|profit)|trade\s*closed|"
+    r"trail(?:ing)?\s*sl|(?:\d+\s*)?pips?\s*(done|booked)|profit\s*done|"
+    r"congratulation(?:s)?)\b",
     re.IGNORECASE,
 )
 
@@ -53,12 +66,14 @@ class CopierPipeline:
         signal_parser: SignalParser,
         risk_engine: RiskEngine,
         executor: FileBridgeExecutor,
+        pipeline_logger: Optional[PipelineLogger] = None,
     ) -> None:
         self.config = config
         self.image_processor = image_processor
         self.signal_parser = signal_parser
         self.risk_engine = risk_engine
         self.executor = executor
+        self._pipeline_logger = pipeline_logger
 
     def process_message(self, message: TelegramSignalMessage) -> PipelineOutcome:
         images = message.effective_image_paths()
@@ -79,14 +94,22 @@ class CopierPipeline:
         intent = "UNKNOWN"
         intent_confidence = 0.0
         reasoning = ""
+        force_skip_trade_update = False
 
         # Hard override: caption explicitly signals a new trade entry.
         # "New", "New Trade", "New Signal", "Buy Now" etc. → never discard.
         keyword_override = bool(_NEW_SIGNAL_OVERRIDE.search(combined_text))
         if keyword_override:
             intent = "NEW_TRADE_SIGNAL"
+            intent_confidence = 1.0
             reasoning = f"Keyword override from caption: {combined_text[:60]!r}"
             logger.info("[INTENT] FORCED NEW_TRADE_SIGNAL — keyword match in caption: %r", combined_text[:60])
+        elif _TRADE_UPDATE_OVERRIDE.search(combined_text):
+            intent = "TRADE_UPDATE"
+            intent_confidence = 1.0
+            reasoning = f"Trade-update override from caption: {combined_text[:60]!r}"
+            force_skip_trade_update = True
+            logger.info("[INTENT] FORCED TRADE_UPDATE — keyword match in caption: %r", combined_text[:60])
         elif self.signal_parser.ai_client:
             try:
                 intent_result = self.signal_parser.ai_client.classify_intent(
@@ -126,11 +149,16 @@ class CopierPipeline:
             )
 
         # For TRADE_UPDATE: only skip if no image AND high confidence.
-        # With an image present the same message could contain a fresh chart entry.
-        if intent in _UPDATE_INTENTS and not has_image and intent_confidence >= _UPDATE_SKIP_THRESHOLD:
+        # With an image present the same message could contain a fresh chart entry,
+        # unless the caption itself is an explicit update directive.
+        should_skip_trade_update = force_skip_trade_update or (
+            not has_image and intent_confidence >= _UPDATE_SKIP_THRESHOLD
+        )
+        if intent in _UPDATE_INTENTS and should_skip_trade_update:
             logger.info(
-                "[PIPELINE] TRADE_UPDATE text-only (conf=%.2f) — no new trade; logged for tracking",
+                "[PIPELINE] TRADE_UPDATE skipped (conf=%.2f, override=%s) — no new trade; logged for tracking",
                 intent_confidence,
+                force_skip_trade_update,
             )
             dummy = ParsedSignal(
                 source_group=message.source_group,
@@ -233,5 +261,32 @@ class CopierPipeline:
                 message="Signal passed parser but requires manual approval",
             )
             logger.info("[EXECUTION] REVIEW required")
+
+        if self._pipeline_logger is not None:
+            action = (
+                execution_result.status if execution_result else
+                ("SKIPPED" if decision.status == "SKIPPED" else "REJECTED")
+            )
+            self._pipeline_logger.log(
+                group_id=message.message_id or "",
+                channel_id=0,
+                message_count=message.grouped_count or 1,
+                image_count=len(message.effective_image_paths()),
+                intent=intent,
+                intent_confidence=intent_confidence,
+                intent_reasoning=reasoning,
+                rejection_reasons=list(decision.reasons) if decision.reasons else [],
+                action_taken=action,
+                execution_status=execution_result.status if execution_result else None,
+                order_ticket=getattr(execution_result, "ticket", None) if execution_result else None,
+                execution_error=(
+                    execution_result.message
+                    if execution_result and execution_result.status not in {"FILLED", "SUBMITTED", "PENDING", "DRY_RUN", "REVIEW"}
+                    else None
+                ),
+                source_group=message.source_group or "",
+                message_id=str(message.message_id or ""),
+                raw_text_snippet=(message.combined_text() or "")[:200],
+            )
 
         return PipelineOutcome(parse_result=parse_result, decision=decision, execution_result=execution_result)

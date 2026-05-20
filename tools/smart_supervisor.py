@@ -95,8 +95,8 @@ class SupervisorState:
 # ══════════════════════════════════════════════════════════════════════════════
 
 def _current_pipeline_log() -> Path | None:
-    today = datetime.now(tz=UTC).strftime("%Y%m%d")
-    yesterday = datetime.fromtimestamp(time.time() - 86400, tz=UTC).strftime("%Y%m%d")
+    today = datetime.now(tz=UTC).strftime("%Y-%m-%d")
+    yesterday = datetime.fromtimestamp(time.time() - 86400, tz=UTC).strftime("%Y-%m-%d")
     for date in (today, yesterday):
         p = LOGS_DIR / f"pipeline_{date}.jsonl"
         if p.exists():

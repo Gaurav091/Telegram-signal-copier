@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from pathlib import Path
 from time import monotonic, sleep
 from contextlib import suppress
@@ -74,7 +74,64 @@ class FileBridgeExecutor:
     def _payload_text(self, payload: dict[str, str]) -> str:
         return "\n".join(f"{k}={v}" for k, v in payload.items()) + "\n"
 
-    def submit(self, command: TradeCommand, wait_for_result: bool = True, timeout_seconds: float | None = None) -> ExecutionResult:
+    @staticmethod
+    def _strip_symbol_suffix(symbol: str) -> str:
+        value = symbol.strip()
+        upper = value.upper()
+        for suffix in (".M", "-M", "M"):
+            if upper.endswith(suffix) and len(value) > len(suffix):
+                return value[: -len(suffix)]
+        return value
+
+    @staticmethod
+    def _should_retry_symbol_selection(result: ExecutionResult) -> bool:
+        if result.status != "ERROR":
+            return False
+        msg = (result.message or "").lower()
+        return ("select symbol" in msg) or ("symbol" in msg and "not found" in msg)
+
+    def _symbol_retry_candidates(self, symbol: str) -> list[str]:
+        if not symbol:
+            return []
+
+        base = self._strip_symbol_suffix(symbol).upper()
+        aliases: dict[str, list[str]] = {
+            "NAS100": ["NAS100", "USTEC", "NQ100", "US100"],
+            "US30": ["US30", "DJ30", "WS30"],
+            "DJ30": ["DJ30", "US30", "WS30"],
+            "SPX500": ["SPX500", "US500", "SP500"],
+        }
+        base_candidates = aliases.get(base, [base])
+        if base not in base_candidates:
+            base_candidates = [base, *base_candidates]
+
+        suffixes = [""]
+        configured_suffix = str(self.symbol_suffix or "").strip()
+        if configured_suffix:
+            suffixes.append(configured_suffix)
+        for suffix in ("m", ".m", "-m"):
+            if suffix not in suffixes:
+                suffixes.append(suffix)
+
+        seen: set[str] = set()
+        candidates: list[str] = []
+        for base_symbol in base_candidates:
+            for suffix in suffixes:
+                candidate = f"{base_symbol}{suffix}" if suffix else base_symbol
+                key = candidate.upper()
+                if key in seen:
+                    continue
+                seen.add(key)
+                candidates.append(candidate)
+        return candidates
+
+    def submit(
+        self,
+        command: TradeCommand,
+        wait_for_result: bool = True,
+        timeout_seconds: float | None = None,
+        _allow_symbol_retry: bool = True,
+    ) -> ExecutionResult:
         # Normalize bridge root: if caller passed a path that points to
         # an "inbox" subdirectory (common when users set MT5_BRIDGE_DIR
         # incorrectly), prefer the parent bridge root.
@@ -148,6 +205,25 @@ class FileBridgeExecutor:
                 if top_level_command_path != command_path:
                     with suppress(FileNotFoundError):
                         top_level_command_path.unlink()
+
+                if _allow_symbol_retry and self._should_retry_symbol_selection(result):
+                    submitted_symbol = str(payload.get("symbol", "") or "")
+                    for candidate in self._symbol_retry_candidates(submitted_symbol):
+                        if candidate.upper() == submitted_symbol.upper():
+                            continue
+                        retry_command = replace(
+                            command,
+                            request_id=str(uuid4()),
+                            symbol=candidate,
+                        )
+                        retry_result = self.submit(
+                            retry_command,
+                            wait_for_result=wait_for_result,
+                            timeout_seconds=timeout_seconds,
+                            _allow_symbol_retry=False,
+                        )
+                        if retry_result.status in {"FILLED", "SUBMITTED", "PENDING"}:
+                            return retry_result
                 return result
 
             if (
