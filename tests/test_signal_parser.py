@@ -279,6 +279,41 @@ class SignalParserTests(unittest.TestCase):
 
             self.assertEqual(result.signal.entry_price, 77645.45)
 
+    def test_heuristic_parser_handles_cross_prefix_before_sl(self) -> None:
+        """✗SL 4590 — Unicode cross/ballot prefix must not block SL extraction."""
+        with tempfile.TemporaryDirectory() as temp_dir:
+            tmp_path = Path(temp_dir)
+            parser = SignalParser(config=build_config(tmp_path), ai_client=None)
+            result = parser.parse(
+                TelegramSignalMessage(
+                    source_group="XAUUSD GOLD SIGNAL",
+                    message_id="1",
+                    raw_text="XAUUSD SELL 4580\n✗SL 4590\nTP 4560",
+                )
+            )
+            self.assertEqual(result.signal.stop_loss, 4590.0)
+
+    def test_heuristic_parser_cluster_noise_guard_blocks_execution(self) -> None:
+        """Message with no prices but cluster context should get low confidence (< 0.45)."""
+        # Match the exact format that MessageClusterAgent._enrich_message produces
+        cluster_block = (
+            "[CLUSTER CONTEXT]\nSymbol: XAUUSD\nSide: SELL\n"
+            "Entry: 4580\nSL: 4591\nTP: 4560 4540\n[/CLUSTER CONTEXT]\n---\n"
+        )
+        with tempfile.TemporaryDirectory() as temp_dir:
+            tmp_path = Path(temp_dir)
+            parser = SignalParser(config=build_config(tmp_path), ai_client=None)
+            result = parser.parse(
+                TelegramSignalMessage(
+                    source_group="XAUUSD GOLD SIGNAL",
+                    message_id="2",
+                    raw_text=cluster_block + "Go selll",
+                )
+            )
+            # Levels should be filled from cluster but confidence capped
+            self.assertEqual(result.signal.stop_loss, 4591.0)
+            self.assertLess(result.signal.confidence, 0.45, "Noise message must not exceed minimum_confidence=0.45")
+
 
 if __name__ == "__main__":
     unittest.main()

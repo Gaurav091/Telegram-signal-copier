@@ -11,7 +11,7 @@ from telegram_signal_copier.models import ParsedSignal, TelegramSignalMessage
 
 PRICE_PATTERN = re.compile(r"\b\d{1,6}(?:\.\d{1,5})?\b")
 SL_PATTERN = re.compile(
-    r"(?:\bSL\b|\bS\s*[\\/]\s*L\b|STOP\s*LOSS)\s*[.:=@-]?\s*(\d{1,6}(?:\.\d{1,5})?)",
+    r"[✗❌✘⛔🚫]?\s*(?:\bSL\b|\bS\s*[\\/]\s*L\b|STOP\s*LOSS)\s*[.:=@-]?\s*(\d{1,6}(?:\.\d{1,5})?)",
     re.IGNORECASE,
 )
 TP_PATTERN = re.compile(
@@ -690,12 +690,20 @@ class SignalParser:
             if ctx.get("tps"):
                 take_profits = ctx["tps"]
 
+        # If ALL numeric levels came from cluster context (message itself had no price numbers),
+        # cap confidence below minimum to block execution on noise messages like "Go selll".
+        # Strip the cluster block itself before checking for message-own prices.
+        clean_msg_text = _CLUSTER_BLOCK_RE.sub("", combined_text)
+        msg_has_prices = bool(re.search(r"\d{3,6}", clean_msg_text))
+        cluster_injected_levels = ctx and (ctx.get("sl") or ctx.get("entry") or ctx.get("tps"))
+        cluster_only_levels = cluster_injected_levels and not msg_has_prices
+
         fields_found = sum(
             1
             for item in [symbol, side, order_type, entry_price, stop_loss, take_profits[0] if take_profits else None]
             if item not in (None, "")
         )
-        confidence = min(0.95, 0.25 + fields_found * 0.12)
+        confidence = min(0.35 if cluster_only_levels else 0.95, 0.25 + fields_found * 0.12)
         notes: list[str] = []
         if entry_range_low and entry_range_high:
             notes.append(f"Entry range detected: {entry_range_low}-{entry_range_high}, midpoint={entry_price}")
@@ -703,6 +711,8 @@ class SignalParser:
             notes.append("Image attached; heuristic parser may need AI vision for full accuracy")
         if ctx:
             notes.append("Cluster context applied: " + "; ".join(f"{k}={v}" for k, v in ctx.items() if v))
+        if cluster_only_levels:
+            notes.append("WARN: message has no price numbers — cluster-context levels capped to low confidence")
 
         return ParsedSignal(
             source_group=message.source_group,
