@@ -352,9 +352,9 @@ class PipelineTests(unittest.TestCase):
                 order_type="MARKET",
                 entry_price=None,
                 stop_loss=4528.0,
-                take_profits=[4543.0, 1.0],
+                take_profits=[4535.0, 1.0],
                 confidence=0.85,
-                raw_text="BUY XAUUSD SL 4528 TP1 4543 TP2 1.0",
+                raw_text="BUY XAUUSD SL 4528 TP1 4535 TP2 1.0",
             )
         )
 

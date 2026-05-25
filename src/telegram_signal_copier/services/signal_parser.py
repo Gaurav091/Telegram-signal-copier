@@ -11,13 +11,14 @@ from telegram_signal_copier.models import ParsedSignal, TelegramSignalMessage
 
 PRICE_PATTERN = re.compile(r"\b\d{1,6}(?:\.\d{1,5})?\b")
 SL_PATTERN = re.compile(
-    r"(?:\bSL\b|\bS\s*[\\/]\s*L\b|STOP\s*LOSS)\s*[:=@-]?\s*(\d{1,6}(?:\.\d{1,5})?)",
+    r"(?:\bSL\b|\bS\s*[\\/]\s*L\b|STOP\s*LOSS)\s*[.:=@-]?\s*(\d{1,6}(?:\.\d{1,5})?)",
     re.IGNORECASE,
 )
 TP_PATTERN = re.compile(
     r"(?:\bTP\d*\b|\bT\s*[\\/]\s*P\d*\b|TAKE\s*PROFIT\s*\d*)\s*[:=@-]?\s*(\d{1,6}(?:\.\d{1,5})?)",
     re.IGNORECASE,
 )
+TARGET_LINE_PATTERN = re.compile(r"\b(?:TARGETS?|TPS?)\b\s*[:=@-]?\s*(.+)", re.IGNORECASE)
 ENTRY_PATTERN = re.compile(r"(?:ENTRY|AT|BUY|SELL)\s*[:=@-]?\s*(\d{1,6}(?:\.\d{1,5})?)", re.IGNORECASE)
 AT_SYMBOL_PATTERN = re.compile(r"@\s*(\d{1,6}(?:\.\d{1,5})?)", re.IGNORECASE)
 
@@ -31,6 +32,13 @@ _OCR_SPACE_NUMBER_RE = re.compile(r"(\d{1,4})\s+(\d{3}(?:[.,]\d+)?)(?=\D|$)")
 
 # Caption keywords that signal a new trade from ALGO TRADING forex-style groups
 _NEW_TRADE_CAPTIONS = re.compile(r"^\s*(new|both\s*new)\s*$", re.IGNORECASE)
+
+# Conservative repair guard for OCR/vision cases that drop leading entry digits
+# on crypto symbols (e.g. 77645.45 -> 645.45) while SL/TP remain in-range.
+_CRYPTO_ENTRY_MIN = {
+    "BTCUSD": 5000.0,
+    "ETHUSD": 100.0,
+}
 
 # Cluster context block injected by MessageClusterAgent
 _CLUSTER_BLOCK_RE = re.compile(
@@ -64,6 +72,7 @@ class SignalParser:
 
     def parse(self, message: TelegramSignalMessage, image_text: str = "", image_ai_payload: dict | None = None) -> ParseResult:
         combined_text = "\n".join(part for part in [message.raw_text, image_text] if part).strip()
+        combined_text = self._normalize_ocr_spaced_numbers(combined_text)
         heuristic = self._heuristic_parse(message, combined_text)
 
         # If image analysis already produced a structured AI payload, reuse it
@@ -191,6 +200,38 @@ class SignalParser:
         if ai_signal.confidence <= 0 and heuristic_signal.confidence > 0:
             notes.append("AI confidence missing, reused heuristic confidence")
 
+        if heuristic_signal.parser_name == "mt5_screenshot":
+            overridden_fields: list[str] = []
+            if heuristic_signal.entry_price is not None and ai_signal.entry_price != heuristic_signal.entry_price:
+                overridden_fields.append("entry")
+            if heuristic_signal.stop_loss is not None and ai_signal.stop_loss != heuristic_signal.stop_loss:
+                overridden_fields.append("stop_loss")
+            if heuristic_signal.take_profits and ai_signal.take_profits != heuristic_signal.take_profits:
+                overridden_fields.append("take_profits")
+            if overridden_fields:
+                notes.append(
+                    "MT5 screenshot parser overrode AI-extracted " + ", ".join(overridden_fields)
+                )
+
+            return ParsedSignal(
+                source_group=ai_signal.source_group,
+                message_id=ai_signal.message_id,
+                symbol=heuristic_signal.symbol or symbol,
+                side=heuristic_signal.side or ai_signal.side,
+                order_type=heuristic_signal.order_type or ai_signal.order_type,
+                entry_price=heuristic_signal.entry_price if heuristic_signal.entry_price is not None else ai_signal.entry_price,
+                entry_range_low=heuristic_signal.entry_range_low if heuristic_signal.entry_range_low is not None else ai_signal.entry_range_low,
+                entry_range_high=heuristic_signal.entry_range_high if heuristic_signal.entry_range_high is not None else ai_signal.entry_range_high,
+                stop_loss=heuristic_signal.stop_loss if heuristic_signal.stop_loss is not None else ai_signal.stop_loss,
+                take_profits=heuristic_signal.take_profits or ai_signal.take_profits,
+                confidence=max(ai_signal.confidence, heuristic_signal.confidence),
+                raw_text=ai_signal.raw_text,
+                image_used=ai_signal.image_used or heuristic_signal.image_used,
+                requires_review=ai_signal.requires_review or heuristic_signal.requires_review,
+                parser_name="openai+mt5_screenshot",
+                notes=notes,
+            )
+
         merged = ParsedSignal(
             source_group=ai_signal.source_group,
             message_id=ai_signal.message_id,
@@ -224,17 +265,47 @@ class SignalParser:
         notes = payload.get("notes") or []
         if isinstance(notes, str):
             notes = [notes]
+        symbol = self._normalize_symbol(payload.get("symbol"))
+        side = self._normalize_side(payload.get("side"))
+        entry_price = self._maybe_float(payload.get("entry_price"))
+        stop_loss = self._maybe_float(payload.get("stop_loss"))
+        recovered_entry = self._recover_crypto_entry_from_text(
+            symbol=symbol,
+            side=side,
+            text=combined_text,
+            stop_loss=stop_loss,
+            take_profits=take_profits,
+        )
+        if recovered_entry is not None:
+            min_expected = _CRYPTO_ENTRY_MIN.get((symbol or "").upper())
+            if (
+                entry_price is None
+                or (min_expected is not None and entry_price < min_expected)
+                or abs(recovered_entry - entry_price) > 1000
+            ):
+                notes.append(
+                    f"Recovered entry from OCR text: {entry_price} -> {recovered_entry}"
+                )
+                entry_price = recovered_entry
+        entry_price = self._repair_crypto_entry_price(
+            symbol=symbol,
+            side=side,
+            entry_price=entry_price,
+            stop_loss=stop_loss,
+            take_profits=take_profits,
+            notes=notes,
+        )
         confidence = self._maybe_float(payload.get("confidence"))
         return ParsedSignal(
             source_group=message.source_group,
             message_id=message.message_id,
-            symbol=self._normalize_symbol(payload.get("symbol")),
-            side=self._normalize_side(payload.get("side")),
+            symbol=symbol,
+            side=side,
             order_type=str(payload.get("order_type") or "MARKET").upper(),
-            entry_price=self._maybe_float(payload.get("entry_price")),
+            entry_price=entry_price,
             entry_range_low=self._maybe_float(payload.get("entry_range_low")),
             entry_range_high=self._maybe_float(payload.get("entry_range_high")),
-            stop_loss=self._maybe_float(payload.get("stop_loss")),
+            stop_loss=stop_loss,
             take_profits=take_profits,
             confidence=max(0.0, min(1.0, confidence if confidence is not None else 0.0)),
             raw_text=combined_text,
@@ -243,6 +314,168 @@ class SignalParser:
             parser_name="openai",
             notes=[str(note) for note in notes],
         )
+
+    @staticmethod
+    def _normalize_ocr_spaced_numbers(text: str) -> str:
+        if not text:
+            return text
+        return _OCR_SPACE_NUMBER_RE.sub(lambda m: m.group(1) + m.group(2), text)
+
+    @staticmethod
+    def _recover_crypto_entry_from_text(
+        symbol: str | None,
+        side: str | None,
+        text: str,
+        stop_loss: float | None,
+        take_profits: list[float],
+    ) -> float | None:
+        if not symbol or not text:
+            return None
+
+        base_symbol = symbol.upper().strip()
+        min_expected = _CRYPTO_ENTRY_MIN.get(base_symbol)
+        if min_expected is None:
+            return None
+
+        normalized_text = SignalParser._normalize_ocr_spaced_numbers(text)
+
+        # Prefer explicit entry wording when present (e.g. "Entry: 77645.45").
+        # This resolves close-value ambiguity before global price candidate scoring.
+        labeled_entry = None
+        for line in normalized_text.splitlines():
+            line_upper = line.upper()
+            if "ENTRY" not in line_upper:
+                continue
+            m = re.search(r"\bENTRY\b\s*[:=@-]?\s*(\d{1,6}(?:\.\d{1,5})?)", line_upper)
+            if not m:
+                continue
+            try:
+                labeled_entry = float(m.group(1))
+            except Exception:
+                labeled_entry = None
+            if labeled_entry is not None:
+                break
+
+        if labeled_entry is not None and labeled_entry >= min_expected:
+            if side == "BUY" and stop_loss is not None and stop_loss >= labeled_entry:
+                labeled_entry = None
+            if side == "SELL" and stop_loss is not None and stop_loss <= labeled_entry:
+                labeled_entry = None
+        if labeled_entry is not None:
+            return labeled_entry
+
+        candidates = []
+        for raw in PRICE_PATTERN.findall(normalized_text.upper()):
+            try:
+                value = float(raw)
+            except Exception:
+                continue
+            if value >= min_expected:
+                candidates.append(value)
+        if not candidates:
+            return None
+
+        anchors = [
+            value
+            for value in [stop_loss, *take_profits]
+            if isinstance(value, (int, float)) and value > 0
+        ]
+        if not anchors:
+            return None
+
+        sorted_anchors = sorted(anchors)
+        mid_anchor = sorted_anchors[len(sorted_anchors) // 2]
+
+        best_value = None
+        best_score = float("inf")
+        for candidate in candidates:
+            score = abs(candidate - mid_anchor)
+            if side == "BUY" and stop_loss is not None and stop_loss >= candidate:
+                score += 1_000_000
+            if side == "SELL" and stop_loss is not None and stop_loss <= candidate:
+                score += 1_000_000
+            if take_profits:
+                tp1 = take_profits[0]
+                if side == "BUY" and tp1 <= candidate:
+                    score += 500_000
+                if side == "SELL" and tp1 >= candidate:
+                    score += 500_000
+
+            if score < best_score:
+                best_score = score
+                best_value = candidate
+
+        return best_value
+
+    @staticmethod
+    def _repair_crypto_entry_price(
+        symbol: str | None,
+        side: str | None,
+        entry_price: float | None,
+        stop_loss: float | None,
+        take_profits: list[float],
+        notes: list[Any],
+    ) -> float | None:
+        if entry_price is None or entry_price <= 0 or not symbol:
+            return entry_price
+
+        base_symbol = symbol.upper().strip()
+        min_expected = _CRYPTO_ENTRY_MIN.get(base_symbol)
+        if min_expected is None or entry_price >= min_expected:
+            return entry_price
+
+        anchors = [
+            value
+            for value in [stop_loss, *take_profits]
+            if isinstance(value, (int, float)) and value > 0
+        ]
+        if not anchors or not any(anchor >= min_expected for anchor in anchors):
+            return entry_price
+
+        entry_str = f"{entry_price:.5f}".rstrip("0").rstrip(".")
+        int_part, _, _ = entry_str.partition(".")
+        if not int_part.isdigit() or len(int_part) >= 5:
+            return entry_price
+
+        step = 10 ** len(int_part)
+
+        sorted_anchors = sorted(anchors)
+        mid_anchor = sorted_anchors[len(sorted_anchors) // 2]
+        current_score = abs(entry_price - mid_anchor)
+        best_value = entry_price
+        best_score = current_score
+
+        n_base = int(round((mid_anchor - entry_price) / step))
+        for n in range(max(0, n_base - 8), n_base + 9):
+            candidate = entry_price + (n * step)
+            if candidate < min_expected:
+                continue
+
+            score = abs(candidate - mid_anchor)
+
+            if side == "BUY" and stop_loss is not None and stop_loss >= candidate:
+                score += 1_000_000
+            if side == "SELL" and stop_loss is not None and stop_loss <= candidate:
+                score += 1_000_000
+
+            if take_profits:
+                tp1 = take_profits[0]
+                if side == "BUY" and tp1 <= candidate:
+                    score += 500_000
+                if side == "SELL" and tp1 >= candidate:
+                    score += 500_000
+
+            if score < best_score:
+                best_score = score
+                best_value = candidate
+
+        if best_value != entry_price and best_score * 4 < current_score:
+            notes.append(
+                f"Adjusted entry from {entry_price} to {best_value} "
+                f"using crypto anchor levels (SL/TP)"
+            )
+            return best_value
+        return entry_price
 
     def _parse_mt5_screenshot(
         self, message: TelegramSignalMessage, combined_text: str
@@ -260,6 +493,7 @@ class SignalParser:
 
         # Normalise OCR spacing in numbers before extracting prices
         clean = _OCR_SPACE_NUMBER_RE.sub(lambda m: m.group(1) + m.group(2), combined_text)
+        entry_price = self._extract_mt5_screenshot_entry(clean)
 
         stop_loss: float | None = None
         take_profits: list[float] = []
@@ -283,17 +517,20 @@ class SignalParser:
             return None
 
         fields_found = sum(
-            1 for v in [symbol, side, stop_loss, take_profits[0] if take_profits else None]
+            1 for v in [symbol, side, entry_price, stop_loss, take_profits[0] if take_profits else None]
             if v not in (None, "")
         )
         confidence = min(0.95, 0.25 + fields_found * 0.12)
+        notes = ["Parsed from MT5 position screenshot format"]
+        if entry_price is not None:
+            notes.append(f"Entry inferred from MT5 screenshot price line: {entry_price}")
         return ParsedSignal(
             source_group=message.source_group,
             message_id=message.message_id,
             symbol=symbol,
             side=side,
             order_type="MARKET",
-            entry_price=None,
+            entry_price=entry_price,
             entry_range_low=None,
             entry_range_high=None,
             stop_loss=stop_loss,
@@ -302,15 +539,38 @@ class SignalParser:
             raw_text=combined_text,
             image_used=bool(message.image_path),
             parser_name="mt5_screenshot",
-            notes=["Parsed from MT5 position screenshot format"],
+            notes=notes,
         )
+
+    def _extract_mt5_screenshot_entry(self, clean_text: str) -> float | None:
+        header_seen = False
+        for raw_line in clean_text.splitlines():
+            line = raw_line.strip()
+            if not line:
+                continue
+            if not header_seen:
+                if _MT5_SCREENSHOT_HEADER_RE.search(line):
+                    header_seen = True
+                continue
+
+            upper_line = line.upper()
+            if any(token in upper_line for token in ("OPEN:", "S/L", "SL", "T/P", "TP", "COMMENT:", "SWAP")):
+                break
+
+            for value in PRICE_PATTERN.findall(line):
+                try:
+                    price = float(value)
+                except Exception:
+                    continue
+                if price >= 100:
+                    return price
+
+        return None
 
     def _heuristic_parse(self, message: TelegramSignalMessage, combined_text: str) -> ParsedSignal:
         # ── OCR preprocessing: normalise thousands-space artifacts ──────────────
         # e.g. "T/P: 4 491.53" → "T/P: 4491.53"  (OCR sometimes splits large numbers)
-        combined_text = _OCR_SPACE_NUMBER_RE.sub(
-            lambda m: m.group(1) + m.group(2), combined_text
-        )
+        combined_text = self._normalize_ocr_spaced_numbers(combined_text)
 
         # ── MT5 position screenshot fast-path ────────────────────────────────────
         # "New" / "Both New" captions from ALGO TRADING forex carry a position card
@@ -335,9 +595,16 @@ class SignalParser:
         # First, match 'NEAR 4542/4545' or '4542/4545' or '4542 - 4545'
         entry_range_match = re.search(r"(?:NEAR|AROUND)?\s*(\d{4,6})\s*[/\-]\s*(\d{4,6})", upper_text)
         if entry_range_match:
-            entry_range_low = float(entry_range_match.group(1))
-            entry_range_high = float(entry_range_match.group(2))
+            first_val = float(entry_range_match.group(1))
+            second_val = float(entry_range_match.group(2))
+            entry_range_low = min(first_val, second_val)
+            entry_range_high = max(first_val, second_val)
             entry_price = round((entry_range_low + entry_range_high) / 2, 2)
+            if order_type == "MARKET":
+                if side == "BUY":
+                    order_type = "BUY_LIMIT"
+                elif side == "SELL":
+                    order_type = "SELL_LIMIT"
         else:
             # Also accept two adjacent prices on the same line when near BUY/SELL/ENTRY keywords,
             # e.g. 'XAUUSD SELL NOW: 4582 4586'
@@ -351,8 +618,8 @@ class SignalParser:
                             h = float(pair.group(2))
                             # reject if either value looks like a volume (< 100)
                             if l >= 100 and h >= 100:
-                                entry_range_low = l
-                                entry_range_high = h
+                                entry_range_low = min(l, h)
+                                entry_range_high = max(l, h)
                                 entry_price = round((entry_range_low + entry_range_high) / 2, 2)
                                 break
                         except Exception:
@@ -389,11 +656,24 @@ class SignalParser:
                         take_profits.append(tp_val)
                 except Exception:
                     pass
+            target_line = TARGET_LINE_PATTERN.search(line_u)
+            if target_line:
+                for tp in PRICE_PATTERN.findall(target_line.group(1)):
+                    try:
+                        tp_val = float(tp)
+                        if tp_val >= 100 and tp_val not in take_profits:
+                            take_profits.append(tp_val)
+                    except Exception:
+                        pass
 
         # If still missing TPs, fallback to price pattern
         if not take_profits:
             numbers = [float(value) for value in PRICE_PATTERN.findall(upper_text)]
-            protected = {value for value in [entry_price, stop_loss] if value is not None}
+            protected = {
+                value
+                for value in [entry_price, entry_range_low, entry_range_high, stop_loss]
+                if value is not None
+            }
             take_profits = [value for value in numbers if value not in protected][1:3]
 
         # Overlay cluster-context levels (if MessageClusterAgent injected them)
