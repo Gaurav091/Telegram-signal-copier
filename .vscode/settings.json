@@ -1,6 +1,9 @@
 {
     "python.envFile": "${workspaceFolder}/.env",
     "python.terminal.useEnvFile": true,
+    "terminal.integrated.env.windows": {
+        "PATH": "${workspaceFolder};${workspaceFolder}\\.venv\\Scripts;${env:PATH}"
+    },
     "chat.tools.terminal.autoApprove": {
         "/^Set-Location \"d:\\\\Github repos\\\\Telegram signal Copier\"; \\$env:PYTHONPATH=\"src\"; C:/Users/HP/AppData/Local/Programs/Python/Python314/python\\.exe -m compileall src tests; C:/Users/HP/AppData/Local/Programs/Python/Python314/python\\.exe -m telegram_signal_copier sample --text \"BUY GOLD NOW @ 2320 SL 2315 TP1 2330 TP2 2338\"$/": {
             "approve": true,
