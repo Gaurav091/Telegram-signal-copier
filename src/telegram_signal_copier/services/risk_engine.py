@@ -52,6 +52,10 @@ _SYMBOL_MIN_STOP: dict[str, float] = {
     "SPX500": 2.0,
 }
 
+_SYMBOL_MIN_TP1_DISTANCE: dict[str, float] = {
+    "XAUUSD": 3.0,
+}
+
 
 @dataclass(slots=True)
 class ValidationDecision:
@@ -121,6 +125,19 @@ class RiskEngine:
             except Exception:
                 pass
         return _SYMBOL_MIN_STOP.get(symbol_base)
+
+    @staticmethod
+    def _resolve_min_tp1_distance(symbol_base: str | None) -> float | None:
+        if not symbol_base:
+            return None
+        env_key = f"SYMBOL_MIN_TP1_DISTANCE_{symbol_base}"
+        env_val = os.getenv(env_key)
+        if env_val:
+            try:
+                return float(env_val)
+            except Exception:
+                pass
+        return _SYMBOL_MIN_TP1_DISTANCE.get(symbol_base)
 
     def evaluate(self, signal: ParsedSignal) -> ValidationDecision:
         reasons: list[str] = []
@@ -205,6 +222,19 @@ class RiskEngine:
                 reasons.append(f"TP1 {tp1} must be BELOW SL {sl} for SELL when entry is missing")
 
         min_stop = self._resolve_min_stop(sig_base)
+        if (
+            min_stop is not None
+            and sig_base == "XAUUSD"
+            and signal.entry_range_low is not None
+            and signal.entry_range_high is not None
+        ):
+            # Gold entry zones from providers like GTA often use tighter scalp distances than
+            # the single-price market-order guard. Keep the stricter default for non-range trades.
+            min_stop = min(min_stop, 5.0)
+        min_tp1_distance = self._resolve_min_tp1_distance(sig_base)
+        if min_tp1_distance is None:
+            min_tp1_distance = min_stop
+
         if min_stop is not None and sl is not None and tp1 is not None:
             if entry is not None and entry > 0:
                 sl_dist = abs(entry - sl)
@@ -213,9 +243,9 @@ class RiskEngine:
                     reasons.append(
                         f"SL distance {sl_dist:.2f} is too close to entry {entry} for {sig_base} (min {min_stop:.2f})"
                     )
-                if tp_dist < min_stop:
+                if min_tp1_distance is not None and tp_dist < min_tp1_distance:
                     reasons.append(
-                        f"TP1 distance {tp_dist:.2f} is too close to entry {entry} for {sig_base} (min {min_stop:.2f})"
+                        f"TP1 distance {tp_dist:.2f} is too close to entry {entry} for {sig_base} (min {min_tp1_distance:.2f})"
                     )
             else:
                 # Without entry, a very narrow TP/SL band often becomes invalid stops at execution time.

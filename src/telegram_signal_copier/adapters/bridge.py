@@ -90,6 +90,35 @@ class FileBridgeExecutor:
         msg = (result.message or "").lower()
         return ("select symbol" in msg) or ("symbol" in msg and "not found" in msg)
 
+    @staticmethod
+    def _normalize_execution_result(command: TradeCommand, result: ExecutionResult) -> ExecutionResult:
+        """Coerce ambiguous bridge outcomes into safer statuses.
+
+        Some EA builds return status=FILLED for pending orders as soon as order placement
+        succeeds, even when no deal is filled yet. In that case executed_price is absent.
+        Treat this as PENDING so downstream logs and monitoring do not report false fills.
+        """
+        pending_entry_types = {"BUY_LIMIT", "SELL_LIMIT", "BUY_STOP", "SELL_STOP"}
+        if (
+            result.status == "FILLED"
+            and str(command.action or "").upper() in {"BUY", "SELL"}
+            and str(command.order_type or "").upper() in pending_entry_types
+            and result.executed_price is None
+        ):
+            ticket_note = f" ticket={result.ticket}" if result.ticket else ""
+            return ExecutionResult(
+                request_id=result.request_id,
+                status="PENDING",
+                message=(
+                    "Pending order accepted by MT5; awaiting market trigger"
+                    f"{ticket_note}"
+                ),
+                ticket=result.ticket,
+                executed_price=result.executed_price,
+                executed_at=result.executed_at,
+            )
+        return result
+
     def _symbol_retry_candidates(self, symbol: str) -> list[str]:
         if not symbol:
             return []
@@ -197,6 +226,7 @@ class FileBridgeExecutor:
             if result_path.exists():
                 lines = result_path.read_text(encoding="utf-8").splitlines()
                 result = ExecutionResult.from_bridge_lines(lines)
+                result = self._normalize_execution_result(command, result)
 
                 with suppress(FileNotFoundError):
                     command_path.unlink()

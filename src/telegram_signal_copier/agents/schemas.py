@@ -149,6 +149,16 @@ class ValidatedSignal:
     def first_take_profit(self) -> float | None:
         return self.take_profits[0] if self.take_profits else None
 
+    @property
+    def managed_take_profit(self) -> float | None:
+        if len(self.take_profits) >= 2:
+            return self.take_profits[1]
+        return self.first_take_profit
+
+    @property
+    def final_take_profit(self) -> float | None:
+        return self.take_profits[-1] if self.take_profits else None
+
 
 # ---------------------------------------------------------------------------
 # LangGraph shared state — flows through every node

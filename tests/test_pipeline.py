@@ -45,8 +45,13 @@ class _IntentOnlySignalParser:
     def __init__(self, ai_client) -> None:
         self.ai_client = ai_client
 
-    def _heuristic_parse(self, *args, **kwargs):  # pragma: no cover - must not be called
-        raise AssertionError("heuristic parser should not run for skipped informational messages")
+    def _heuristic_parse(self, message, *args, **kwargs):
+        return ParsedSignal(
+            source_group=message.source_group,
+            message_id=message.message_id,
+            symbol=None,
+            side=None,
+        )
 
     def parse(self, *args, **kwargs):  # pragma: no cover - must not be called
         raise AssertionError("full parser should not run for skipped informational messages")
@@ -111,6 +116,25 @@ class PipelineTests(unittest.TestCase):
 
         self.assertIn("submitted_epoch", payload)
         self.assertTrue(payload["submitted_epoch"].isdigit())
+
+    def test_trade_command_uses_tp2_for_initial_mt5_exit_when_available(self) -> None:
+        command = TradeCommand.from_signal(
+            SignalParser(config=build_config(Path(".")), ai_client=None).parse(
+                TelegramSignalMessage(
+                    source_group="Forex Focus",
+                    message_id="17102",
+                    raw_text="BUY GOLD NOW @ 2320 SL 2315 TP1 2330 TP2 2338 TP3 2346",
+                )
+            ).signal,
+            volume=0.10,
+        )
+
+        payload = command.to_bridge_payload()
+
+        self.assertEqual(command.take_profit, 2338.0)
+        self.assertEqual(command.take_profit_targets, [2330.0, 2338.0, 2346.0])
+        self.assertEqual(payload["take_profit"], "2338.0")
+        self.assertEqual(payload["take_profit_targets"], "2330.0,2338.0,2346.0")
 
     def test_file_bridge_reports_not_consumed_when_command_stays_in_inbox(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
@@ -187,6 +211,32 @@ class PipelineTests(unittest.TestCase):
             self.assertIsNotNone(outcome.execution_result)
             self.assertEqual(outcome.execution_result.status, "DRY_RUN")
 
+    def test_pipeline_preserves_multiline_targets_for_gta_range_signal(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            tmp_path = Path(temp_dir)
+            config = build_config(tmp_path)
+            pipeline = CopierPipeline(
+                config=config,
+                image_processor=ImageProcessor(ai_client=None),
+                signal_parser=SignalParser(config=config, ai_client=None),
+                risk_engine=RiskEngine(config=config),
+                executor=FileBridgeExecutor(config.bridge_inbox_dir, config.bridge_outbox_dir),
+            )
+
+            outcome = pipeline.process_message(
+                TelegramSignalMessage(
+                    source_group="GTA VIP || 3.0",
+                    message_id="5162",
+                    raw_text="Gold buy @4511- 4502\n\nTarget- 4514, 4520, 4530\n\nSl- 4499",
+                )
+            )
+
+            self.assertEqual(outcome.decision.status, "APPROVED")
+            self.assertEqual(outcome.parse_result.signal.order_type, "BUY_LIMIT")
+            self.assertEqual(outcome.parse_result.signal.take_profits, [4514.0, 4520.0, 4530.0])
+            self.assertIsNotNone(outcome.execution_result)
+            self.assertEqual(outcome.execution_result.status, "DRY_RUN")
+
     def test_trade_comment_contains_group_slug_for_mt5_logs(self) -> None:
         command = TradeCommand.from_signal(
             SignalParser(config=build_config(Path(".")), ai_client=None).parse(
@@ -236,14 +286,58 @@ class PipelineTests(unittest.TestCase):
                 order_type="MARKET",
                 entry_price=4540.0,
                 stop_loss=4528.0,
-                take_profits=[4543.0],
+                take_profits=[4542.0],
                 confidence=0.95,
-                raw_text="XAUUSD BUY 4540 SL 4528 TP 4543",
+                raw_text="XAUUSD BUY 4540 SL 4528 TP 4542",
             )
         )
 
         self.assertEqual(decision.status, "REJECTED")
         self.assertTrue(any("TP1 distance" in reason for reason in decision.reasons))
+
+    def test_risk_engine_allows_tighter_xau_tp1_for_single_price_signal(self) -> None:
+        config = build_config(Path("."))
+        engine = RiskEngine(config=config)
+
+        decision = engine.evaluate(
+            ParsedSignal(
+                source_group="GOLD ANALYSIS SIGNALS",
+                message_id="21152",
+                symbol="XAUUSD",
+                side="BUY",
+                order_type="MARKET",
+                entry_price=4513.0,
+                stop_loss=4493.0,
+                take_profits=[4516.0, 4519.0, 4522.0],
+                confidence=0.95,
+                raw_text="GOLD BUY 4513 TP 4516 TP 4519 TP 4522 SL 4493",
+            )
+        )
+
+        self.assertEqual(decision.status, "APPROVED")
+
+    def test_risk_engine_allows_tighter_xau_entry_range_signal(self) -> None:
+        config = build_config(Path("."))
+        engine = RiskEngine(config=config)
+
+        decision = engine.evaluate(
+            ParsedSignal(
+                source_group="GTA VIP || 3.0",
+                message_id="5162",
+                symbol="XAUUSD",
+                side="BUY",
+                order_type="BUY_LIMIT",
+                entry_price=4506.5,
+                entry_range_low=4502.0,
+                entry_range_high=4511.0,
+                stop_loss=4499.0,
+                take_profits=[4514.0, 4520.0, 4530.0],
+                confidence=0.95,
+                raw_text="Gold buy @4511- 4502 Target- 4514, 4520, 4530 Sl- 4499",
+            )
+        )
+
+        self.assertEqual(decision.status, "APPROVED")
 
     def test_risk_engine_rejects_missing_entry_when_tp_sl_band_is_too_tight(self) -> None:
         config = build_config(Path("."))
@@ -348,6 +442,33 @@ class PipelineTests(unittest.TestCase):
             self.assertTrue(any("Trade update" in reason for reason in outcome.decision.reasons))
             executor.submit.assert_not_called()
 
+    def test_pipeline_skips_bare_partial_trade_update_with_image_without_ocr(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            tmp_path = Path(temp_dir)
+            config = build_config(tmp_path)
+            executor = Mock(spec=FileBridgeExecutor)
+            pipeline = CopierPipeline(
+                config=config,
+                image_processor=_UnusedImageProcessor(),
+                signal_parser=_UnusedSignalParser(),
+                risk_engine=RiskEngine(config=config),
+                executor=executor,
+            )
+
+            outcome = pipeline.process_message(
+                TelegramSignalMessage(
+                    source_group="ALGO TRADING forex.",
+                    message_id="11758",
+                    raw_text="Partial",
+                    image_path=tmp_path / "11758.jpg",
+                )
+            )
+
+            self.assertEqual(outcome.decision.status, "SKIPPED")
+            self.assertIsNone(outcome.execution_result)
+            self.assertTrue(any("Trade update" in reason for reason in outcome.decision.reasons))
+            executor.submit.assert_not_called()
+
     def test_pipeline_skips_stop_loss_update_caption_with_image_without_ocr(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
             tmp_path = Path(temp_dir)
@@ -405,6 +526,45 @@ class PipelineTests(unittest.TestCase):
             self.assertEqual(outcome.decision.status, "SKIPPED")
             self.assertIsNone(outcome.execution_result)
             self.assertTrue(any("Informational" in reason for reason in outcome.decision.reasons))
+            executor.submit.assert_not_called()
+
+    def test_pipeline_does_not_skip_parseable_text_signal_when_intent_misclassifies_informational(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            tmp_path = Path(temp_dir)
+            config = build_config(tmp_path)
+            config.minimum_confidence = 0.45
+            executor = Mock(spec=FileBridgeExecutor)
+            pipeline = CopierPipeline(
+                config=config,
+                image_processor=ImageProcessor(ai_client=None),
+                signal_parser=SignalParser(
+                    config=config,
+                    ai_client=_StaticIntentClient(
+                        intent="INFORMATIONAL",
+                        confidence=0.95,
+                        reasoning="False positive informational classification",
+                    ),
+                ),
+                risk_engine=RiskEngine(config=config),
+                executor=executor,
+            )
+
+            outcome = pipeline.process_message(
+                TelegramSignalMessage(
+                    source_group="FX VIP CLUB",
+                    message_id="fx-vip-regression-1",
+                    raw_text="GOLD BUY NEAR 4554/4551\n\nSL 4547\n\nTP 4562\n\nTP 4570\n\nTP 4580",
+                )
+            )
+
+            self.assertEqual(outcome.decision.status, "APPROVED")
+            self.assertEqual(outcome.parse_result.signal.symbol, "XAUUSD")
+            self.assertEqual(outcome.parse_result.signal.order_type, "BUY_LIMIT")
+            self.assertEqual(outcome.parse_result.signal.entry_range_low, 4551.0)
+            self.assertEqual(outcome.parse_result.signal.entry_range_high, 4554.0)
+            self.assertEqual(outcome.parse_result.signal.take_profits, [4562.0, 4570.0, 4580.0])
+            self.assertIsNotNone(outcome.execution_result)
+            self.assertEqual(outcome.execution_result.status, "DRY_RUN")
             executor.submit.assert_not_called()
 
 

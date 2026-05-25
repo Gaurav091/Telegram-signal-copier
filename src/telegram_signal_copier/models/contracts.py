@@ -107,6 +107,14 @@ class ParsedSignal:
     def first_take_profit(self) -> float | None:
         return self.take_profits[0] if self.take_profits else None
 
+    def managed_take_profit(self) -> float | None:
+        if len(self.take_profits) >= 2:
+            return self.take_profits[1]
+        return self.first_take_profit()
+
+    def final_take_profit(self) -> float | None:
+        return self.take_profits[-1] if self.take_profits else None
+
 
 @dataclass(slots=True)
 class TradeCommand:
@@ -146,7 +154,7 @@ class TradeCommand:
             volume=volume,
             entry_price=signal.entry_price,
             stop_loss=signal.stop_loss,
-            take_profit=signal.first_take_profit(),
+            take_profit=signal.managed_take_profit(),
             take_profit_targets=list(signal.take_profits),
             comment=f"TG|{source_slug}|{message_suffix}",
         )

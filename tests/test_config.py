@@ -1,7 +1,11 @@
 import unittest
+from os import environ
 from pathlib import Path
+from tempfile import TemporaryDirectory
+from unittest.mock import patch
 
 from telegram_signal_copier.config import AppConfig
+import telegram_signal_copier.config as config_module
 
 
 def build_config() -> AppConfig:
@@ -52,6 +56,36 @@ class AppConfigTests(unittest.TestCase):
             ["FX VIP CLUB", "Gold Expertise", "Star Trading"],
         )
         self.assertTrue(config.telegram_ready)
+
+    def test_from_env_uses_appdata_home_when_frozen(self) -> None:
+        with TemporaryDirectory() as tmp_dir:
+            appdata = Path(tmp_dir) / "Roaming"
+            with patch.dict(environ, {"APPDATA": str(appdata)}, clear=True):
+                with patch.object(config_module.sys, "frozen", True, create=True):
+                    with patch.object(config_module.sys, "executable", str(Path(tmp_dir) / "install" / "TelegramSignalCopier.exe")):
+                        config = AppConfig.from_env()
+
+            self.assertEqual(config.project_root, appdata / "TelegramSignalCopier")
+
+    def test_from_env_loads_dotenv_from_executable_dir_when_frozen(self) -> None:
+        with TemporaryDirectory() as tmp_dir:
+            temp_root = Path(tmp_dir)
+            appdata = temp_root / "Roaming"
+            install_dir = temp_root / "install"
+            install_dir.mkdir(parents=True, exist_ok=True)
+            (install_dir / ".env").write_text(
+                "TELEGRAM_API_ID=123456\nDEFAULT_VOLUME=0.05\n",
+                encoding="utf-8",
+            )
+
+            with patch.dict(environ, {"APPDATA": str(appdata)}, clear=True):
+                with patch.object(config_module.sys, "frozen", True, create=True):
+                    with patch.object(config_module.sys, "executable", str(install_dir / "TelegramSignalCopier.exe")):
+                        config = AppConfig.from_env()
+
+            self.assertEqual(config.project_root, appdata / "TelegramSignalCopier")
+            self.assertEqual(config.telegram_api_id, "123456")
+            self.assertEqual(config.default_volume, 0.05)
 
 
 if __name__ == "__main__":

@@ -35,7 +35,7 @@ def _build_trade_command(state: AgentState, volume: float) -> TradeCommand:
         volume=volume,
         entry_price=v.entry_price,
         stop_loss=v.stop_loss,
-        take_profit=v.first_take_profit,
+        take_profit=v.managed_take_profit,
         take_profit_targets=list(v.take_profits),
         comment=v.comment or f"TG|{state.source_group[:16]}|{state.message_id[-8:]}",
     )
@@ -73,7 +73,7 @@ def execution_agent_node(
             state.validated_signal.side,
             state.validated_signal.entry_price,
             state.validated_signal.stop_loss,
-            state.validated_signal.first_take_profit,
+            state.validated_signal.managed_take_profit,
             volume,
         )
         return {

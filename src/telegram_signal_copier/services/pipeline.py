@@ -33,7 +33,7 @@ _TRADE_UPDATE_OVERRIDE = re.compile(
     r"\b(exit\s*(both|all)?|close\s*(both|all|trade)?|book\s*profit|tp\s*\d*\s*hit|"
     r"tp\s*\d*\s*done|sl\s*hit|target\s*(hit|done|achieved)|"
     r"all\s*targets?\s*(complete|completed|hit|done|achieved)|targets?\s*complete|"
-    r"move\s*sl|move\s*stop|breakeven|break\s*even|partial\s*(close|profit)|"
+    r"move\s*sl|move\s*stop|breakeven|break\s*even|partial(?:\s*(close|profit))?|"
     r"trade\s*closed|trade\s*setup\s*invalid|setup\s*invalid|"
     r"cancel(?:led)?\s*(this|the)?\s*(order|trade|setup)?|trail(?:ing)?\s*sl|"
     r"(?:\d+\s*)?pips?\s*(done|booked)|profit\s*done|"
@@ -136,8 +136,29 @@ class CopierPipeline:
         # A chart + ambiguous caption must be attempted as a signal.
         has_image = bool(primary_image)
 
+        # Intent classifiers can mislabel clean text signals as informational/update.
+        # Build a lightweight heuristic preview before skipping text-only messages.
+        heuristic_preview: ParsedSignal | None = None
+        heuristic_preview_complete = False
+
+        if not has_image and (intent in _INFO_INTENTS or (intent in _UPDATE_INTENTS and not force_skip_trade_update)):
+            heuristic_text = message.raw_text or combined_text
+            heuristic_preview = self.signal_parser._heuristic_parse(message, heuristic_text)
+            heuristic_preview_complete = bool(
+                heuristic_preview.side and (
+                    heuristic_preview.entry_price is not None
+                    or heuristic_preview.stop_loss is not None
+                    or bool(heuristic_preview.take_profits)
+                )
+            )
+
         # Drop pure informational messages (no image: 0.92, with image: never auto-skip)
-        if intent in _INFO_INTENTS and not has_image and intent_confidence >= _INFO_SKIP_THRESHOLD:
+        if (
+            intent in _INFO_INTENTS
+            and not has_image
+            and intent_confidence >= _INFO_SKIP_THRESHOLD
+            and not heuristic_preview_complete
+        ):
             logger.info("[PIPELINE] SKIPPED — informational text-only message (conf=%.2f)", intent_confidence)
             dummy = ParsedSignal(
                 source_group=message.source_group,
@@ -156,7 +177,7 @@ class CopierPipeline:
         # With an image present the same message could contain a fresh chart entry,
         # unless the caption itself is an explicit update directive.
         should_skip_trade_update = force_skip_trade_update or (
-            not has_image and intent_confidence >= _UPDATE_SKIP_THRESHOLD
+            not has_image and intent_confidence >= _UPDATE_SKIP_THRESHOLD and not heuristic_preview_complete
         )
         if intent in _UPDATE_INTENTS and should_skip_trade_update:
             logger.info(
@@ -178,14 +199,19 @@ class CopierPipeline:
             )
 
         # ── Stage 2: Heuristic fast-path ────────────────────────────────────────────
-        heuristic = self.signal_parser._heuristic_parse(message, combined_text)
-        heuristic_complete = bool(
-            heuristic.side and (
-                heuristic.entry_price is not None
-                or heuristic.stop_loss is not None
-                or bool(heuristic.take_profits)
+        if heuristic_preview is not None:
+            heuristic = heuristic_preview
+            heuristic_complete = heuristic_preview_complete
+        else:
+            heuristic_text = message.raw_text or combined_text
+            heuristic = self.signal_parser._heuristic_parse(message, heuristic_text)
+            heuristic_complete = bool(
+                heuristic.side and (
+                    heuristic.entry_price is not None
+                    or heuristic.stop_loss is not None
+                    or bool(heuristic.take_profits)
+                )
             )
-        )
 
         if heuristic_complete and not primary_image:
             # Pure-text signal fully parsed — no AI needed

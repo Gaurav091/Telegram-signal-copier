@@ -1,11 +1,13 @@
 from __future__ import annotations
 
 import os
+import sys
 from dataclasses import dataclass
 from pathlib import Path
 
 
 SOURCE_SPEC_SEPARATOR = "::"
+APP_HOME_ENV = "TELEGRAM_SIGNAL_COPIER_HOME"
 
 
 def _load_dotenv(dotenv_path: Path) -> None:
@@ -47,9 +49,55 @@ def _bool_env(name: str, default: bool = False) -> bool:
 
 def _default_bridge_root(project_root: Path) -> Path:
     if os.name == "nt":
-        appdata = Path(os.getenv("APPDATA", Path.home() / "AppData" / "Roaming"))
-        return appdata / "MetaQuotes" / "Terminal" / "Common" / "Files" / "TelegramSignalCopierBridge"
+        appdata = os.getenv("APPDATA")
+        if appdata:
+            return Path(appdata) / "MetaQuotes" / "Terminal" / "Common" / "Files" / "TelegramSignalCopierBridge"
+        try:
+            appdata_path = Path.home() / "AppData" / "Roaming"
+        except RuntimeError:
+            appdata_path = project_root
+        return appdata_path / "MetaQuotes" / "Terminal" / "Common" / "Files" / "TelegramSignalCopierBridge"
     return project_root / "bridge"
+
+
+def _running_frozen() -> bool:
+    return bool(getattr(sys, "frozen", False))
+
+
+def _default_project_root() -> Path:
+    override = os.getenv(APP_HOME_ENV)
+    if override:
+        return Path(override).expanduser()
+
+    if _running_frozen():
+        if os.name == "nt":
+            appdata = os.getenv("APPDATA")
+            if appdata:
+                return Path(appdata) / "TelegramSignalCopier"
+            try:
+                return Path.home() / "AppData" / "Roaming" / "TelegramSignalCopier"
+            except RuntimeError:
+                return Path.cwd() / "TelegramSignalCopier"
+        return Path.home() / ".telegram-signal-copier"
+
+    return Path(__file__).resolve().parents[2]
+
+
+def _dotenv_candidates(project_root: Path) -> list[Path]:
+    candidates = [project_root / ".env"]
+    if _running_frozen():
+        exe_dir = Path(sys.executable).resolve().parent
+        exe_env = exe_dir / ".env"
+        if exe_env not in candidates:
+            candidates.append(exe_env)
+    return candidates
+
+
+def _load_first_dotenv(project_root: Path) -> None:
+    for candidate in _dotenv_candidates(project_root):
+        if candidate.exists():
+            _load_dotenv(candidate)
+            return
 
 
 @dataclass(slots=True)
@@ -117,8 +165,9 @@ class AppConfig:
 
     @classmethod
     def from_env(cls, project_root: Path | None = None) -> "AppConfig":
-        root = project_root or Path(__file__).resolve().parents[2]
-        _load_dotenv(root / ".env")
+        root = (project_root or _default_project_root()).expanduser()
+        root.mkdir(parents=True, exist_ok=True)
+        _load_first_dotenv(root)
         bridge_root = Path(os.getenv("MT5_BRIDGE_DIR", _default_bridge_root(root)))
         return cls(
             project_root=root,
