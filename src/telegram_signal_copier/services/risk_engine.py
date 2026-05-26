@@ -173,9 +173,10 @@ class RiskEngine:
                 for value in [signal.entry_price, signal.stop_loss, *(signal.take_profits or [])]
                 if value is not None and value > 0
             ]
-            if levels and all(not (lo <= value <= hi) for value in levels):
+            out_of_range = [v for v in levels if not (lo <= v <= hi)]
+            if out_of_range:
                 reasons.append(
-                    f"Prices {levels[:3]} outside expected range for {sig_base} ({lo}-{hi})"
+                    f"Prices {out_of_range[:3]} outside expected range for {sig_base} ({lo}-{hi})"
                 )
 
         if signal.stop_loss is None:

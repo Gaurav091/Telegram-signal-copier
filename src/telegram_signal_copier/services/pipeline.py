@@ -305,6 +305,8 @@ class CopierPipeline:
                 intent=intent,
                 intent_confidence=intent_confidence,
                 intent_reasoning=reasoning,
+                extraction=parse_result.signal if parse_result else None,
+                validation=signal if decision.approved else None,
                 rejection_reasons=list(decision.reasons) if decision.reasons else [],
                 action_taken=action,
                 execution_status=execution_result.status if execution_result else None,

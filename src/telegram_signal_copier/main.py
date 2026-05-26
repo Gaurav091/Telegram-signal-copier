@@ -27,6 +27,9 @@ from telegram_signal_copier.services.risk_engine import RiskEngine
 from telegram_signal_copier.services.signal_parser import SignalParser
 
 
+_LISTENER_LOCK_HANDLE = None
+
+
 def _status_file_content(status: dict[str, object]) -> str:
     lines: list[str] = []
     for key, value in status.items():
@@ -75,6 +78,87 @@ def _bridge_root_path(config: AppConfig) -> Path:
 
 def _listener_pid_path(config: AppConfig) -> Path:
     return config.project_root / "runtime" / "listener.pid"
+
+
+def _listener_lock_path(config: AppConfig) -> Path:
+    return config.project_root / "runtime" / "listener.lock"
+
+
+def _read_pid_value(path: Path) -> int | None:
+    try:
+        raw_value = path.read_text(encoding="utf-8").strip()
+    except FileNotFoundError:
+        return None
+    except Exception:
+        return None
+    return int(raw_value) if raw_value.isdigit() else None
+
+
+def _acquire_listener_lock(config: AppConfig) -> bool:
+    global _LISTENER_LOCK_HANDLE
+
+    if _LISTENER_LOCK_HANDLE is not None:
+        return True
+
+    lock_path = _listener_lock_path(config)
+    lock_path.parent.mkdir(parents=True, exist_ok=True)
+    handle = lock_path.open("a+b")
+    try:
+        if os.name == "nt":
+            import msvcrt
+
+            if lock_path.stat().st_size == 0:
+                handle.write(b"0")
+                handle.flush()
+            handle.seek(0)
+            try:
+                msvcrt.locking(handle.fileno(), msvcrt.LK_NBLCK, 1)
+            except OSError:
+                handle.close()
+                return False
+        else:
+            import fcntl
+
+            try:
+                fcntl.flock(handle.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
+            except OSError:
+                handle.close()
+                return False
+
+        handle.seek(0)
+        handle.truncate()
+        handle.write(f"{os.getpid()}\n".encode("utf-8"))
+        handle.flush()
+        _LISTENER_LOCK_HANDLE = handle
+        return True
+    except Exception:
+        handle.close()
+        raise
+
+
+def _release_listener_lock() -> None:
+    global _LISTENER_LOCK_HANDLE
+
+    handle = _LISTENER_LOCK_HANDLE
+    _LISTENER_LOCK_HANDLE = None
+    if handle is None:
+        return
+
+    try:
+        handle.seek(0)
+        if os.name == "nt":
+            import msvcrt
+
+            msvcrt.locking(handle.fileno(), msvcrt.LK_UNLCK, 1)
+        else:
+            import fcntl
+
+            fcntl.flock(handle.fileno(), fcntl.LOCK_UN)
+    except Exception:
+        pass
+    finally:
+        with suppress(Exception):
+            handle.close()
 
 
 def _write_listener_pid(config: AppConfig) -> None:
@@ -240,6 +324,12 @@ async def _run_with_restarts(config: AppConfig) -> None:
     import traceback as _tb
     _restart_logger = logging.getLogger("telegram_signal_copier.restarts")
     attempt = 0
+
+    def _restart_backoff_seconds(attempt_number: int) -> int:
+        # Recover quickly from transient Telegram/network drops instead of
+        # leaving the listener offline for several minutes.
+        return(min(30, 2 ** min(attempt_number, 5)))
+
     while True:
         attempt += 1
         try:
@@ -249,7 +339,7 @@ async def _run_with_restarts(config: AppConfig) -> None:
             # run_until_disconnected returned normally → connection dropped; treat as crash and restart
             _restart_logger.warning("Listener exited unexpectedly (run_until_disconnected returned) — restarting")
             print("Listener exited unexpectedly — restarting", flush=True)
-            backoff = min(300, 2 ** min(attempt, 8))
+            backoff = _restart_backoff_seconds(attempt)
             await asyncio.sleep(backoff)
             continue
         except BaseException as exc:
@@ -259,7 +349,7 @@ async def _run_with_restarts(config: AppConfig) -> None:
             if isinstance(exc, (KeyboardInterrupt, SystemExit)):
                 raise
             # exponential backoff with cap
-            backoff = min(300, 2 ** min(attempt, 8))
+            backoff = _restart_backoff_seconds(attempt)
             _restart_logger.info("Restarting listener in %ds (attempt %d)", backoff, attempt)
             print(f"Restarting listener in {backoff}s (attempt {attempt})", flush=True)
             await asyncio.sleep(backoff)
@@ -406,6 +496,12 @@ def main() -> None:
     # restarts by calling asyncio.run() again with a fresh event loop.
     _outer_logger = logging.getLogger("telegram_signal_copier.outer")
     _outer_attempt = 0
+    if not _acquire_listener_lock(config):
+        existing_pid = _read_pid_value(_listener_lock_path(config)) or _read_pid_value(_listener_pid_path(config))
+        message = f"Listener already running with PID {existing_pid}" if existing_pid else "Listener already running"
+        _outer_logger.warning(message)
+        print(message, flush=True)
+        raise SystemExit(0)
     _write_listener_pid(config)
     try:
         while True:
@@ -428,6 +524,7 @@ def main() -> None:
                 raise
     finally:
         _clear_listener_pid(config)
+        _release_listener_lock()
 
 
 if __name__ == "__main__":

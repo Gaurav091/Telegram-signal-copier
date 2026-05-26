@@ -11,6 +11,10 @@ input int MaxCommandAgeSeconds = 180;
 input string AllowedSymbols = "XAUUSD,EURUSD,GBPUSD,USDJPY,BTCUSD,ETHUSD,XAGUSD,US30,NAS100,USOIL,SPX500";
 input bool AllowMarketOrders = true;
 input bool AllowPendingOrders = true;
+input bool EnableMultiTargetAutomation = true;
+input double Tp1ClosePercent = 50.0;
+input double Tp2SafetyLockPercent = 25.0;
+input int ManagedTradeStateTtlSeconds = 86400;
 
 struct TradeCommand
 {
@@ -29,6 +33,7 @@ struct TradeCommand
    bool has_stop_loss;
    double take_profit;
    bool has_take_profit;
+   string take_profit_targets;
    string comment;
    // --- Modify / Close fields ---
    long   ticket;
@@ -39,6 +44,18 @@ struct TradeCommand
    bool   has_new_tp;
    double close_percent;  // 0‥100, used by CLOSE_PARTIAL
    bool   has_close_percent;
+};
+
+struct ManagedTradeState
+{
+   string comment;
+   string symbol;
+   string side;
+   double tp1;
+   double tp2;
+   long created_epoch;
+   bool partial_done;
+   bool safety_applied;
 };
 
 struct TelegramStatus
@@ -72,12 +89,14 @@ string g_last_chart_comment = "";
 string g_last_bridge_request_id = "";
 string g_last_bridge_status = "";
 string g_last_bridge_message = "";
+ManagedTradeState g_managed_trade_states[];
 
 int OnInit()
 {
    trade.SetDeviationInPoints(MaxSlippagePoints);
    trade.SetExpertMagicNumber(MagicNumber);
    EnsureBridgeFolders();
+   LoadManagedTradeStates();
    WriteEAStatus();
    UpdateChartStatus();
    bool auto_trade = (bool)MQLInfoInteger(MQL_TRADE_ALLOWED);
@@ -99,6 +118,7 @@ void OnDeinit(const int reason)
 void OnTimer()
 {
    ProcessBridgeCommands();
+   ManageMultiTargetPositions();
    UpdateChartStatus();
    WriteEAStatus();
 }
@@ -484,6 +504,8 @@ void ApplyField(TradeCommand &command, const string key, const string value)
       command.take_profit = ParseBridgeDouble(value);
       command.has_take_profit = true;
    }
+   else if(key == "take_profit_targets")
+      command.take_profit_targets = value;
    else if(key == "comment")
       command.comment = value;
    else if(key == "ticket" && value != "")
@@ -621,12 +643,24 @@ void ExecuteTradeCommand(TradeCommand &command)
 
    if(success)
    {
-      ulong ticket = trade.ResultDeal();
-      if(ticket == 0)
-         ticket = trade.ResultOrder();
+      ulong deal_ticket = trade.ResultDeal();
+      ulong order_ticket = trade.ResultOrder();
+      ulong ticket = (deal_ticket > 0 ? deal_ticket : order_ticket);
+      RegisterManagedTradeState(command);
+      string result_status = "FILLED";
+      if(
+         deal_ticket == 0
+         && (command.order_type == "BUY_LIMIT"
+             || command.order_type == "SELL_LIMIT"
+             || command.order_type == "BUY_STOP"
+             || command.order_type == "SELL_STOP")
+      )
+      {
+         result_status = "PENDING";
+      }
       WriteResult(
          command.request_id,
-         "FILLED",
+         result_status,
          trade.ResultRetcodeDescription(),
          ticket,
          trade.ResultPrice()
@@ -853,6 +887,435 @@ double NormalizePrice(const string symbol, const double price, const bool has_va
    return(NormalizeDouble(price, digits));
 }
 
+string ManagedTradeStatePath()
+{
+   return(BridgeFolderName + "/managed_trade_states.txt");
+}
+
+string FormatTicket(const ulong ticket)
+{
+   return(StringFormat("%I64u", ticket));
+}
+
+int VolumePrecision(const string symbol)
+{
+   double step = SymbolInfoDouble(symbol, SYMBOL_VOLUME_STEP);
+   if(step <= 0.0)
+      return(2);
+
+   int precision = 0;
+   double scaled = step;
+   while(precision < 8 && MathAbs(scaled - MathRound(scaled)) > 1e-8)
+   {
+      scaled *= 10.0;
+      precision++;
+   }
+   return(precision);
+}
+
+double NormalizeVolume(const string symbol, const double requested_volume)
+{
+   double min_volume = SymbolInfoDouble(symbol, SYMBOL_VOLUME_MIN);
+   double max_volume = SymbolInfoDouble(symbol, SYMBOL_VOLUME_MAX);
+   double step = SymbolInfoDouble(symbol, SYMBOL_VOLUME_STEP);
+   if(step <= 0.0)
+      step = min_volume;
+   if(step <= 0.0)
+      step = 0.01;
+
+   double bounded = requested_volume;
+   if(max_volume > 0.0 && bounded > max_volume)
+      bounded = max_volume;
+   if(min_volume > 0.0 && bounded < min_volume)
+      return(0.0);
+
+   double normalized = MathFloor((bounded + 1e-10) / step) * step;
+   normalized = NormalizeDouble(normalized, VolumePrecision(symbol));
+   if(min_volume > 0.0 && normalized < min_volume)
+      return(0.0);
+   return(normalized);
+}
+
+bool ParseTakeProfitTargets(const string raw_targets, double &targets[])
+{
+   ArrayResize(targets, 0);
+
+   string normalized = raw_targets;
+   StringTrimLeft(normalized);
+   StringTrimRight(normalized);
+   if(normalized == "")
+      return(false);
+
+   string parts[];
+   int count = StringSplit(normalized, ',', parts);
+   for(int index = 0; index < count; index++)
+   {
+      double value = ParseBridgeDouble(parts[index]);
+      if(value <= 0.0)
+         continue;
+
+      int target_index = ArraySize(targets);
+      ArrayResize(targets, target_index + 1);
+      targets[target_index] = value;
+   }
+
+   return(ArraySize(targets) > 0);
+}
+
+bool IsManagedTradeStateExpired(const ManagedTradeState &state)
+{
+   if(ManagedTradeStateTtlSeconds <= 0)
+      return(false);
+
+   long age_seconds = (long)TimeGMT() - state.created_epoch;
+   if(age_seconds < 0)
+      age_seconds = 0;
+   return(age_seconds > ManagedTradeStateTtlSeconds);
+}
+
+void RemoveManagedTradeState(const int index)
+{
+   int count = ArraySize(g_managed_trade_states);
+   if(index < 0 || index >= count)
+      return;
+
+   for(int item = index; item < count - 1; item++)
+      g_managed_trade_states[item] = g_managed_trade_states[item + 1];
+
+   ArrayResize(g_managed_trade_states, count - 1);
+}
+
+int FindManagedTradeStateIndex(const string comment, const string symbol, const string side)
+{
+   for(int index = 0; index < ArraySize(g_managed_trade_states); index++)
+   {
+      if(g_managed_trade_states[index].comment == comment
+         && g_managed_trade_states[index].symbol == symbol
+         && g_managed_trade_states[index].side == side)
+      {
+         return(index);
+      }
+   }
+
+   return(-1);
+}
+
+void SaveManagedTradeStates()
+{
+   string path = ManagedTradeStatePath();
+   if(ArraySize(g_managed_trade_states) == 0)
+   {
+      FileDelete(path, FILE_COMMON);
+      return;
+   }
+
+   int file_handle = FileOpen(path, FILE_WRITE | FILE_TXT | FILE_ANSI | FILE_COMMON);
+   if(file_handle == INVALID_HANDLE)
+      return;
+
+   for(int index = 0; index < ArraySize(g_managed_trade_states); index++)
+   {
+      ManagedTradeState state = g_managed_trade_states[index];
+      string line = state.comment
+         + "|" + state.symbol
+         + "|" + state.side
+         + "|" + DoubleToString(state.tp1, 8)
+         + "|" + DoubleToString(state.tp2, 8)
+         + "|" + IntegerToString((int)state.created_epoch)
+         + "|" + (state.partial_done ? "1" : "0")
+         + "|" + (state.safety_applied ? "1" : "0");
+      FileWriteString(file_handle, line + "\n");
+   }
+
+   FileClose(file_handle);
+}
+
+void LoadManagedTradeStates()
+{
+   ArrayResize(g_managed_trade_states, 0);
+
+   int file_handle = FileOpen(ManagedTradeStatePath(), FILE_READ | FILE_TXT | FILE_ANSI | FILE_COMMON);
+   if(file_handle == INVALID_HANDLE)
+      return;
+
+   while(!FileIsEnding(file_handle))
+   {
+      string line = FileReadString(file_handle);
+      StringReplace(line, "\r", "");
+      if(line == "")
+         continue;
+
+      string parts[];
+      int count = StringSplit(line, '|', parts);
+      if(count < 8)
+         continue;
+
+      ManagedTradeState state;
+      state.comment = parts[0];
+      state.symbol = parts[1];
+      state.side = parts[2];
+      state.tp1 = ParseBridgeDouble(parts[3]);
+      state.tp2 = ParseBridgeDouble(parts[4]);
+      state.created_epoch = StringToInteger(parts[5]);
+      state.partial_done = (parts[6] == "1");
+      state.safety_applied = (parts[7] == "1");
+
+      if(state.comment == "" || state.symbol == "" || state.side == "" || state.tp1 <= 0.0 || state.tp2 <= 0.0)
+         continue;
+
+      int index = ArraySize(g_managed_trade_states);
+      ArrayResize(g_managed_trade_states, index + 1);
+      g_managed_trade_states[index] = state;
+   }
+
+   FileClose(file_handle);
+}
+
+bool FindManagedPosition(const ManagedTradeState &state, ulong &ticket)
+{
+   for(int index = PositionsTotal() - 1; index >= 0; index--)
+   {
+      ulong position_ticket = PositionGetTicket(index);
+      if(position_ticket == 0)
+         continue;
+
+      string pos_symbol = PositionGetString(POSITION_SYMBOL);
+      if(pos_symbol != state.symbol)
+         continue;
+
+      long pos_magic = PositionGetInteger(POSITION_MAGIC);
+      if(pos_magic != MagicNumber)
+         continue;
+
+      string pos_comment = PositionGetString(POSITION_COMMENT);
+      if(pos_comment != state.comment)
+         continue;
+
+      ENUM_POSITION_TYPE position_type = (ENUM_POSITION_TYPE)PositionGetInteger(POSITION_TYPE);
+      if(state.side == "BUY" && position_type != POSITION_TYPE_BUY)
+         continue;
+      if(state.side == "SELL" && position_type != POSITION_TYPE_SELL)
+         continue;
+
+      ticket = position_ticket;
+      return(true);
+   }
+
+   ticket = 0;
+   return(false);
+}
+
+bool HasReachedTakeProfitLevel(const ManagedTradeState &state)
+{
+   double point = SymbolInfoDouble(state.symbol, SYMBOL_POINT);
+   if(point <= 0.0)
+      point = 0.00001;
+
+   double trigger_price = 0.0;
+   if(state.side == "BUY")
+      trigger_price = SymbolInfoDouble(state.symbol, SYMBOL_BID);
+   else
+      trigger_price = SymbolInfoDouble(state.symbol, SYMBOL_ASK);
+
+   if(trigger_price <= 0.0)
+      return(false);
+
+   if(state.side == "BUY")
+      return(trigger_price >= (state.tp1 - point));
+   return(trigger_price <= (state.tp1 + point));
+}
+
+double ComputeTp1CloseVolume(const string symbol, const double current_volume)
+{
+   double target_volume = current_volume * Tp1ClosePercent / 100.0;
+   double close_volume = NormalizeVolume(symbol, target_volume);
+   double remaining_volume = NormalizeVolume(symbol, current_volume - close_volume);
+
+   if(close_volume <= 0.0 || remaining_volume <= 0.0)
+      return(0.0);
+
+   return(close_volume);
+}
+
+double CalculateSafetyStopLoss(const ManagedTradeState &state, const double entry_price)
+{
+   double lock_ratio = Tp2SafetyLockPercent / 100.0;
+   double raw_stop = entry_price;
+
+   if(state.side == "BUY")
+      raw_stop = entry_price + ((state.tp2 - entry_price) * lock_ratio);
+   else
+      raw_stop = entry_price - ((entry_price - state.tp2) * lock_ratio);
+
+   return(NormalizePrice(state.symbol, raw_stop, true));
+}
+
+void RegisterManagedTradeState(const TradeCommand &command)
+{
+   if(!EnableMultiTargetAutomation)
+      return;
+   if(command.action != "BUY" && command.action != "SELL")
+      return;
+
+   double targets[];
+   if(!ParseTakeProfitTargets(command.take_profit_targets, targets))
+      return;
+   if(ArraySize(targets) < 2)
+      return;
+
+   ManagedTradeState state;
+   state.comment = command.comment;
+   state.symbol = command.symbol;
+   state.side = command.action;
+   state.tp1 = targets[0];
+   state.tp2 = targets[1];
+   state.created_epoch = (long)TimeGMT();
+   state.partial_done = false;
+   state.safety_applied = false;
+
+   int existing_index = FindManagedTradeStateIndex(state.comment, state.symbol, state.side);
+   if(existing_index >= 0)
+      g_managed_trade_states[existing_index] = state;
+   else
+   {
+      int new_index = ArraySize(g_managed_trade_states);
+      ArrayResize(g_managed_trade_states, new_index + 1);
+      g_managed_trade_states[new_index] = state;
+   }
+
+   SaveManagedTradeStates();
+   PrintFormat(
+      "TelegramSignalCopierEA registered multi-target automation comment=%s symbol=%s side=%s tp1=%.5f tp2=%.5f",
+      state.comment,
+      state.symbol,
+      state.side,
+      state.tp1,
+      state.tp2
+   );
+}
+
+void ManageMultiTargetPositions()
+{
+   if(!EnableMultiTargetAutomation || ArraySize(g_managed_trade_states) == 0)
+      return;
+
+   bool changed = false;
+
+   for(int index = ArraySize(g_managed_trade_states) - 1; index >= 0; index--)
+   {
+      ManagedTradeState state = g_managed_trade_states[index];
+      ulong ticket = 0;
+
+      if(!FindManagedPosition(state, ticket))
+      {
+         if((state.partial_done && state.safety_applied) || IsManagedTradeStateExpired(state))
+         {
+            RemoveManagedTradeState(index);
+            changed = true;
+         }
+         continue;
+      }
+
+      if(!HasReachedTakeProfitLevel(state))
+         continue;
+
+      if(!PositionSelectByTicket(ticket))
+      {
+         RemoveManagedTradeState(index);
+         changed = true;
+         continue;
+      }
+
+      if(!state.partial_done)
+      {
+         double current_volume = PositionGetDouble(POSITION_VOLUME);
+         double close_volume = ComputeTp1CloseVolume(state.symbol, current_volume);
+
+         if(close_volume > 0.0)
+         {
+            if(!trade.PositionClosePartial(ticket, close_volume))
+            {
+               PrintFormat(
+                  "TelegramSignalCopierEA TP1 partial failed ticket=%s message=%s",
+                  FormatTicket(ticket),
+                  trade.ResultRetcodeDescription()
+               );
+               continue;
+            }
+
+            PrintFormat(
+               "TelegramSignalCopierEA TP1 partial booked ticket=%s closed_volume=%.2f tp1=%.5f",
+               FormatTicket(ticket),
+               close_volume,
+               state.tp1
+            );
+         }
+         else
+         {
+            PrintFormat(
+               "TelegramSignalCopierEA TP1 reached ticket=%s but volume %.2f cannot be split; applying safety SL only",
+               FormatTicket(ticket),
+               current_volume
+            );
+         }
+
+         state.partial_done = true;
+         g_managed_trade_states[index] = state;
+         changed = true;
+
+         if(!PositionSelectByTicket(ticket))
+         {
+            RemoveManagedTradeState(index);
+            changed = true;
+            continue;
+         }
+      }
+
+      if(!state.safety_applied)
+      {
+         double entry_price = PositionGetDouble(POSITION_PRICE_OPEN);
+         double current_sl = PositionGetDouble(POSITION_SL);
+         double new_sl = CalculateSafetyStopLoss(state, entry_price);
+         double new_tp = NormalizePrice(state.symbol, state.tp2, true);
+
+         if(state.side == "BUY" && current_sl > 0.0 && new_sl <= current_sl)
+            new_sl = current_sl;
+         if(state.side == "SELL" && current_sl > 0.0 && new_sl >= current_sl)
+            new_sl = current_sl;
+
+         if(!trade.PositionModify(state.symbol, new_sl, new_tp))
+         {
+            PrintFormat(
+               "TelegramSignalCopierEA TP1 safety modify failed ticket=%s message=%s",
+               FormatTicket(ticket),
+               trade.ResultRetcodeDescription()
+            );
+            continue;
+         }
+
+         PrintFormat(
+            "TelegramSignalCopierEA TP1 safety applied ticket=%s new_sl=%.5f new_tp=%.5f",
+            FormatTicket(ticket),
+            new_sl,
+            new_tp
+         );
+
+         state.safety_applied = true;
+         g_managed_trade_states[index] = state;
+         changed = true;
+      }
+
+      if(state.partial_done && state.safety_applied)
+      {
+         RemoveManagedTradeState(index);
+         changed = true;
+      }
+   }
+
+   if(changed)
+      SaveManagedTradeStates();
+}
+
 bool IsCommandStale(const TradeCommand &command)
 {
    if(MaxCommandAgeSeconds <= 0)
@@ -995,7 +1458,7 @@ void WriteResult(
    g_last_bridge_request_id = request_id;
    g_last_bridge_status = status;
    g_last_bridge_message = message;
-   string ticket_text = (ticket > 0 ? IntegerToString((int)ticket) : "0");
+   string ticket_text = (ticket > 0 ? FormatTicket(ticket) : "0");
    PrintFormat(
       "TelegramSignalCopierEA result request=%s status=%s ticket=%s message=%s",
       request_id,
@@ -1013,7 +1476,7 @@ void WriteResult(
    FileWriteString(file_handle, "status=" + status + "\n");
    FileWriteString(file_handle, "message=" + message + "\n");
    if(ticket > 0)
-      FileWriteString(file_handle, "ticket=" + IntegerToString((int)ticket) + "\n");
+      FileWriteString(file_handle, "ticket=" + FormatTicket(ticket) + "\n");
    if(executed_price > 0.0)
       FileWriteString(file_handle, "executed_price=" + DoubleToString(executed_price, _Digits) + "\n");
    FileWriteString(file_handle, "executed_at=" + TimeToString(TimeCurrent(), TIME_DATE | TIME_SECONDS) + "\n");

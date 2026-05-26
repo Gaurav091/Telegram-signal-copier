@@ -9,13 +9,14 @@ A production-ready trading automation system that monitors Telegram signal group
 1. [Architecture Overview](#architecture-overview)
 2. [Prerequisites](#prerequisites)
 3. [Installation](#installation)
-4. [Configuration (.env)](#configuration-env)
-5. [MT5 Expert Advisor Setup](#mt5-expert-advisor-setup)
-6. [Running the Listener](#running-the-listener)
-7. [How Signals Are Processed](#how-signals-are-processed)
-8. [Supported Signal Formats](#supported-signal-formats)
-9. [Troubleshooting](#troubleshooting)
-10. [Key Files Reference](#key-files-reference)
+4. [Windows EXE / Installer Build](#windows-exe--installer-build)
+5. [Configuration (.env)](#configuration-env)
+6. [MT5 Expert Advisor Setup](#mt5-expert-advisor-setup)
+7. [Running the Listener](#running-the-listener)
+8. [How Signals Are Processed](#how-signals-are-processed)
+9. [Supported Signal Formats](#supported-signal-formats)
+10. [Troubleshooting](#troubleshooting)
+11. [Key Files Reference](#key-files-reference)
 
 ---
 
@@ -59,6 +60,7 @@ Telegram Groups / Channels
 | MetaTrader 5 | Any | Exness, ICMarkets, etc. |
 | MetaEditor 64 | Bundled with MT5 | For compiling the EA |
 | Tesseract OCR | 5.x | Windows: [UB Mannheim build](https://github.com/UB-Mannheim/tesseract/wiki) |
+| OpenSSL runtime (Windows) | 4.x | Recommended to avoid Telethon SSL loader warning |
 | Git | Any | For cloning |
 
 **AI provider** (at least one required for image signals):
@@ -88,6 +90,68 @@ pip install -e ".[telegram,agents,dev]"
 #    Download from: https://github.com/UB-Mannheim/tesseract/wiki
 #    Install to default path: C:\Program Files\Tesseract-OCR\tesseract.exe
 ```
+
+---
+
+## Windows EXE / Installer Build
+
+You can build a self-contained Windows app bundle and, optionally, an installer EXE.
+
+### Outputs
+
+- `dist\TelegramSignalCopier\TelegramSignalCopier.exe`
+- `dist\installer\TelegramSignalCopier-Setup.exe` if Inno Setup 6 is installed
+
+### Installed runtime path
+
+Packaged builds store writable runtime data here:
+
+```text
+%APPDATA%\TelegramSignalCopier
+```
+
+That folder holds:
+
+- `.env`
+- `.env.example`
+- `logs\`
+- `runtime\sessions\`
+- `runtime\media\`
+- `ai_cache.db`
+
+Override it with:
+
+```env
+TELEGRAM_SIGNAL_COPIER_HOME=C:\TelegramSignalCopierData
+```
+
+### Target-machine prerequisites
+
+- MetaTrader 5 still required for live execution
+- Tesseract still required for OCR/image parsing
+- Inno Setup 6 only required on the build machine if you want an installer EXE
+
+### Build
+
+```powershell
+.venv\Scripts\Activate.ps1
+powershell -ExecutionPolicy Bypass -File packaging\build_windows_bundle.ps1
+```
+
+Optional:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File packaging\build_windows_bundle.ps1 -Clean
+powershell -ExecutionPolicy Bypass -File packaging\build_windows_bundle.ps1 -SkipInstaller
+```
+
+### After install
+
+1. Edit `%APPDATA%\TelegramSignalCopier\.env`
+2. Install Tesseract if you need OCR/image parsing
+3. Copy and compile `TelegramSignalCopierEA.mq5` into MT5
+4. Run the login shortcut once
+5. Run the listener shortcut
 
 ---
 
@@ -345,6 +409,18 @@ Symbol aliases recognised: `GOLD → XAUUSD`, `XAU → XAUUSD`, `EU → EURUSD`,
 
 ### Telegram OTP / session expired
 - Delete the `.session` file in `runtime/sessions/` and restart to re-authenticate
+
+### `Failed to load SSL library` on Windows startup
+- Symptom in logs: `Failed to load SSL library: <class 'OSError'> (no library called "ssl" found)`
+- Current builds auto-apply a Windows OpenSSL compatibility shim before Telethon import.
+- If warning still appears on a target machine, install OpenSSL runtime:
+
+```powershell
+winget install --id ShiningLight.OpenSSL.Light --exact --accept-package-agreements --accept-source-agreements --silent
+```
+
+- Then restart listener.
+- If `winget` is unavailable, install manually from slproweb OpenSSL Win64 package and restart.
 
 ---
 

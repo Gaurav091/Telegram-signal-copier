@@ -40,6 +40,21 @@ def _parse_source_spec(value: str) -> tuple[str, str]:
     return normalized, normalized
 
 
+def _validate_telegram_source_values(sources: list[str]) -> None:
+    invalid: list[str] = []
+    for source in sources:
+        label, identifier = _parse_source_spec(source)
+        normalized_identifier = identifier.strip()
+        if normalized_identifier and not normalized_identifier.isdigit():
+            invalid.append(f"{label}::{normalized_identifier}" if label != normalized_identifier else normalized_identifier)
+    if invalid:
+        joined = ", ".join(invalid)
+        raise ValueError(
+            "Invalid TELEGRAM_SOURCES values. Each source value must be numeric chat ID only "
+            f"(use Label{SOURCE_SPEC_SEPARATOR}1234567890 or 1234567890 format). Invalid entries: {joined}"
+        )
+
+
 def _bool_env(name: str, default: bool = False) -> bool:
     raw = os.getenv(name)
     if raw is None:
@@ -169,6 +184,8 @@ class AppConfig:
         root.mkdir(parents=True, exist_ok=True)
         _load_first_dotenv(root)
         bridge_root = Path(os.getenv("MT5_BRIDGE_DIR", _default_bridge_root(root)))
+        telegram_sources = _csv_env("TELEGRAM_SOURCES")
+        _validate_telegram_source_values(telegram_sources)
         return cls(
             project_root=root,
             # Commands are written to the bridge ROOT (not inbox/ subfolder) because
@@ -179,7 +196,7 @@ class AppConfig:
             telegram_api_hash=os.getenv("TELEGRAM_API_HASH"),
             telegram_phone_number=os.getenv("TELEGRAM_PHONE_NUMBER"),
             telegram_session_name=os.getenv("TELEGRAM_SESSION_NAME", "telegram-signal-copier"),
-            telegram_sources=_csv_env("TELEGRAM_SOURCES"),
+            telegram_sources=telegram_sources,
             openai_api_key=os.getenv("OPENAI_API_KEY"),
             openai_model=os.getenv("OPENAI_MODEL", "gpt-4o-mini"),
             openai_base_url=os.getenv("OPENAI_BASE_URL", "https://api.openai.com/v1"),

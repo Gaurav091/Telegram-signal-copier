@@ -17,6 +17,7 @@ telegram-signal-copier-mcp = "telegram_signal_copier.mcp_server:main"
 [project.optional-dependencies]
 telegram = ["telethon>=1.36.0"]
 mcp = ["mcp[cli]>=1.2.0", "telethon>=1.36.0"]
+build = ["pyinstaller>=6.11.0"]
 agents = [
     "langgraph>=1.2.0",
     "langchain-core>=1.4.0",

@@ -33,3 +33,20 @@ When user asks to restart listener:
 	- `Remove-Item .\\runtime\\listener.pid -ErrorAction SilentlyContinue`
 	- run foreground listener command again.
 3. Keep listener attached so logs stay visible in terminal.
+
+## fix implementation policy
+
+When asked to fix an issue:
+
+1. Preserve existing behavior and integrations unless the user explicitly asks to change or remove them.
+2. Implement fixes additively on top of current functionality, minimizing regression risk.
+3. Prefer targeted patches with verification over broad rewrites.
+
+## channel mapping policy
+
+When user asks to check/fix/add Telegram source channel mapping:
+
+1. Resolve and map sources using numeric chat ID only (for channel `-100XXXXXXXXXX`, map value as `XXXXXXXXXX`).
+2. Do not use title text or username as the mapping target value in `TELEGRAM_SOURCES`.
+3. If multiple similar channel names exist, verify by matching recent message text before applying mapping.
+4. After mapping update, restart listener and verify bridge source map reflects the numeric ID.

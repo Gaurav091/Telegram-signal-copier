@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import ctypes.util
 import logging
 import os
 import platform
@@ -15,6 +16,55 @@ from telegram_signal_copier.config import AppConfig
 from telegram_signal_copier.models import TelegramSignalMessage
 
 logger = logging.getLogger(__name__)
+
+
+def _prepare_telethon_ssl_runtime(project_root: Path) -> None:
+    if os.name != "nt":
+        return
+
+    if ctypes.util.find_library("ssl"):
+        return
+
+    candidates = [
+        Path("C:/Program Files/OpenSSL-Win64/bin"),
+        Path("C:/Program Files/OpenSSL-Win32/bin"),
+        Path("C:/Program Files/Common Files/SSL"),
+    ]
+    source_dir = next((path for path in candidates if path.exists()), None)
+    if source_dir is None:
+        return
+
+    ssl_dll = source_dir / "ssl.dll"
+    if not ssl_dll.exists():
+        versioned_ssl = sorted(source_dir.glob("libssl-*-x64.dll")) or sorted(source_dir.glob("libssl-*.dll"))
+        if not versioned_ssl:
+            return
+        source_ssl = versioned_ssl[0]
+        shim_dir = project_root / "runtime" / "openssl_shim"
+        shim_dir.mkdir(parents=True, exist_ok=True)
+        shim_ssl = shim_dir / "ssl.dll"
+        try:
+            shutil.copy2(source_ssl, shim_ssl)
+            for crypto in source_dir.glob("libcrypto-*.dll"):
+                target = shim_dir / crypto.name
+                if not target.exists():
+                    shutil.copy2(crypto, target)
+            source_dir = shim_dir
+        except Exception as exc:
+            logger.debug("[TG] OpenSSL shim creation failed: %s", exc)
+            return
+
+    current_path = os.environ.get("PATH", "")
+    source_dir_str = str(source_dir)
+    if source_dir_str.lower() not in current_path.lower():
+        os.environ["PATH"] = source_dir_str + os.pathsep + current_path
+
+    add_dll_directory = getattr(os, "add_dll_directory", None)
+    if callable(add_dll_directory):
+        try:
+            add_dll_directory(source_dir_str)
+        except OSError:
+            pass
 
 
 def _normalize_source_name(name: str) -> str:
@@ -151,6 +201,7 @@ class TelegramSignalListener:
         if not self.config.telegram_ready:
             raise RuntimeError("Telegram credentials or source groups missing")
 
+        _prepare_telethon_ssl_runtime(self.config.project_root)
         logger.info("[TG] importing Telethon runtime")
         from telethon import TelegramClient, events  # type: ignore[import-not-found]
         logger.info("[TG] Telethon import complete")
@@ -199,6 +250,7 @@ class TelegramSignalListener:
         if not self.config.telegram_login_ready:
             raise RuntimeError("Telegram API ID, API hash, and phone number or bot token are required")
 
+        _prepare_telethon_ssl_runtime(self.config.project_root)
         from telethon import TelegramClient  # type: ignore[import-not-found]
 
         client = TelegramClient(

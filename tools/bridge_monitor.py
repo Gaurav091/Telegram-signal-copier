@@ -49,6 +49,17 @@ _MT5_LOG_ERROR_MARKERS = (
     "cannot",
     "denied",
 )
+_BRIDGE_FILL_RE = re.compile(r"TelegramSignalCopierEA result request=(\S+) status=FILLED ticket=(\d+)")
+_BRIDGE_CLOSE_CMD_RE = re.compile(r"TelegramSignalCopierEA executing request=(\S+) symbol=(\S+) action=(CLOSE_FULL|CLOSE_PARTIAL)\b")
+_TERMINAL_DEAL_RE = re.compile(
+    r"deal #(?P<deal>\d+) (?P<side>buy|sell) [^ ]+ (?P<symbol>\S+) at (?P<price>[-\d.]+) done \(based on order #(?P<order>\d+)\)",
+    re.IGNORECASE,
+)
+_TERMINAL_CLOSE_RE = re.compile(
+    r"market (?P<close_side>buy|sell) [^,]+, close #(?P<order>\d+) (?P<position_side>buy|sell) [^ ]+ (?P<symbol>\S+) (?P<price>[-\d.]+)",
+    re.IGNORECASE,
+)
+_LOG_TS_RE = re.compile(r"\b(?P<hour>\d{2}):(?P<minute>\d{2}):(?P<second>\d{2})\.(?P<millis>\d{3})\b")
 
 
 def _now() -> datetime:
@@ -159,6 +170,119 @@ def _latest_mql5_log_path(terminal_dir: Path) -> Path | None:
     return logs[0] if logs else None
 
 
+def _latest_terminal_log_path(terminal_dir: Path) -> Path | None:
+    log_dir = terminal_dir / "Logs"
+    if not log_dir.exists():
+        return None
+    logs = sorted(log_dir.glob("*.log"), key=lambda p: p.stat().st_mtime, reverse=True)
+    return logs[0] if logs else None
+
+
+def _log_seconds(line: str) -> float | None:
+    match = _LOG_TS_RE.search(line)
+    if not match:
+        return None
+    hour = int(match.group("hour"))
+    minute = int(match.group("minute"))
+    second = int(match.group("second"))
+    millis = int(match.group("millis"))
+    return hour * 3600 + minute * 60 + second + millis / 1000.0
+
+
+def _elapsed_seconds(start: float | None, end: float | None) -> float | None:
+    if start is None or end is None:
+        return None
+    if end < start:
+        end += 86400.0
+    return end - start
+
+
+def _detect_suspicious_bridge_closes(
+    mql5_lines: list[str],
+    terminal_lines: list[str],
+    close_cmd_grace_sec: float = 3.0,
+) -> list[dict[str, object]]:
+    bridge_tickets: set[int] = set()
+    bridge_close_cmd_times: list[float] = []
+
+    for line in mql5_lines:
+        fill_match = _BRIDGE_FILL_RE.search(line)
+        if fill_match:
+            try:
+                bridge_tickets.add(int(fill_match.group(2)))
+            except ValueError:
+                pass
+
+        close_match = _BRIDGE_CLOSE_CMD_RE.search(line)
+        if close_match:
+            close_ts = _log_seconds(line)
+            if close_ts is not None:
+                bridge_close_cmd_times.append(close_ts)
+
+    tracked_orders: dict[int, dict[str, object]] = {}
+    for line in terminal_lines:
+        deal_match = _TERMINAL_DEAL_RE.search(line)
+        if not deal_match:
+            continue
+
+        deal_ticket = int(deal_match.group("deal"))
+        order_ticket = int(deal_match.group("order"))
+        if deal_ticket not in bridge_tickets and order_ticket not in bridge_tickets:
+            continue
+
+        tracked_orders[order_ticket] = {
+            "bridge_ticket": deal_ticket if deal_ticket in bridge_tickets else order_ticket,
+            "order_ticket": order_ticket,
+            "symbol": deal_match.group("symbol"),
+            "open_side": deal_match.group("side").upper(),
+            "open_price": float(deal_match.group("price")),
+            "open_time": _log_seconds(line),
+        }
+
+    suspicious: list[dict[str, object]] = []
+    seen_orders: set[int] = set()
+    for line in terminal_lines:
+        close_match = _TERMINAL_CLOSE_RE.search(line)
+        if not close_match:
+            continue
+
+        order_ticket = int(close_match.group("order"))
+        tracked = tracked_orders.get(order_ticket)
+        if tracked is None or order_ticket in seen_orders:
+            continue
+
+        close_time = _log_seconds(line)
+        close_has_bridge_command = False
+        for command_time in bridge_close_cmd_times:
+            delta = _elapsed_seconds(command_time, close_time)
+            if delta is not None and 0.0 <= delta <= close_cmd_grace_sec:
+                close_has_bridge_command = True
+                break
+        if close_has_bridge_command:
+            continue
+
+        elapsed = _elapsed_seconds(tracked.get("open_time"), close_time)
+        elapsed_display = "unknown delay" if elapsed is None else f"{elapsed:.3f}s"
+        suspicious.append(
+            {
+                "bridge_ticket": tracked["bridge_ticket"],
+                "order_ticket": order_ticket,
+                "symbol": tracked["symbol"],
+                "open_side": tracked["open_side"],
+                "open_price": tracked["open_price"],
+                "elapsed_seconds": None if elapsed is None else round(elapsed, 3),
+                "summary": (
+                    f"bridge-opened {tracked['open_side']} {tracked['symbol']} order #{order_ticket} "
+                    f"was client-side closed {elapsed_display} after open"
+                ),
+                "terminal_line": line.strip(),
+            }
+        )
+        seen_orders.add(order_ticket)
+
+    return suspicious
+
+
 def _tail_lines(path: Path, max_lines: int = 300) -> list[str]:
     for enc in ("utf-16", "utf-8", "cp1252", "latin-1"):
         try:
@@ -171,33 +295,47 @@ def _tail_lines(path: Path, max_lines: int = 300) -> list[str]:
     return []
 
 
-def _scan_mt5_logs(instance_lines: int = 5000, error_lines: int = 300, max_terminals: int = 20) -> dict[str, object]:
+def _scan_mt5_logs(
+    instance_lines: int = 5000,
+    error_lines: int = 300,
+    trade_lines: int = 1200,
+    max_terminals: int = 20,
+) -> dict[str, object]:
     findings: dict[str, object] = {
         "log_files": [],
+        "terminal_log_files": [],
         "ea_instances": [],
         "error_hits": [],
         "inbox_path_hits": 0,
+        "suspicious_closes": [],
     }
     instances: set[tuple[str, str]] = set()
     hits: list[str] = []
     inbox_hits = 0
+    suspicious_orders: set[int] = set()
 
     terminals = _mt5_terminal_dirs()[:max_terminals]
     for terminal in terminals:
-        log_path = _latest_mql5_log_path(terminal)
-        if not log_path:
+        mql5_log_path = _latest_mql5_log_path(terminal)
+        if not mql5_log_path:
             continue
-        findings["log_files"].append(str(log_path))
+        findings["log_files"].append(str(mql5_log_path))
+
+        terminal_log_path = _latest_terminal_log_path(terminal)
+        if terminal_log_path:
+            findings["terminal_log_files"].append(str(terminal_log_path))
+
+        mql5_lines = _tail_lines(mql5_log_path, max_lines=max(instance_lines, error_lines, trade_lines))
 
         # Wide window: discover how many charts/timeframes have this EA attached.
-        for line in _tail_lines(log_path, max_lines=instance_lines):
+        for line in mql5_lines[-instance_lines:]:
             if "TelegramSignalCopierEA" in line:
                 m = _EA_INSTANCE_RE.search(line)
                 if m:
                     instances.add((m.group(1).strip(), m.group(2).strip()))
 
         # Recent window: only recent error signals should affect live health.
-        for line in _tail_lines(log_path, max_lines=error_lines):
+        for line in mql5_lines[-error_lines:]:
             if "TelegramSignalCopierEA" not in line:
                 continue
             low = line.lower()
@@ -206,6 +344,16 @@ def _scan_mt5_logs(instance_lines: int = 5000, error_lines: int = 300, max_termi
                     inbox_hits += 1
                 if len(hits) < 6:
                     hits.append(line.strip())
+
+        if terminal_log_path:
+            terminal_lines = _tail_lines(terminal_log_path, max_lines=trade_lines)
+            suspicious = _detect_suspicious_bridge_closes(mql5_lines[-trade_lines:], terminal_lines)
+            for finding in suspicious:
+                order_ticket = int(finding.get("order_ticket", 0) or 0)
+                if not order_ticket or order_ticket in suspicious_orders:
+                    continue
+                suspicious_orders.add(order_ticket)
+                findings["suspicious_closes"].append(finding)
 
     findings["ea_instances"] = [f"{sym},{tf}" for sym, tf in sorted(instances)]
     findings["error_hits"] = hits
@@ -257,6 +405,8 @@ def bold(t: str)   -> str: return _color(t, 1)
 def render() -> None:
     os.system("cls" if os.name == "nt" else "clear")
     now_str = _now().strftime("%Y-%m-%d %H:%M:%S UTC")
+    mt5_scan = _scan_mt5_logs(instance_lines=2500, error_lines=300, trade_lines=1200, max_terminals=10)
+    suspicious_closes = mt5_scan.get("suspicious_closes", [])
     print(bold(f"  MT5 Bridge Monitor   {now_str}"))
     print("  " + "─" * 58)
 
@@ -344,13 +494,24 @@ def render() -> None:
             except Exception as exc:
                 print(f"    {r.name}: {exc}")
 
+    print(f"\n  {bold('TRADE ALERTS')}")
+    if suspicious_closes:
+        for finding in suspicious_closes[:5]:
+            print(red(f"    ✗  {finding.get('summary', 'unexpected bridge trade close detected')}"))
+    else:
+        print(green("    ✓  No recent client-side closes detected for bridge-opened trades"))
+
     # ── Summary verdict ────────────────────────────────────────────────
     print("\n  " + "─" * 58)
     inbox_stale = any(_age(c) > CMD_STALE_SEC for c in cmds)
     ea_alive = hb_age < HEARTBEAT_STALE_SEC
     has_results = bool(results)
 
-    if ea_alive and not inbox_stale and has_results:
+    if suspicious_closes:
+        print(red("  ✗  BLOCKED: recent bridge trades were client-side closed before TP/SL"))
+        print(red("       → No TelegramSignalCopierEA close command was logged for these exits"))
+        print(red("       → Detach other XAUUSDm experts or use a dedicated MT5 terminal/account"))
+    elif ea_alive and not inbox_stale and has_results:
         print(green("  ✓  WORKING: EA alive, consuming commands, writing results"))
     elif ea_alive and inbox_stale:
         print(red("  ✗  BLOCKED: EA heartbeat OK but bridge commands are stale"))
@@ -383,9 +544,11 @@ def run_agent_mode(
     last_log_scan_ts = 0.0
     mt5_scan: dict[str, object] = {
         "log_files": [],
+        "terminal_log_files": [],
         "ea_instances": [],
         "error_hits": [],
         "inbox_path_hits": 0,
+        "suspicious_closes": [],
     }
     last_non_healthy_ts = started_at
     last_inbox_warning_ts: float | None = None
@@ -410,12 +573,13 @@ def run_agent_mode(
 
         now = time.time()
         if now - last_log_scan_ts >= MT5_LOG_SCAN_INTERVAL_SEC:
-            mt5_scan = _scan_mt5_logs(instance_lines=5000, error_lines=300, max_terminals=20)
+            mt5_scan = _scan_mt5_logs(instance_lines=5000, error_lines=300, trade_lines=1200, max_terminals=20)
             last_log_scan_ts = now
 
         ea_instances = mt5_scan.get("ea_instances", [])
         mt5_error_hits = mt5_scan.get("error_hits", [])
         inbox_path_hits = int(mt5_scan.get("inbox_path_hits", 0) or 0)
+        suspicious_closes = mt5_scan.get("suspicious_closes", [])
 
         inbox_error_lines = [line for line in mt5_error_hits if "inbox/*.cmd" in line.lower()]
         inbox_signature = "||".join(inbox_error_lines)
@@ -449,6 +613,11 @@ def run_agent_mode(
             verdict = "BLOCKED"
             remaining = int(max(0, inbox_warning_cooldown_sec - (inbox_warning_age or 0)))
             reasons.append(f"mt5 inbox-path warning cooling down ({remaining}s left)")
+        if suspicious_closes:
+            verdict = "BLOCKED"
+            reasons.append(
+                f"{len(suspicious_closes)} bridge trade(s) client-side closed without bridge close command"
+            )
         if len(ea_instances) > 1:
             if verdict == "HEALTHY":
                 verdict = "DEGRADED"
@@ -498,6 +667,9 @@ def run_agent_mode(
                     "stale_cmd_recent": len(stale_cmds),
                     "ea_instances": ea_instances,
                     "mt5_log_files": mt5_scan.get("log_files", []),
+                    "terminal_log_files": mt5_scan.get("terminal_log_files", []),
+                    "suspicious_close_count": len(suspicious_closes),
+                    "suspicious_close_sample": suspicious_closes[:2],
                 },
             )
             last_report_ts = now
@@ -520,6 +692,8 @@ def run_agent_mode(
                     "ea_instances": ea_instances,
                     "mt5_error_count": len(mt5_error_hits),
                     "mt5_error_sample": mt5_error_hits[:2],
+                    "suspicious_close_count": len(suspicious_closes),
+                    "suspicious_close_sample": suspicious_closes[:2],
                     "inbox_path_hits_recent_scan": inbox_path_hits,
                     "inbox_warning_active": inbox_warning_active,
                     "inbox_warning_age_s": round(inbox_warning_age, 1) if inbox_warning_age is not None else None,
