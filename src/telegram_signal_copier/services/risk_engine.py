@@ -6,55 +6,18 @@ import os
 from telegram_signal_copier.config import AppConfig
 import logging
 from telegram_signal_copier.models import ParsedSignal
+from telegram_signal_copier.constants import (
+    SYMBOL_ALIASES,
+    SYMBOL_PRICE_RANGES,
+    SYMBOL_MIN_STOP,
+    SYMBOL_MIN_TP1_DISTANCE,
+)
 
-
-_SYMBOL_ALIASES: dict[str, str] = {
-    "GOLD": "XAUUSD",
-    "XAU": "XAUUSD",
-    "SILVER": "XAGUSD",
-    "XAG": "XAGUSD",
-    "DOW": "US30",
-    "DJ30": "US30",
-    "DOWJONES": "US30",
-    "US500": "SPX500",
-    "SP500": "SPX500",
-    "SPX": "SPX500",
-    "NASDAQ": "NAS100",
-    "NDX": "NAS100",
-    "NQ": "NAS100",
-    "BTC": "BTCUSD",
-    "ETH": "ETHUSD",
-}
-
-# Wide but realistic ranges to block obvious OCR/AI mis-parses.
-_SYMBOL_PRICE_RANGES: dict[str, tuple[float, float]] = {
-    "XAUUSD": (3000.0, 8000.0),
-    "XAGUSD": (15.0, 150.0),
-    "EURUSD": (0.80, 1.60),
-    "GBPUSD": (1.00, 2.00),
-    "USDJPY": (80.0, 200.0),
-    "BTCUSD": (5000.0, 250000.0),
-    "ETHUSD": (100.0, 25000.0),
-    "USOIL": (20.0, 200.0),
-    "US30": (20000.0, 60000.0),
-    "NAS100": (8000.0, 30000.0),
-    "SPX500": (2000.0, 8000.0),
-}
-
-# Minimum broker-safe distance between entry and protective levels.
-_SYMBOL_MIN_STOP: dict[str, float] = {
-    "XAUUSD": 10.0,
-    "XAGUSD": 0.20,
-    "BTCUSD": 50.0,
-    "ETHUSD": 5.0,
-    "NAS100": 5.0,
-    "US30": 10.0,
-    "SPX500": 2.0,
-}
-
-_SYMBOL_MIN_TP1_DISTANCE: dict[str, float] = {
-    "XAUUSD": 3.0,
-}
+# Backward-compatible private aliases (existing internal references still work)
+_SYMBOL_ALIASES = SYMBOL_ALIASES
+_SYMBOL_PRICE_RANGES = SYMBOL_PRICE_RANGES
+_SYMBOL_MIN_STOP = SYMBOL_MIN_STOP
+_SYMBOL_MIN_TP1_DISTANCE = SYMBOL_MIN_TP1_DISTANCE
 
 
 @dataclass(slots=True)

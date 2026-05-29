@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import logging
-import re
 from dataclasses import asdict, dataclass
 from typing import Optional
 
@@ -9,42 +8,36 @@ from telegram_signal_copier.adapters.bridge import FileBridgeExecutor
 from telegram_signal_copier.config import AppConfig
 from telegram_signal_copier.models import ExecutionResult, ParsedSignal, TelegramSignalMessage, TradeCommand
 from telegram_signal_copier.services.image_processor import ImageProcessor, ImageProcessingResult
+from telegram_signal_copier.services.intent_classifier import (
+    IntentClassifier,
+    IntentResult,
+    INFO_INTENTS,
+    UPDATE_INTENTS,
+    INFO_SKIP_THRESHOLD,
+    UPDATE_SKIP_THRESHOLD,
+)
 from telegram_signal_copier.services.pipeline_logger import PipelineLogger
 from telegram_signal_copier.services.risk_engine import RiskEngine, ValidationDecision
 from telegram_signal_copier.services.signal_parser import ParseResult, SignalParser
 
 logger = logging.getLogger(__name__)
 
-# Intent values from classify_intent that should NOT trigger a new trade
-_UPDATE_INTENTS = {"TRADE_UPDATE"}
-_INFO_INTENTS = {"INFORMATIONAL"}
-_TRADEABLE_INTENTS = {"NEW_TRADE_SIGNAL", "CHART_ANALYSIS", "UNKNOWN"}
-
-# Keyword patterns that hard-override intent → always treat as NEW_TRADE_SIGNAL
-# Matches: "New", "NEW", "New Trade", "New Signal", "new entry", "📊 New", etc.
-_NEW_SIGNAL_OVERRIDE = re.compile(
-    r"\b(new\s*(trade|signal|entry|setup|call|idea)?|buy\s*now|sell\s*now|open\s*trade)\b",
-    re.IGNORECASE,
-)
+# Backward-compatible private aliases (keep existing names working)
+_UPDATE_INTENTS = UPDATE_INTENTS
+_INFO_INTENTS = INFO_INTENTS
+_INFO_SKIP_THRESHOLD = INFO_SKIP_THRESHOLD
+_UPDATE_SKIP_THRESHOLD = UPDATE_SKIP_THRESHOLD
 
 # Explicit trade-update captions should short-circuit even when an image is attached.
 # These are operational follow-ups, not new entries.
-_TRADE_UPDATE_OVERRIDE = re.compile(
-    r"\b(exit\s*(both|all)?|close\s*(both|all|trade)?|book\s*profit|tp\s*\d*\s*hit|"
-    r"tp\s*\d*\s*done|sl\s*hit|target\s*(hit|done|achieved)|"
-    r"all\s*targets?\s*(complete|completed|hit|done|achieved)|targets?\s*complete|"
-    r"move\s*sl|move\s*stop|breakeven|break\s*even|partial(?:\s*(close|profit))?|"
-    r"trade\s*closed|trade\s*setup\s*invalid|setup\s*invalid|"
-    r"cancel(?:led)?\s*(this|the)?\s*(order|trade|setup)?|trail(?:ing)?\s*sl|"
-    r"(?:\d+\s*)?pips?\s*(done|booked)|profit\s*done|"
-    r"kiss\s*my\s*stop\s*loss|stop\s*loss\s*(hit|kiss(?:ed)?|taken|touched|and\s*fly)|"
-    r"congratulation(?:s)?)\b",
-    re.IGNORECASE,
+# NOTE: kept here as backward-compatible aliases; canonical patterns live in intent_classifier.py
+from telegram_signal_copier.services.intent_classifier import (
+    NEW_SIGNAL_OVERRIDE as _NEW_SIGNAL_OVERRIDE,
+    TRADE_UPDATE_OVERRIDE as _TRADE_UPDATE_OVERRIDE,
 )
 
 # Text-only informational messages can be skipped at 0.90 without risking image-backed entries.
-_INFO_SKIP_THRESHOLD = 0.90
-_UPDATE_SKIP_THRESHOLD = 0.90  # was 0.75
+# (Values imported from intent_classifier; re-assigned here for backward compat)
 
 
 @dataclass(slots=True)

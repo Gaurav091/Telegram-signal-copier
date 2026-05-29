@@ -5,15 +5,17 @@ import hashlib
 import json
 import mimetypes
 import re
+import shelve
 import threading
 import time
 from pathlib import Path
 from typing import Any
 from urllib import error, request
-import shelve
 
-from telegram_signal_copier.config import AppConfig
+from telegram_signal_copier.adapters.ai_cache import AIResponseCache
+from telegram_signal_copier.adapters.circuit_breaker import CircuitBreaker
 from telegram_signal_copier.adapters.provider_adapters import get_adapter
+from telegram_signal_copier.config import AppConfig
 
 
 class OpenAIClient:
@@ -51,18 +53,27 @@ class OpenAIClient:
                 }
             )
 
-        # In-memory cache for identical requests (raw_text + image hash)
-        self._cache: dict[str, tuple[float, dict[str, Any]]] = {}
-        self._cache_lock = threading.Lock()
-
-        # Optional persistent cache (shelve) to survive restarts
-        self._persistent_db = None
+        # AI response cache (in-memory + optional persistence)
+        _persistent_db = None
         if getattr(self.config, "ai_persistent_cache", False):
             try:
                 path = getattr(self.config, "ai_cache_path") or str(self.config.project_root / "ai_cache.db")
-                self._persistent_db = shelve.open(str(path), writeback=False)
+                _persistent_db = shelve.open(str(path), writeback=False)
             except Exception:
-                self._persistent_db = None
+                import logging as _logging
+                _logging.getLogger(__name__).debug("Could not open persistent AI cache", exc_info=True)
+        self._ai_cache = AIResponseCache(
+            ttl_seconds=self.config.ai_cache_ttl_seconds,
+            persistent_db=_persistent_db,
+        )
+        # Keep legacy reference so existing internal code still compiles
+        self._cache_lock = threading.Lock()
+
+        # Circuit breaker for provider health management
+        self._circuit_breaker = CircuitBreaker(
+            base_cooldown_seconds=self.config.ai_provider_cooldown_seconds,
+            max_cooldown_seconds=self.config.ai_provider_max_cooldown_seconds,
+        )
 
         # Simple token-bucket rate limiter (requests per minute)
         self._capacity = max(1, int(self.config.ai_max_requests_per_minute))
@@ -328,19 +339,9 @@ class OpenAIClient:
     def _call_with_fallbacks(self, path: str, payload: dict[str, Any], image_path: str | None = None, require_vision: bool = False) -> dict[str, Any]:
         # Cache key based on payload JSON and image bytes hash
         cache_key = self._compute_cache_key(payload, image_path)
-        # Check persistent cache first
-        if self._persistent_db is not None:
-            try:
-                if cache_key in self._persistent_db:
-                    entry = self._persistent_db[cache_key]
-                    if (time.time() - entry[0]) < self.config.ai_cache_ttl_seconds:
-                        return entry[1]
-            except Exception:
-                pass
-        with self._cache_lock:
-            cached = self._cache.get(cache_key)
-            if cached and (time.time() - cached[0]) < self.config.ai_cache_ttl_seconds:
-                return cached[1]
+        cached = self._ai_cache.get(cache_key)
+        if cached is not None:
+            return cached
 
         # Enforce global rate limit via token bucket
         if not self._acquire_token():
@@ -365,16 +366,10 @@ class OpenAIClient:
                     provider_errors.append(f"{name}: missing api_key or base_url")
                     continue
 
-                # Skip providers temporarily disabled for repeated hard failures.
-                if provider.get("disabled_until", 0) > now:
-                    provider_errors.append(
-                        f"{name}: disabled until {provider['disabled_until']} ({provider.get('disabled_reason','')})"
-                    )
-                    continue
-
-                # Skip providers currently tripped
-                if provider.get("trip_until", 0) > now:
-                    provider_errors.append(f"{name}: tripped until {provider['trip_until']}")
+                # Skip providers that are tripped or disabled (circuit open)
+                if self._circuit_breaker.is_open(provider):
+                    reason = provider.get("disabled_reason") or f"tripped until {provider.get('trip_until', 0)}"
+                    provider_errors.append(f"{name}: {reason}")
                     continue
 
                 # Provider-specific model override so one invalid model doesn't break all providers.
@@ -404,61 +399,25 @@ class OpenAIClient:
                     else:
                         result = adapter.post(path, provider_payload)
 
-                    # Success: reset provider failure state
-                    provider["failure_count"] = 0
-                    provider["hard_fail_count"] = 0
-                    provider["trip_until"] = 0.0
-                    provider["disabled_until"] = 0.0
-                    provider["disabled_reason"] = ""
-                    # Cache and return
-                    with self._cache_lock:
-                        self._cache[cache_key] = (time.time(), result)
-                    if self._persistent_db is not None:
-                        try:
-                            self._persistent_db[cache_key] = (time.time(), result)
-                            # sync to disk
-                            try:
-                                self._persistent_db.sync()
-                            except Exception:
-                                pass
-                        except Exception:
-                            pass
+                    # Success: reset provider health and cache result
+                    self._circuit_breaker.record_success(provider)
+                    self._ai_cache.put(cache_key, result)
                     return result
                 except error.HTTPError as exc:
                     detail = exc.read().decode("utf-8", errors="replace")
-                    # On rate limit -> increase failure and trip provider
                     if exc.code == 429:
-                        self._record_provider_failure(provider, exc, kind="rate_limit")
+                        self._circuit_breaker.record_failure(provider, exc, kind="rate_limit")
                         provider_errors.append(f"{name}: 429 {detail}")
                         continue
-                    # Non-429 HTTP failures. Mark hard failures and temporarily disable after repeats.
                     provider_errors.append(f"{name}: {exc.code} {detail}")
-                    provider["hard_fail_count"] = provider.get("hard_fail_count", 0) + 1
-                    provider["failure_count"] = provider.get("failure_count", 0) + 1
-                    provider["last_failure"] = time.time()
-                    if provider["hard_fail_count"] >= 3 and exc.code in {400, 401, 403, 404, 422}:
-                        provider["disabled_until"] = time.time() + 600
-                        provider["disabled_reason"] = f"repeated_http_{exc.code}"
+                    self._circuit_breaker.record_hard_failure(provider, exc.code, detail)
                     continue
                 except Exception as exc:
                     provider_errors.append(f"{name}: {exc}")
-                    self._record_provider_failure(provider, exc, kind="network")
+                    self._circuit_breaker.record_failure(provider, exc, kind="network")
                     continue
 
         raise RuntimeError("All AI providers failed: " + " | ".join(provider_errors))
-
-    def _record_provider_failure(self, provider: dict[str, Any], exc: Exception, kind: str = "network") -> None:
-        now = time.time()
-        base = max(1, self.config.ai_provider_cooldown_seconds)
-        max_cool = max(1, self.config.ai_provider_max_cooldown_seconds)
-        provider["failure_count"] = provider.get("failure_count", 0) + 1
-        # gentler backoff keeps providers recoverable under bursty load/rate limits.
-        if kind == "rate_limit":
-            cooldown = min(max_cool, int(base * (1.5 ** (provider["failure_count"] - 1))))
-        else:
-            cooldown = min(max_cool, int(max(5, base // 2) * (1.3 ** (provider["failure_count"] - 1))))
-        provider["trip_until"] = now + cooldown
-        provider["last_failure"] = now
 
     def _acquire_token(self) -> bool:
         with self._token_lock:

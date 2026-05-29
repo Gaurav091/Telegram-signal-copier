@@ -72,7 +72,7 @@ def _bridge_root_path(config: AppConfig) -> Path:
         if bridge_root.name.lower() == "inbox":
             return bridge_root.parent
     except Exception:
-        pass
+        logging.getLogger(__name__).debug("_bridge_root_path: unexpected path error", exc_info=True)
     return bridge_root
 
 
@@ -90,6 +90,7 @@ def _read_pid_value(path: Path) -> int | None:
     except FileNotFoundError:
         return None
     except Exception:
+        logging.getLogger(__name__).debug("_read_pid_value failed for %s", path, exc_info=True)
         return None
     return int(raw_value) if raw_value.isdigit() else None
 
@@ -155,7 +156,7 @@ def _release_listener_lock() -> None:
 
             fcntl.flock(handle.fileno(), fcntl.LOCK_UN)
     except Exception:
-        pass
+        logging.getLogger(__name__).debug("_release_listener_lock: unlock failed", exc_info=True)  # best-effort
     finally:
         with suppress(Exception):
             handle.close()
@@ -213,7 +214,7 @@ def configure_logging(config: AppConfig) -> None:
     try:
         logs_dir.mkdir(parents=True, exist_ok=True)
     except Exception:
-        pass
+        logging.getLogger(__name__).debug("configure_logging: could not create logs dir", exc_info=True)  # best-effort
     log_file = logs_dir / "telegram_signal_copier.log"
     root = logging.getLogger()
     if not root.handlers:

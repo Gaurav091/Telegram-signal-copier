@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 from dataclasses import dataclass, replace
 from pathlib import Path
 from time import monotonic, sleep
@@ -7,6 +8,8 @@ from contextlib import suppress
 from uuid import uuid4
 
 from telegram_signal_copier.models import ExecutionResult, TradeCommand
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass(slots=True)
@@ -23,7 +26,7 @@ class FileBridgeExecutor:
             if bridge_root.name.lower() == "inbox":
                 return bridge_root.parent
         except Exception:
-            pass
+            logger.debug("_bridge_root: unexpected path error", exc_info=True)
         return bridge_root
 
     def _common_files_root(self) -> Path:
@@ -46,14 +49,14 @@ class FileBridgeExecutor:
                 handle.write(f"{request_id}\n")
             return
         except Exception:
-            pass
+            logger.debug("Queue append (mbcs) failed, retrying utf-8", exc_info=True)
 
         try:
             with queue_path.open("a", encoding="utf-8") as handle:
                 handle.write(f"{request_id}\n")
         except Exception:
-            # Queue append is best-effort; the direct command files remain as a fallback.
-            pass
+            # best-effort — command files remain as fallback
+            logger.debug("Queue append (utf-8) also failed; command files are the fallback", exc_info=True)
 
     @staticmethod
     def _write_command_file(command_path: Path, text: str) -> None:
@@ -182,9 +185,9 @@ class FileBridgeExecutor:
                         if not dest.exists():
                             f.replace(dest)
                     except Exception:
-                        pass
+                        logger.debug("Could not migrate cmd file %s to legacy inbox", f, exc_info=True)
         except Exception:
-            pass
+            logger.debug("Inbox migration scan failed", exc_info=True)
 
         # Build payload and apply optional symbol suffix mapping for broker variants
         payload = command.to_bridge_payload()
@@ -197,7 +200,7 @@ class FileBridgeExecutor:
                     if not s.upper().endswith(self.symbol_suffix.upper()):
                         payload["symbol"] = s + str(self.symbol_suffix)
             except Exception:
-                pass
+                logger.debug("Symbol suffix append failed", exc_info=True)
 
         command_path = bridge_root / f"{command.request_id}.cmd"
         legacy_command_path = legacy_inbox_dir / command_path.name

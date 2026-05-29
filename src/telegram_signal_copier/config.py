@@ -10,6 +10,17 @@ SOURCE_SPEC_SEPARATOR = "::"
 APP_HOME_ENV = "TELEGRAM_SIGNAL_COPIER_HOME"
 
 
+class ConfigurationError(ValueError):
+    """Raised when one or more configuration values are invalid.
+
+    Collects all issues before raising so the user sees every problem at once.
+    """
+
+    def __init__(self, issues: list[str]) -> None:
+        self.issues = issues
+        super().__init__("Configuration errors:\n" + "\n".join(f"  • {i}" for i in issues))
+
+
 def _load_dotenv(dotenv_path: Path) -> None:
     if not dotenv_path.exists():
         return
@@ -251,6 +262,38 @@ class AppConfig:
                     path.write_text("", encoding="utf-8")
             except Exception:
                 pass
+
+    def validate(self) -> None:
+        """Validate all configuration values and raise :class:`ConfigurationError` listing every issue.
+
+        Call this once at startup after :meth:`from_env` to surface all problems at once.
+        """
+        issues: list[str] = []
+
+        if not self.telegram_api_id:
+            issues.append("TELEGRAM_API_ID is required")
+        if not self.telegram_api_hash:
+            issues.append("TELEGRAM_API_HASH is required")
+        if not self.telegram_phone_number:
+            issues.append("TELEGRAM_PHONE_NUMBER is required")
+        if not self.telegram_sources:
+            issues.append("TELEGRAM_SOURCES must contain at least one source")
+
+        # Validate source values are numeric
+        try:
+            _validate_telegram_source_values(self.telegram_sources)
+        except ValueError as exc:
+            issues.append(str(exc))
+
+        if self.minimum_confidence < 0.0 or self.minimum_confidence > 1.0:
+            issues.append(
+                f"MINIMUM_CONFIDENCE must be between 0 and 1 (got {self.minimum_confidence})"
+            )
+        if self.default_volume <= 0:
+            issues.append(f"DEFAULT_VOLUME must be positive (got {self.default_volume})")
+
+        if issues:
+            raise ConfigurationError(issues)
 
     @property
     def telegram_source_mappings(self) -> list[tuple[str, str]]:

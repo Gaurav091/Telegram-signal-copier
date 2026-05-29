@@ -6,7 +6,11 @@ from typing import Any
 
 from telegram_signal_copier.adapters.openai_client import OpenAIClient
 from telegram_signal_copier.config import AppConfig
+from telegram_signal_copier.constants import CRYPTO_ENTRY_MIN
 from telegram_signal_copier.models import ParsedSignal, TelegramSignalMessage
+
+# Backward-compatible private alias
+_CRYPTO_ENTRY_MIN = CRYPTO_ENTRY_MIN
 
 
 PRICE_PATTERN = re.compile(r"\b\d{1,6}(?:\.\d{1,5})?\b")
@@ -37,13 +41,6 @@ _SUPERSCRIPT_DIGIT_MAP = str.maketrans("¹²³⁴⁵⁶⁷⁸⁹⁰", "123456789
 
 # Caption keywords that signal a new trade from ALGO TRADING forex-style groups
 _NEW_TRADE_CAPTIONS = re.compile(r"^\s*(new|both\s*new)\s*$", re.IGNORECASE)
-
-# Conservative repair guard for OCR/vision cases that drop leading entry digits
-# on crypto symbols (e.g. 77645.45 -> 645.45) while SL/TP remain in-range.
-_CRYPTO_ENTRY_MIN = {
-    "BTCUSD": 5000.0,
-    "ETHUSD": 100.0,
-}
 
 # Cluster context block injected by MessageClusterAgent
 _CLUSTER_BLOCK_RE = re.compile(
