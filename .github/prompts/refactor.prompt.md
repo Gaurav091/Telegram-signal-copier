@@ -1,5 +1,5 @@
 ---
-mode: agent
+argument-hint: agent
 description: Refactor the Telegram Signal Copier codebase for maintainability and good practices without breaking any existing functionality.
 ---
 

@@ -1,12 +1,21 @@
 from __future__ import annotations
 
 import logging
+from contextlib import suppress
 from dataclasses import dataclass, replace
 from pathlib import Path
 from time import monotonic, sleep
-from contextlib import suppress
 from uuid import uuid4
 
+from telegram_signal_copier.adapters.bridge_helpers import (
+    bridge_append_queue_entry,
+    bridge_normalize_execution_result,
+    bridge_payload_text,
+    bridge_should_retry_symbol_selection,
+    bridge_strip_symbol_suffix,
+    bridge_symbol_retry_candidates,
+    bridge_write_command_file,
+)
 from telegram_signal_copier.models import ExecutionResult, TradeCommand
 
 logger = logging.getLogger(__name__)
@@ -42,120 +51,8 @@ class FileBridgeExecutor:
             return bridge_root / f"{request_id}.txt"
         return common_files_root / f"{bridge_root.name}__{request_id}.txt"
 
-    @staticmethod
-    def _append_queue_entry(queue_path: Path, request_id: str) -> None:
-        try:
-            with queue_path.open("a", encoding="mbcs") as handle:
-                handle.write(f"{request_id}\n")
-            return
-        except Exception:
-            logger.debug("Queue append (mbcs) failed, retrying utf-8", exc_info=True)
-
-        try:
-            with queue_path.open("a", encoding="utf-8") as handle:
-                handle.write(f"{request_id}\n")
-        except Exception:
-            # best-effort — command files remain as fallback
-            logger.debug("Queue append (utf-8) also failed; command files are the fallback", exc_info=True)
-
-    @staticmethod
-    def _write_command_file(command_path: Path, text: str) -> None:
-        tmp_path = command_path.with_suffix(command_path.suffix + ".tmp")
-        try:
-            # Use Windows ANSI encoding (mbcs) so MQL FILE_ANSI readers can open reliably.
-            tmp_path.write_text(text, encoding="mbcs")
-            tmp_path.replace(command_path)
-        except Exception:
-            # Fallback to utf-8 if mbcs not supported or replace fails.
-            try:
-                tmp_path.write_text(text, encoding="utf-8")
-                tmp_path.replace(command_path)
-            except Exception:
-                # Last resort: write directly without temp file.
-                command_path.write_text(text, encoding="utf-8")
-
-    def _payload_text(self, payload: dict[str, str]) -> str:
-        return "\n".join(f"{k}={v}" for k, v in payload.items()) + "\n"
-
-    @staticmethod
-    def _strip_symbol_suffix(symbol: str) -> str:
-        value = symbol.strip()
-        upper = value.upper()
-        for suffix in (".M", "-M", "M"):
-            if upper.endswith(suffix) and len(value) > len(suffix):
-                return value[: -len(suffix)]
-        return value
-
-    @staticmethod
-    def _should_retry_symbol_selection(result: ExecutionResult) -> bool:
-        if result.status != "ERROR":
-            return False
-        msg = (result.message or "").lower()
-        return ("select symbol" in msg) or ("symbol" in msg and "not found" in msg)
-
-    @staticmethod
-    def _normalize_execution_result(command: TradeCommand, result: ExecutionResult) -> ExecutionResult:
-        """Coerce ambiguous bridge outcomes into safer statuses.
-
-        Some EA builds return status=FILLED for pending orders as soon as order placement
-        succeeds, even when no deal is filled yet. In that case executed_price is absent.
-        Treat this as PENDING so downstream logs and monitoring do not report false fills.
-        """
-        pending_entry_types = {"BUY_LIMIT", "SELL_LIMIT", "BUY_STOP", "SELL_STOP"}
-        if (
-            result.status == "FILLED"
-            and str(command.action or "").upper() in {"BUY", "SELL"}
-            and str(command.order_type or "").upper() in pending_entry_types
-            and result.executed_price is None
-        ):
-            ticket_note = f" ticket={result.ticket}" if result.ticket else ""
-            return ExecutionResult(
-                request_id=result.request_id,
-                status="PENDING",
-                message=(
-                    "Pending order accepted by MT5; awaiting market trigger"
-                    f"{ticket_note}"
-                ),
-                ticket=result.ticket,
-                executed_price=result.executed_price,
-                executed_at=result.executed_at,
-            )
-        return result
-
     def _symbol_retry_candidates(self, symbol: str) -> list[str]:
-        if not symbol:
-            return []
-
-        base = self._strip_symbol_suffix(symbol).upper()
-        aliases: dict[str, list[str]] = {
-            "NAS100": ["NAS100", "USTEC", "NQ100", "US100"],
-            "US30": ["US30", "DJ30", "WS30"],
-            "DJ30": ["DJ30", "US30", "WS30"],
-            "SPX500": ["SPX500", "US500", "SP500"],
-        }
-        base_candidates = aliases.get(base, [base])
-        if base not in base_candidates:
-            base_candidates = [base, *base_candidates]
-
-        suffixes = [""]
-        configured_suffix = str(self.symbol_suffix or "").strip()
-        if configured_suffix:
-            suffixes.append(configured_suffix)
-        for suffix in ("m", ".m", "-m"):
-            if suffix not in suffixes:
-                suffixes.append(suffix)
-
-        seen: set[str] = set()
-        candidates: list[str] = []
-        for base_symbol in base_candidates:
-            for suffix in suffixes:
-                candidate = f"{base_symbol}{suffix}" if suffix else base_symbol
-                key = candidate.upper()
-                if key in seen:
-                    continue
-                seen.add(key)
-                candidates.append(candidate)
-        return candidates
+        return bridge_symbol_retry_candidates(symbol, self.symbol_suffix)
 
     def submit(
         self,
@@ -207,11 +104,11 @@ class FileBridgeExecutor:
         top_level_command_path = self._top_level_command_path(command.request_id)
         queue_path = bridge_root / "command_queue.txt"
         # write payload as key=value lines atomically using a temp file
-        text = self._payload_text(payload)
-        self._write_command_file(command_path, text)
+        text = bridge_payload_text(payload)
+        bridge_write_command_file(command_path, text)
         if top_level_command_path != command_path:
-            self._write_command_file(top_level_command_path, text)
-        self._append_queue_entry(queue_path, command.request_id)
+            bridge_write_command_file(top_level_command_path, text)
+        bridge_append_queue_entry(queue_path, command.request_id)
 
         if not wait_for_result:
             return ExecutionResult(
@@ -229,7 +126,7 @@ class FileBridgeExecutor:
             if result_path.exists():
                 lines = result_path.read_text(encoding="utf-8").splitlines()
                 result = ExecutionResult.from_bridge_lines(lines)
-                result = self._normalize_execution_result(command, result)
+                result = bridge_normalize_execution_result(command, result)
 
                 with suppress(FileNotFoundError):
                     command_path.unlink()
@@ -239,7 +136,7 @@ class FileBridgeExecutor:
                     with suppress(FileNotFoundError):
                         top_level_command_path.unlink()
 
-                if _allow_symbol_retry and self._should_retry_symbol_selection(result):
+                if _allow_symbol_retry and bridge_should_retry_symbol_selection(result):
                     submitted_symbol = str(payload.get("symbol", "") or "")
                     for candidate in self._symbol_retry_candidates(submitted_symbol):
                         if candidate.upper() == submitted_symbol.upper():
@@ -266,7 +163,7 @@ class FileBridgeExecutor:
             ):
                 # Compatibility fallback for deployed EA builds that still
                 # scan bridge_root/inbox/*.cmd instead of bridge_root/*.cmd.
-                self._write_command_file(legacy_command_path, text)
+                bridge_write_command_file(legacy_command_path, text)
                 mirrored_to_legacy_inbox = True
             sleep(0.5)
 
@@ -377,3 +274,8 @@ class FileBridgeExecutor:
             ticket=ticket,
         )
         return self.submit(cmd, wait_for_result=wait_for_result, timeout_seconds=timeout_seconds)
+
+    # Backward-compat static wrappers (used by tests)
+    @staticmethod
+    def _should_retry_symbol_selection(result: dict) -> bool:
+        return bridge_should_retry_symbol_selection(result)

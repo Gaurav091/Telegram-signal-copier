@@ -16,6 +16,7 @@ from telegram_signal_copier.services.intent_classifier import (
     INFO_SKIP_THRESHOLD,
     UPDATE_SKIP_THRESHOLD,
 )
+from telegram_signal_copier.services.pipeline_intent import classify_message_intent
 from telegram_signal_copier.services.pipeline_logger import PipelineLogger
 from telegram_signal_copier.services.risk_engine import RiskEngine, ValidationDecision
 from telegram_signal_copier.services.signal_parser import ParseResult, SignalParser
@@ -88,63 +89,9 @@ class CopierPipeline:
         )
 
         # ── Stage 1: Intent Classification ──────────────────────────────────────────
-        intent = "UNKNOWN"
-        intent_confidence = 0.0
-        reasoning = ""
-        force_skip_trade_update = False
-
-        # Hard override: caption explicitly signals a new trade entry.
-        # "New", "New Trade", "New Signal", "Buy Now" etc. → never discard.
-        keyword_override = bool(_NEW_SIGNAL_OVERRIDE.search(combined_text))
-        if keyword_override:
-            intent = "NEW_TRADE_SIGNAL"
-            intent_confidence = 1.0
-            reasoning = f"Keyword override from caption: {combined_text[:60]!r}"
-            logger.info("[INTENT] FORCED NEW_TRADE_SIGNAL — keyword match in caption: %r", combined_text[:60])
-        elif _TRADE_UPDATE_OVERRIDE.search(combined_text):
-            intent = "TRADE_UPDATE"
-            intent_confidence = 1.0
-            reasoning = f"Trade-update override from caption: {combined_text[:60]!r}"
-            force_skip_trade_update = True
-            logger.info("[INTENT] FORCED TRADE_UPDATE — keyword match in caption: %r", combined_text[:60])
-        else:
-            # Before calling AI for intent, run heuristic preview on text-only messages.
-            # If the heuristic already produces a complete signal (side + at least one of
-            # entry/SL/TP), classify as NEW_TRADE_SIGNAL without burning an AI call.
-            has_image_early = bool(primary_image)
-            if not has_image_early:
-                _preview_text = message.raw_text or combined_text
-                _preview_signal = self.signal_parser._heuristic_parse(message, _preview_text)
-                _preview_complete = bool(
-                    _preview_signal.side and (
-                        _preview_signal.entry_price is not None
-                        or _preview_signal.stop_loss is not None
-                        or bool(_preview_signal.take_profits)
-                    )
-                )
-                if _preview_complete:
-                    intent = "NEW_TRADE_SIGNAL"
-                    intent_confidence = min(_preview_signal.confidence + 0.1, 1.0)
-                    reasoning = "Heuristic preview: complete text signal found — skipped AI intent call"
-                    logger.info("[INTENT] HEURISTIC_SHORTCUT — complete text signal detected, skipped AI")
-
-            if intent == "UNKNOWN" and self.signal_parser.ai_client:
-                try:
-                    intent_result = self.signal_parser.ai_client.classify_intent(
-                        raw_text=combined_text,
-                        image_path=primary_image,
-                    )
-                    intent = str(intent_result.get("intent", "UNKNOWN")).upper()
-                    intent_confidence = float(intent_result.get("confidence", 0.0))
-                    reasoning = intent_result.get("reasoning", "")
-                    logger.info(
-                        "[INTENT] %s (conf=%.2f) — %s",
-                        intent,
-                        intent_confidence,
-                        reasoning,
-                    )
-                except Exception as exc:
-                    logger.warning("[INTENT] classification failed: %s — treating as UNKNOWN", exc)
+        intent, intent_confidence, reasoning, force_skip_trade_update = classify_message_intent(
+            self.signal_parser, message, primary_image, combined_text
+        )
 
         # If image is present, require much higher confidence before skipping.
         # A chart + ambiguous caption must be attempted as a signal.

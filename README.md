@@ -1,4 +1,4 @@
-# Telegram Signal Copier
+﻿# Telegram Signal Copier
 
 A production-ready trading automation system that monitors Telegram signal groups, uses AI + OCR to parse trade signals from text and images, and executes them automatically in MetaTrader 5 through a file-bridge Expert Advisor.
 
@@ -26,21 +26,22 @@ A production-ready trading automation system that monitors Telegram signal group
 Telegram Groups / Channels
         │
         ▼
-  Python Listener (Telethon)
+  TelegramSignalListener (Telethon)
         │  raw messages + images
         ▼
-  Message Cluster Agent          ← buffers & groups related messages
+  MessageClusterAgent            ← buffers & groups related messages (cluster_agent.py)
         │
         ▼
-  Signal Pipeline
-  ├── Stage 1: Intent filter     ← skips P&L updates, news, non-trades
-  ├── Stage 2: Heuristic parse   ← fast regex-based extraction
-  ├── Stage 3: OCR (Tesseract)   ← extracts text from chart images
-  ├── Stage 4: AI parse          ← OpenAI / Cloudflare / Groq vision
-  └── Stage 5: Risk engine       ← validates SL/TP/confidence/symbol
+  Signal Pipeline (pipeline.py)
+  ├── Stage 1: Intent filter     ← heuristic preview → skips AI call for complete text signals
+  │            (pipeline_intent.py + intent_classifier.py)
+  ├── Stage 2: Heuristic parse   ← fast regex extraction (signal_heuristic_parse.py)
+  ├── Stage 3: OCR (Tesseract)   ← extracts text from chart images (image_processor.py)
+  ├── Stage 4: AI vision parse   ← OpenAI / Cloudflare / Groq (openai_client.py)
+  └── Stage 5: Risk engine       ← validates SL/TP/confidence/symbol (risk_engine.py)
         │
         ▼
-  MT5 File Bridge
+  MT5 File Bridge (bridge.py)
   ├── bridge_root/               ← command files written here
   │   ├── <request_id>.txt       ← key=value trade command
   │   ├── command_queue.txt      ← EA reads this list
@@ -49,6 +50,23 @@ Telegram Groups / Channels
         ▼
   TelegramSignalCopierEA (MT5)   ← polls bridge, places orders, writes result
 ```
+
+### Module structure (post-refactor)
+
+All source files are kept under **300 lines** for maintainability. Large originals were split:
+
+| Split | Result modules |
+|---|---|
+| `main.py` (532→208 lines) | + `listener_builder`, `listener_runner`, `listener_lock`, `listener_status` |
+| `signal_parser.py` (888→134 lines) | + `signal_patterns`, `signal_normalizers`, `signal_heuristic`, `signal_heuristic_parse`, `signal_ai_merge`, `signal_crypto` |
+| `developer_agent.py` (754→48 lines) | + `developer_agent_models`, `developer_agent_analysis`, `developer_agent_patch`, `developer_agent_fp` |
+| `openai_client.py` (453→300 lines) | + `openai_prompts`, `openai_utils` |
+| `cluster_agent.py` (359→159 lines) | + `cluster_parser` |
+| `config.py` (408→262 lines) | + `config_helpers` |
+| `telegram_client.py` (382→268 lines) | + `telegram_helpers` |
+| `bridge.py` (379→281 lines) | + `bridge_helpers` |
+| `pipeline.py` (349→296 lines) | + `pipeline_intent` |
+| `graph.py` (335→213 lines) | + `graph_listener` |
 
 ---
 
@@ -443,360 +461,98 @@ winget install --id ShiningLight.OpenSSL.Light --exact --accept-package-agreemen
 
 ## Key Files Reference
 
+### Entry point & configuration
+
 | File | Purpose |
 |---|---|
-| `mt5/Experts/TelegramSignalCopierEA.mq5` | MT5 Expert Advisor source (compile this in MetaEditor) |
-| `src/telegram_signal_copier/main.py` | Listener entry point |
-| `src/telegram_signal_copier/config.py` | All `.env` variable definitions and defaults |
-| `src/telegram_signal_copier/services/pipeline.py` | Full signal processing pipeline |
-| `src/telegram_signal_copier/services/signal_parser.py` | Heuristic + AI parser, MT5 screenshot format handler |
-| `src/telegram_signal_copier/services/risk_engine.py` | Trade validation rules |
-| `src/telegram_signal_copier/adapters/bridge.py` | Writes commands / reads results from MT5 bridge files |
-| `src/telegram_signal_copier/models/contracts.py` | `TradeCommand` and `ExecutionResult` data models |
+| `mt5/Experts/TelegramSignalCopierEA.mq5` | MT5 Expert Advisor source (compile in MetaEditor) |
+| `src/telegram_signal_copier/main.py` | Listener entry point — arg parsing, logging setup, health check |
+| `src/telegram_signal_copier/config.py` | `AppConfig` dataclass, `.env` variable definitions and defaults |
+| `src/telegram_signal_copier/config_helpers.py` | dotenv loading, AI provider builder, env-parsing helpers |
+| `src/telegram_signal_copier/constants.py` | Shared constants (symbol aliases, regex fragments) |
+
+### Listener subsystem (split from main.py)
+
+| File | Purpose |
+|---|---|
+| `src/telegram_signal_copier/listener_builder.py` | `build_pipeline()` factory — wires up pipeline with config |
+| `src/telegram_signal_copier/listener_runner.py` | Async runner: `_run_listener`, `_run_with_restarts`, heartbeat |
+| `src/telegram_signal_copier/listener_lock.py` | Lock/PID file helpers — prevents duplicate listener processes |
+| `src/telegram_signal_copier/listener_status.py` | Bridge status file writers (`telegram_status.txt`, source map) |
+
+### Signal pipeline
+
+| File | Purpose |
+|---|---|
+| `src/telegram_signal_copier/services/pipeline.py` | `CopierPipeline` — orchestrates all stages end-to-end |
+| `src/telegram_signal_copier/services/pipeline_intent.py` | Stage 1 intent classification (heuristic preview + AI) |
+| `src/telegram_signal_copier/services/pipeline_logger.py` | JSONL pipeline event logger |
+| `src/telegram_signal_copier/services/risk_engine.py` | Trade validation: SL/TP sanity, RR ratio, confidence gate |
+| `src/telegram_signal_copier/services/deduplication.py` | Deduplication cache to suppress repeated signals |
+
+### Signal parsing (split from signal_parser.py)
+
+| File | Purpose |
+|---|---|
+| `src/telegram_signal_copier/services/signal_parser.py` | Thin coordinator: `SignalParser.parse()`, delegates to submodules |
+| `src/telegram_signal_copier/services/signal_patterns.py` | All regex patterns and compiled constants |
+| `src/telegram_signal_copier/services/signal_normalizers.py` | Symbol/side/price normalizers, `detect_order_type` |
+| `src/telegram_signal_copier/services/signal_heuristic.py` | Cluster-context parser, MT5 screenshot parser |
+| `src/telegram_signal_copier/services/signal_heuristic_parse.py` | Main `heuristic_parse()` function (entry range, SL/TP scan) |
+| `src/telegram_signal_copier/services/signal_ai_merge.py` | AI payload builder, `merge_signals`, `fill_missing_levels_from_chart` |
+| `src/telegram_signal_copier/services/signal_crypto.py` | Crypto-specific entry price recovery heuristics |
+
+### Cluster / message buffering
+
+| File | Purpose |
+|---|---|
+| `src/telegram_signal_copier/services/cluster_agent.py` | `MessageClusterAgent` — buffers related messages into clusters |
+| `src/telegram_signal_copier/services/cluster_parser.py` | `parse_cluster()`, `ClusterSignal`, `auto_derive_sl()` |
+| `src/telegram_signal_copier/services/message_buffer.py` | Low-level message accumulation buffer |
+
+### Adapters
+
+| File | Purpose |
+|---|---|
+| `src/telegram_signal_copier/adapters/bridge.py` | `FileBridgeExecutor` — writes commands, reads results from MT5 |
+| `src/telegram_signal_copier/adapters/bridge_helpers.py` | Static bridge utilities (payload builder, symbol retry logic) |
+| `src/telegram_signal_copier/adapters/telegram_client.py` | `TelegramSignalListener` — Telethon connection, message dispatch |
+| `src/telegram_signal_copier/adapters/telegram_helpers.py` | SSL shim, platform patch, `MessageBuffer`, source name normalizer |
+| `src/telegram_signal_copier/adapters/openai_client.py` | `OpenAIClient` — provider fallback, rate limiting, circuit breaker |
+| `src/telegram_signal_copier/adapters/openai_prompts.py` | System prompt strings for parse_signal / classify_intent / chart levels |
+| `src/telegram_signal_copier/adapters/openai_utils.py` | `json_from_text`, `image_data_url`, `compute_cache_key`, `build_providers` |
+| `src/telegram_signal_copier/adapters/ai_cache.py` | In-memory + optional persistent AI response cache |
+| `src/telegram_signal_copier/adapters/circuit_breaker.py` | Circuit breaker for AI provider health management |
+| `src/telegram_signal_copier/adapters/provider_adapters.py` | Per-provider HTTP adapter (OpenAI, Cloudflare, NVIDIA, Groq, etc.) |
+
+### Agents
+
+| File | Purpose |
+|---|---|
+| `src/telegram_signal_copier/agents/graph.py` | `_Pipeline`, `build_graph()`, `run_on_message()` — LangGraph-free pipeline |
+| `src/telegram_signal_copier/agents/graph_listener.py` | `start_listener()` — legacy Telethon listener wired to agent graph |
+| `src/telegram_signal_copier/agents/intent_filter.py` | Intent filter node |
+| `src/telegram_signal_copier/agents/extraction_agent.py` | Signal extraction node |
+| `src/telegram_signal_copier/agents/validation_agent.py` | Validation node |
+| `src/telegram_signal_copier/agents/execution_agent.py` | Trade execution node |
+| `src/telegram_signal_copier/agents/developer_agent.py` | Re-export shim for `classify_failures`, `apply_patch`, etc. |
+| `src/telegram_signal_copier/agents/developer_agent_models.py` | `FailureReport`, `Patch`, `FalsePositiveReport` dataclasses |
+| `src/telegram_signal_copier/agents/developer_agent_analysis.py` | `classify_failures()` — log analysis and failure categorisation |
+| `src/telegram_signal_copier/agents/developer_agent_patch.py` | `generate_patch`, `apply_patch`, `rollback_last_patch` |
+| `src/telegram_signal_copier/agents/developer_agent_fp.py` | `assess_false_positives`, `fix_false_positives` |
+
+### Models & misc
+
+| File | Purpose |
+|---|---|
+| `src/telegram_signal_copier/models/contracts.py` | `TradeCommand`, `ExecutionResult`, `TelegramSignalMessage` |
+| `src/telegram_signal_copier/services/intent_classifier.py` | Standalone intent classifier used by pipeline_intent |
+| `src/telegram_signal_copier/services/image_processor.py` | Tesseract OCR + AI vision image processing |
+| `src/telegram_signal_copier/services/trade_tracker.py` | Open-position tracker, partial-close state |
+| `src/telegram_signal_copier/services/message_logger.py` | Raw message JSONL logger |
+| `src/telegram_signal_copier/services/telegram_session.py` | Telethon session management helpers |
+| `src/telegram_signal_copier/mcp_server.py` | Optional MCP server endpoint |
 | `logs/telegram_signal_copier.log` | Full pipeline log (every signal, decision, execution) |
 | `tools/supervisor.py` | Auto-restart daemon for the listener |
 
 ---
-
-## Overview
-
-## Core Goal
-
-Build a copier that can:
-
-1. Connect to Telegram.
-2. Monitor many groups or channels at the same time.
-3. Read trading signals from plain text, forwarded messages, and images.
-4. Use AI to convert raw messages into structured trade instructions.
-5. Apply validation and risk rules before execution.
-6. Connect to MT5 through MCP and place trades automatically.
-7. Track status, errors, and trade history.
-
-## Main Features
-
-### 1. Telegram Integration
-
-- Connect with a Telegram user session or bot where allowed.
-- Join and monitor multiple groups, supergroups, and channels.
-- Store source metadata such as group name, message ID, sender, timestamp, and original content.
-- Support real-time message streaming.
-
-### 2. Signal Intake
-
-- Accept signal messages in:
-  - Plain text
-  - Captions
-  - Forwarded messages
-  - Images and screenshots
-- Preserve original message payload for audit and reprocessing.
-- Detect message edits and updates when possible.
-
-### 3. AI Signal Analysis
-
-- Use AI to extract structured signal fields from raw content.
-- Support signal fields such as:
-  - Symbol
-  - Side (`BUY` or `SELL`)
-  - Entry price or entry zone
-  - Stop loss
-  - Take profit targets
-  - Risk note
-  - Market order vs pending order
-  - Confidence score
-- Handle inconsistent writing styles across different Telegram groups.
-- Use OCR and image understanding for screenshots containing signal text.
-- Return normalized JSON output for downstream execution.
-
-### 4. Validation Layer
-
-- Reject incomplete or low-confidence signals.
-- Detect duplicate or repeated signals.
-- Enforce configurable rules:
-  - Allowed symbols
-  - Max risk per trade
-  - Max open trades
-  - Allowed lot size range
-  - Allowed trading hours
-  - Minimum AI confidence
-- Require human approval for uncertain signals if desired.
-
-### 5. MT5 Trade Execution via EA Bridge
-
-- Connect to MT5 through a local bridge that the MT5 Expert Advisor can read from the terminal common files directory.
-- Keep Python-side AI logic outside MT5 and terminal-side order execution inside MT5.
-- Leave room for adding an MCP server wrapper later if you want remote tool-based control.
-- Support actions:
-  - Open market orders
-  - Place pending orders
-  - Modify stop loss or take profit
-  - Close trades
-  - Partially close trades
-- Map parsed signal data into MT5 order parameters.
-- Capture execution response, ticket number, rejection reason, and fill price.
-
-### 6. Monitoring and Audit
-
-- Log every step of the pipeline:
-  - Message received
-  - AI parsed output
-  - Validation decision
-  - Order request
-  - MT5 response
-- Keep an audit trail for manual review.
-- Provide a dashboard or admin panel later for status and trade history.
-
-## Suggested System Architecture
-
-```text
-Telegram Groups/Channels
-        |
-        v
-Telegram Listener Service
-        |
-        v
-Message Queue / Event Bus
-        |
-        +--> Image OCR / Vision Service
-        |
-        v
-AI Signal Parser
-        |
-        v
-Validation + Risk Engine
-        |
-        v
-Shared Bridge Files
-  |
-  v
-MT5 Expert Advisor
-        |
-        v
-MetaTrader 5
-
-Side services:
-- Config store
-- Trade database
-- Logs and alerts
-```
-
-## Recommended Modules
-
-### `telegram_listener`
-
-- Authenticates with Telegram.
-- Subscribes to configured groups/channels.
-- Pushes incoming messages into processing pipeline.
-
-### `signal_parser`
-
-- Accepts raw text or OCR result.
-- Calls AI model with prompt templates.
-- Returns structured JSON.
-
-### `image_processor`
-
-- Extracts text from screenshots.
-- Optionally uses multimodal AI for chart or signal card interpretation.
-
-### `risk_engine`
-
-- Applies business rules.
-- Decides approve, reject, or manual review.
-
-### `mt5_executor`
-
-- Writes approved trade commands into the MT5 bridge inbox.
-- Reads execution results produced by the MT5 Expert Advisor.
-
-### `mt5_ea`
-
-- Runs inside MetaTrader 5.
-- Polls shared bridge files.
-- Validates symbol and order type.
-- Places trade and writes result back.
-
-### `storage`
-
-- Stores groups, messages, parsed signals, trade decisions, and execution logs.
-
-### `api_or_dashboard`
-
-- Lets you manage groups, API keys, rules, and monitoring.
-
-## Example AI Output Schema
-
-```json
-{
-  "source_group": "Gold Signals VIP",
-  "message_id": "12345",
-  "signal_type": "market_order",
-  "symbol": "XAUUSD",
-  "side": "BUY",
-  "entry": {
-    "type": "market",
-    "price": null,
-    "range": null
-  },
-  "stop_loss": 2315.0,
-  "take_profits": [2330.0, 2338.0],
-  "confidence": 0.92,
-  "raw_text": "BUY GOLD NOW SL 2315 TP 2330 2338",
-  "image_used": false,
-  "requires_review": false
-}
-```
-
-## Example Processing Flow
-
-1. New Telegram message arrives from a watched group.
-2. System detects whether content is text, image, or both.
-3. If image exists, OCR or multimodal extraction runs first.
-4. AI parser converts content to structured trade data.
-5. Validation layer checks confidence, duplicates, and risk limits.
-6. Approved signal is sent to MT5 through MCP.
-7. Execution result is stored and logged.
-
-## Current Implementation
-
-This repo now includes:
-
-- Python service scaffold for Telegram intake, AI parsing, image handling, validation, and bridge submission.
-- MQL5 Expert Advisor that polls command files and executes market or pending orders.
-- Shared file contract between Python and MT5 using the MT5 common files directory.
-- Sample CLI mode for local signal testing before live Telegram hookup.
-- Telegram MCP server for VS Code or other MCP hosts using the same signed-in Telegram account session.
-
-## Tech Stack Suggestion
-
-- Backend: Python or Node.js
-- Telegram client: Telethon or Pyrogram for Python
-- AI parsing: OpenAI or another LLM API with structured output
-- OCR: Tesseract, PaddleOCR, or cloud OCR
-- Database: PostgreSQL
-- Queue: Redis or RabbitMQ
-- MT5 integration: Expert Advisor bridge now, optional MCP wrapper later
-- Admin UI: FastAPI + simple frontend, or Next.js dashboard
-
-## Configuration Needed
-
-You said API keys will be available. Minimum configuration should include:
-
-- Telegram credentials
-- AI provider API key
-  - Optionally configure multiple providers and fallbacks using the `.env` keys documented below.
-- OCR provider key if external OCR is used
-- MCP server connection settings for MT5
-- MT5 account or terminal connection details
-- Risk settings per account
-- List of allowed Telegram groups/channels
-
-## Important Safety Controls
-
-- Do not place trades when parsed fields are missing.
-- Do not trade if symbol mapping is uncertain.
-- Add per-group enable/disable toggle.
-- Add dry-run mode before live execution.
-- Add rate limiting and duplicate suppression.
-- Add manual approval mode for early testing.
-- Encrypt stored credentials.
-
-## MVP Scope
-
-Phase 1 should focus on:
-
-1. Connect to Telegram.
-2. Watch selected groups.
-3. Parse text signals with AI.
-4. Support image OCR for simple screenshots.
-5. Validate signals.
-6. Send approved orders to MT5 via MCP.
-7. Store logs and trade results.
-
-## Future Enhancements
-
-- Multi-account MT5 execution
-- Per-group prompt tuning
-- Confidence calibration by source group
-- Performance analytics by signal provider
-- Auto-close and trade management rules
-- Web dashboard for approvals and monitoring
-- Backtesting on historical Telegram messages
-
-## Quick Start
-
-1. Copy `.env.example` to `.env` and fill in Telegram and AI keys.
-2. Install project in a Python 3.11+ environment.
-3. Run Telegram login once to create a local session file.
-4. Attach `mt5/Experts/TelegramSignalCopierEA.mq5` to an MT5 chart.
-5. Make sure the EA bridge folder name matches the Python bridge path.
-6. Run a local sample signal first.
-7. Turn off `DRY_RUN` only after bridge flow is confirmed.
-
-### Telegram Login
-
-```powershell
-python -m telegram_signal_copier login
-```
-
-## AI Providers and OCR Setup
-
-- Supported AI providers: OpenAI-compatible primary provider plus optional fallbacks (Cloudflare, NVIDIA, Cerebras).
-- Configure provider keys and base URLs in `.env` (see `.env.example`).
-- Important: fallbacks must be real OpenAI-compatible endpoints or use the provider-specific adapter settings; invalid endpoints will fail and be skipped.
-
-Local OCR (recommended as fallback):
-
-- Install system Tesseract engine (OS packages):
-  - Windows: install Tesseract and ensure `tesseract.exe` on PATH
-  - Linux: `sudo apt install tesseract-ocr`
-- Python packages: `pillow` and `pytesseract` (added to `requirements.txt`).
-
-AI tuning variables (in `.env`):
-
-- `AI_MAX_REQUESTS_PER_MINUTE`: Global token-bucket cap to protect provider quota.
-- `AI_PROVIDER_COOLDOWN_SECONDS`: Base cooldown applied on a provider failure.
-- `AI_PROVIDER_MAX_COOLDOWN_SECONDS`: Maximum cooldown when failures escalate.
-- `AI_CACHE_TTL_SECONDS`: Time in seconds to cache identical prompt+image responses.
-
-If you plan to use local OCR as a fallback, ensure `pytesseract` and the Tesseract binary are installed before running the service.
-
-
-This will prompt for the Telegram OTP on first sign-in and save the session locally.
-
-## Telegram MCP in VS Code
-
-This workspace now includes [.vscode/mcp.json](.vscode/mcp.json), which starts a local MCP server exposing Telegram tools through the signed-in Telethon session.
-
-Available MCP tools:
-
-- `telegram_connection_status`
-- `telegram_list_dialogs`
-- `telegram_get_recent_messages`
-- `telegram_send_message`
-
-Important limitation:
-
-- This does not control the Telegram Desktop app process directly.
-- It connects to the same Telegram account through the Telegram API and local session, which is the practical way to expose Telegram through MCP.
-
-After you trust and start the MCP server in VS Code, you can ask chat to inspect dialogs and messages through those tools.
-
-### Sample Local Run
-
-```powershell
-python -m telegram_signal_copier sample --text "BUY GOLD NOW SL 2315 TP 2330 TP 2338"
-```
-
-## Build Plan
-
-1. Create Telegram listener.
-2. Define normalized signal schema.
-3. Build AI prompt and parser pipeline.
-4. Add OCR for image signals.
-5. Build validation and risk engine.
-6. Integrate MT5 execution bridge and EA.
-7. Add logging, storage, and manual review tools.
-
-## Deliverable Summary
-
-This project should act as an AI-powered Telegram signal copier that listens to many trading groups, understands text and image signals, validates them, and executes trades on MT5 through MCP with strong logging and risk controls.

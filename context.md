@@ -1,8 +1,8 @@
 # Project Context — Telegram Signal Copier
 
-**Last updated:** 2026-05-08  
+**Last updated:** 2026-05-29
 **Platform:** Windows (development host and MT5 host)  
-**Python:** 3.10+ recommended (3.9 minimum for `match` statements used in parser)
+**Python:** 3.11+ (3.12 / 3.14 tested)
 
 ---
 
@@ -19,26 +19,75 @@ Expert Advisor (EA) consumes.
 
 ## Repository Layout
 
+All source files are kept under **300 lines** after a full modularisation refactor.
+
 ```
 src/telegram_signal_copier/
-├── main.py                  # Entrypoint: health checks, pipeline wiring
-├── config.py                # Dynamic symbol list, suffix helpers,
-│                            #   merged_allowed_symbols logic
+├── main.py                     # Entry point — arg parsing, logging setup, health check
+├── config.py                   # AppConfig dataclass and .env variable definitions
+├── config_helpers.py           # dotenv loading, AI provider builder, env-parsing helpers
+├── constants.py                # Shared constants (symbol aliases, regex fragments)
+│
+├── listener_builder.py         # build_pipeline() factory
+├── listener_runner.py          # _run_listener, _run_with_restarts, heartbeat
+├── listener_lock.py            # Lock/PID file helpers
+├── listener_status.py          # Bridge status file writers
+│
 ├── adapters/
-│   ├── bridge.py            # FileBridgeExecutor — writes .cmd files,
-│   │                        #   appends MT5_SYMBOL_SUFFIX to symbol names
-│   └── openai_client.py     # OpenAI wrapper: shelve cache, token-bucket
-│                            #   rate limiter, circuit-breaker, fallback chain
-└── services/
-   ├── signal_parser.py     # OCR + text parsing, normalization,
-   │                        #   broker-suffix stripping, direction/price/
-   │                        #   stop/take-profit detection
-   └── risk_engine.py       # Lot-size calculation, auto_add_new_symbols,
-                    #   base-symbol validation
+│   ├── bridge.py               # FileBridgeExecutor — writes/reads MT5 bridge files
+│   ├── bridge_helpers.py       # Static bridge utilities (payload builder, symbol retry)
+│   ├── telegram_client.py      # TelegramSignalListener (Telethon)
+│   ├── telegram_helpers.py     # SSL shim, platform patch, MessageBuffer
+│   ├── openai_client.py        # OpenAIClient — fallback chain, rate limiting, circuit breaker
+│   ├── openai_prompts.py       # System prompt strings for AI calls
+│   ├── openai_utils.py         # json_from_text, image_data_url, compute_cache_key
+│   ├── ai_cache.py             # In-memory + persistent AI response cache
+│   ├── circuit_breaker.py      # Circuit breaker for AI provider health
+│   └── provider_adapters.py    # Per-provider HTTP adapters
+│
+├── services/
+│   ├── pipeline.py             # CopierPipeline — orchestrates all stages
+│   ├── pipeline_intent.py      # Stage 1 intent classification
+│   ├── pipeline_logger.py      # JSONL pipeline event logger
+│   ├── risk_engine.py          # Trade validation: SL/TP sanity, RR ratio, confidence
+│   ├── deduplication.py        # Duplicate signal suppression
+│   ├── signal_parser.py        # Thin coordinator: SignalParser.parse()
+│   ├── signal_patterns.py      # All compiled regex patterns and constants
+│   ├── signal_normalizers.py   # Symbol/side/price normalizers
+│   ├── signal_heuristic.py     # Cluster-context parser, MT5 screenshot parser
+│   ├── signal_heuristic_parse.py  # Main heuristic_parse() function
+│   ├── signal_ai_merge.py      # AI payload builder, merge_signals
+│   ├── signal_crypto.py        # Crypto entry price recovery heuristics
+│   ├── cluster_agent.py        # MessageClusterAgent — buffers related messages
+│   ├── cluster_parser.py       # parse_cluster(), ClusterSignal, auto_derive_sl()
+│   ├── image_processor.py      # Tesseract OCR + AI vision
+│   ├── intent_classifier.py    # Standalone intent classifier
+│   ├── message_buffer.py       # Low-level message accumulation buffer
+│   ├── message_logger.py       # Raw message JSONL logger
+│   ├── trade_tracker.py        # Open-position tracker, partial-close state
+│   └── telegram_session.py     # Telethon session management helpers
+│
+├── agents/
+│   ├── graph.py                # _Pipeline, build_graph(), run_on_message()
+│   ├── graph_listener.py       # start_listener() — legacy Telethon agent listener
+│   ├── intent_filter.py        # Intent filter node
+│   ├── extraction_agent.py     # Signal extraction node
+│   ├── validation_agent.py     # Validation node
+│   ├── execution_agent.py      # Trade execution node
+│   ├── developer_agent.py      # Re-export shim for developer agent API
+│   ├── developer_agent_models.py  # FailureReport, Patch, FalsePositiveReport
+│   ├── developer_agent_analysis.py  # classify_failures()
+│   ├── developer_agent_patch.py    # generate_patch, apply_patch, rollback
+│   ├── developer_agent_fp.py       # assess_false_positives, fix_false_positives
+│   ├── schemas.py              # AgentState pydantic model
+│   └── _llm_shim.py            # SimpleLLM wrapper
+│
+└── models/
+    └── contracts.py            # TradeCommand, ExecutionResult, TelegramSignalMessage
 
 tools/
-├── restart_listener.py      # Dev helper: restart the listener process
-└── test_tesseract.py        # OCR smoke-test harness
+├── supervisor.py               # Auto-restart daemon
+└── ...                         # Diagnostic / dev helper scripts
 ```
 
 ---
