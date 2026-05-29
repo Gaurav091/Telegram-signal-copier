@@ -312,11 +312,12 @@ python tools\supervisor.py
 ```
 Message received
   └─ Intent filter (is this a trade signal?)
-       ├─ SKIPPED → informational / news / emoji-only
-       ├─ SKIPPED → trade update (P&L screenshot) unless "New"/"Both New" caption
+       ├─ SHORTCUT → text-only + heuristic complete → skip AI intent call entirely
+       ├─ SKIPPED  → informational / news / emoji-only
+       ├─ SKIPPED  → trade update (P&L screenshot) unless "New"/"Both New" caption
        └─ CONTINUE
             └─ Heuristic parser (fast regex, no AI)
-                 └─ Complete? ──Yes──▶ execute
+                 └─ Complete? ──Yes──▶ execute (0 AI calls for pure-text signals)
                               └─No─▶ OCR image (Tesseract)
                                        └─ AI vision parse (OpenAI/fallback)
                                             └─ Risk engine validation
@@ -324,6 +325,17 @@ Message received
                                                  ├─ REJECTED  ──▶ log reason, skip
                                                  └─ REVIEW    ──▶ log for manual check
 ```
+
+> **API call optimisation**: The pipeline now runs a quick heuristic preview
+> *before* calling the intent-classification API. If the message is
+> text-only and the heuristic can already parse a complete signal (side +
+> at least one of entry / SL / TP), the intent call is skipped entirely
+> and the message goes straight to execution. This significantly reduces
+> per-message API usage during high-volume periods.
+>
+> Additionally, the `parse_signal` AI call now returns an `intent` field
+> alongside the trade data, so future flows can consolidate intent +
+> extraction into a single AI round-trip.
 
 ### MT5 Bridge file format
 
@@ -367,6 +379,11 @@ TP 4599
 XAUUSD SELL NOW: 4582 4586
 S/L: 4600
 T/P1: 4580 T/P2: 4575 T/P3: 4556
+
+# Unicode superscript TP labels (Trader Tactics / some CIS channels)
+XAUUSD BUY 4505
+Tp¹ 4508  Tp² 4512  Tp³ 4516
+SL 4495
 
 # ALGO TRADING forex. — "New" / "Both New" captions with MT5 position card image
 # The image OCR is parsed as a trade signal (not a P&L update)

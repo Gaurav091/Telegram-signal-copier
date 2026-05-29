@@ -219,6 +219,25 @@ pytesseract.pytesseract.TesseractNotFoundError
 
 ## Pending Work (TODOs)
 
+- [x] **TP ordering (Unicode superscript)** — fixed: heuristic parser now normalises
+    `¹²³…` to ASCII digits before pattern matching, so `Tp¹ 4508` is correctly
+    extracted as TP1 instead of being skipped.
+- [x] **TP fallback slice** — fixed: fallback price-list TP extraction now uses
+    `[:3]` instead of the previous `[1:3]` which was silently discarding TP1.
+- [x] **Risk engine TP direction filter** — fixed: before the TP1 direction check
+    the engine now promotes the first valid-direction TP when TP1 is out-of-range
+    (safety net for any parser that emits mixed-direction TPs).
+- [x] **MT5 screenshot OCR entry corruption** — fixed: `_parse_mt5_screenshot`
+    now collects *all* price candidates from the entry line and picks the one
+    consistent with side + SL + TP when the first candidate appears inverted
+    (e.g. OCR `13609 → 73602` for BTCUSD).
+- [x] **API rate-limit optimisation** — pipeline now runs a heuristic preview
+    *before* calling the intent-classification API; if the text is already a
+    complete signal the AI call is skipped entirely (saves 1 API call/message
+    for all pure-text signals).
+- [x] **Combined intent+parse** — `parse_signal` system prompt now includes an
+    `intent` field so a single AI round-trip returns both classification and
+    extraction.
 - [ ] **SSL** — install OpenSSL DLLs or `pyOpenSSL`; confirm warning is gone.
 - [ ] **EA round-trip** — verify `.cmd` → `.result` flow end-to-end with a
     paper-trading MT5 account.
@@ -226,10 +245,6 @@ pytesseract.pytesseract.TesseractNotFoundError
     confirm OCR output on a real signal screenshot.
 - [ ] **Redis cache** — add optional Redis backing for the shelve cache
     (performance and multi-process safety).
-- [ ] **CLI / README** — add `--dry-run`, `--channel` flags; write a
-    user-facing `README.md` with install and deploy steps (CI-friendly).
-- [ ] **Unit tests** — add pytest suite covering parser normalization,
-    risk engine sizing, and bridge file formatting.
 - [ ] **Release** — push to remote, tag `v0.1.0` once round-trip is confirmed.
 
 ---

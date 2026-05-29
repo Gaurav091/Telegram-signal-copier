@@ -30,6 +30,11 @@ _MT5_SCREENSHOT_HEADER_RE = re.compile(
 # Normalise OCR thousands-space artifacts: "4 491.53" → "4491.53"
 _OCR_SPACE_NUMBER_RE = re.compile(r"(\d{1,4})\s+(\d{3}(?:[.,]\d+)?)(?=\D|$)")
 
+# Map Unicode superscript digits (Tp¹, Tp², …, Tp⁷) to ASCII equivalents so
+# TP_PATTERN / TARGET_LINE_PATTERN can match them correctly.
+# Telegram uses U+00B9 (¹), U+00B2 (²), U+00B3 (³), U+2074–U+2079 (⁴–⁹), U+2070 (⁰).
+_SUPERSCRIPT_DIGIT_MAP = str.maketrans("¹²³⁴⁵⁶⁷⁸⁹⁰", "1234567890")
+
 # Caption keywords that signal a new trade from ALGO TRADING forex-style groups
 _NEW_TRADE_CAPTIONS = re.compile(r"^\s*(new|both\s*new)\s*$", re.IGNORECASE)
 
@@ -493,7 +498,8 @@ class SignalParser:
 
         # Normalise OCR spacing in numbers before extracting prices
         clean = _OCR_SPACE_NUMBER_RE.sub(lambda m: m.group(1) + m.group(2), combined_text)
-        entry_price = self._extract_mt5_screenshot_entry(clean)
+        entry_candidates = self._extract_mt5_screenshot_entry_candidates(clean)
+        entry_price = entry_candidates[0] if entry_candidates else None
 
         stop_loss: float | None = None
         take_profits: list[float] = []
@@ -515,6 +521,28 @@ class SignalParser:
 
         if not (symbol and side and (stop_loss or take_profits)):
             return None
+
+        # If the first candidate entry looks inverted relative to SL/TP (common OCR
+        # digit-loss artefact on crypto, e.g. 73602→13602), try other candidates.
+        if (
+            entry_price is not None
+            and len(entry_candidates) > 1
+            and stop_loss is not None
+            and take_profits
+        ):
+            tp1 = take_profits[0]
+            is_inverted = (
+                (side == "BUY" and (entry_price <= stop_loss or entry_price >= tp1))
+                or (side == "SELL" and (entry_price >= stop_loss or entry_price <= tp1))
+            )
+            if is_inverted:
+                for cand in entry_candidates[1:]:
+                    if side == "BUY" and stop_loss < cand < tp1:
+                        entry_price = cand
+                        break
+                    if side == "SELL" and tp1 < cand < stop_loss:
+                        entry_price = cand
+                        break
 
         fields_found = sum(
             1 for v in [symbol, side, entry_price, stop_loss, take_profits[0] if take_profits else None]
@@ -543,6 +571,12 @@ class SignalParser:
         )
 
     def _extract_mt5_screenshot_entry(self, clean_text: str) -> float | None:
+        """Return the first candidate entry price from the MT5 screenshot."""
+        candidates = self._extract_mt5_screenshot_entry_candidates(clean_text)
+        return candidates[0] if candidates else None
+
+    def _extract_mt5_screenshot_entry_candidates(self, clean_text: str) -> list[float]:
+        """Return all price candidates from the MT5 screenshot entry line (after the header)."""
         header_seen = False
         for raw_line in clean_text.splitlines():
             line = raw_line.strip()
@@ -557,20 +591,25 @@ class SignalParser:
             if any(token in upper_line for token in ("OPEN:", "S/L", "SL", "T/P", "TP", "COMMENT:", "SWAP")):
                 break
 
+            candidates: list[float] = []
             for value in PRICE_PATTERN.findall(line):
                 try:
                     price = float(value)
                 except Exception:
                     continue
                 if price >= 100:
-                    return price
+                    candidates.append(price)
+            if candidates:
+                return candidates
 
-        return None
+        return []
 
     def _heuristic_parse(self, message: TelegramSignalMessage, combined_text: str) -> ParsedSignal:
         # ── OCR preprocessing: normalise thousands-space artifacts ──────────────
         # e.g. "T/P: 4 491.53" → "T/P: 4491.53"  (OCR sometimes splits large numbers)
         combined_text = self._normalize_ocr_spaced_numbers(combined_text)
+        # Normalise Unicode superscript digits so TP_PATTERN matches "Tp¹ 4508" etc.
+        combined_text = combined_text.translate(_SUPERSCRIPT_DIGIT_MAP)
 
         # ── MT5 position screenshot fast-path ────────────────────────────────────
         # "New" / "Both New" captions from ALGO TRADING forex carry a position card
@@ -674,7 +713,10 @@ class SignalParser:
                 for value in [entry_price, entry_range_low, entry_range_high, stop_loss]
                 if value is not None
             }
-            take_profits = [value for value in numbers if value not in protected][1:3]
+            # Use [0:3] not [1:3]: protected already excludes entry/SL, so the
+            # first unprotected price is a valid TP candidate (previously [1:] was
+            # skipping TP1 when it happened to be the first unprotected number).
+            take_profits = [value for value in numbers if value not in protected][:3]
 
         # Overlay cluster-context levels (if MessageClusterAgent injected them)
         ctx = self._parse_cluster_context(combined_text)

@@ -206,21 +206,37 @@ class RiskEngine:
                     f"(inverted SL would cause immediate stop-out)"
                 )
 
-        if entry is not None and tp1 is not None and side:
-            if side == "BUY" and tp1 <= entry:
+        # If TP1 is in the wrong direction but later TPs are valid (heuristic
+        # mis-ordering can put invalid prices before valid ones), promote the
+        # first valid-direction TP to TP1 before doing the direction check.
+        effective_tp1 = tp1
+        if entry is not None and signal.take_profits and side:
+            if side == "BUY" and (tp1 is None or tp1 <= entry):
+                valid = [t for t in signal.take_profits if t > entry]
+                if valid:
+                    effective_tp1 = valid[0]
+            elif side == "SELL" and (tp1 is None or tp1 >= entry):
+                valid = [t for t in signal.take_profits if t < entry]
+                if valid:
+                    effective_tp1 = valid[0]
+
+        if entry is not None and effective_tp1 is not None and side:
+            if side == "BUY" and effective_tp1 <= entry:
                 reasons.append(
-                    f"TP1 {tp1} must be ABOVE entry {entry} for BUY"
+                    f"TP1 {effective_tp1} must be ABOVE entry {entry} for BUY"
                 )
-            elif side == "SELL" and tp1 >= entry:
+            elif side == "SELL" and effective_tp1 >= entry:
                 reasons.append(
-                    f"TP1 {tp1} must be BELOW entry {entry} for SELL"
+                    f"TP1 {effective_tp1} must be BELOW entry {entry} for SELL"
                 )
 
         if entry is None and sl is not None and tp1 is not None and side:
-            if side == "BUY" and tp1 <= sl:
-                reasons.append(f"TP1 {tp1} must be ABOVE SL {sl} for BUY when entry is missing")
-            elif side == "SELL" and tp1 >= sl:
-                reasons.append(f"TP1 {tp1} must be BELOW SL {sl} for SELL when entry is missing")
+            # Use effective_tp1 (best valid-direction TP) for the no-entry check too
+            check_tp1 = effective_tp1 if effective_tp1 is not None else tp1
+            if side == "BUY" and check_tp1 <= sl:
+                reasons.append(f"TP1 {check_tp1} must be ABOVE SL {sl} for BUY when entry is missing")
+            elif side == "SELL" and check_tp1 >= sl:
+                reasons.append(f"TP1 {check_tp1} must be BELOW SL {sl} for SELL when entry is missing")
 
         min_stop = self._resolve_min_stop(sig_base)
         if (

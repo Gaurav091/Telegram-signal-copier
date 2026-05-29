@@ -114,23 +114,44 @@ class CopierPipeline:
             reasoning = f"Trade-update override from caption: {combined_text[:60]!r}"
             force_skip_trade_update = True
             logger.info("[INTENT] FORCED TRADE_UPDATE — keyword match in caption: %r", combined_text[:60])
-        elif self.signal_parser.ai_client:
-            try:
-                intent_result = self.signal_parser.ai_client.classify_intent(
-                    raw_text=combined_text,
-                    image_path=primary_image,
+        else:
+            # Before calling AI for intent, run heuristic preview on text-only messages.
+            # If the heuristic already produces a complete signal (side + at least one of
+            # entry/SL/TP), classify as NEW_TRADE_SIGNAL without burning an AI call.
+            has_image_early = bool(primary_image)
+            if not has_image_early:
+                _preview_text = message.raw_text or combined_text
+                _preview_signal = self.signal_parser._heuristic_parse(message, _preview_text)
+                _preview_complete = bool(
+                    _preview_signal.side and (
+                        _preview_signal.entry_price is not None
+                        or _preview_signal.stop_loss is not None
+                        or bool(_preview_signal.take_profits)
+                    )
                 )
-                intent = str(intent_result.get("intent", "UNKNOWN")).upper()
-                intent_confidence = float(intent_result.get("confidence", 0.0))
-                reasoning = intent_result.get("reasoning", "")
-                logger.info(
-                    "[INTENT] %s (conf=%.2f) — %s",
-                    intent,
-                    intent_confidence,
-                    reasoning,
-                )
-            except Exception as exc:
-                logger.warning("[INTENT] classification failed: %s — treating as UNKNOWN", exc)
+                if _preview_complete:
+                    intent = "NEW_TRADE_SIGNAL"
+                    intent_confidence = min(_preview_signal.confidence + 0.1, 1.0)
+                    reasoning = "Heuristic preview: complete text signal found — skipped AI intent call"
+                    logger.info("[INTENT] HEURISTIC_SHORTCUT — complete text signal detected, skipped AI")
+
+            if intent == "UNKNOWN" and self.signal_parser.ai_client:
+                try:
+                    intent_result = self.signal_parser.ai_client.classify_intent(
+                        raw_text=combined_text,
+                        image_path=primary_image,
+                    )
+                    intent = str(intent_result.get("intent", "UNKNOWN")).upper()
+                    intent_confidence = float(intent_result.get("confidence", 0.0))
+                    reasoning = intent_result.get("reasoning", "")
+                    logger.info(
+                        "[INTENT] %s (conf=%.2f) — %s",
+                        intent,
+                        intent_confidence,
+                        reasoning,
+                    )
+                except Exception as exc:
+                    logger.warning("[INTENT] classification failed: %s — treating as UNKNOWN", exc)
 
         # If image is present, require much higher confidence before skipping.
         # A chart + ambiguous caption must be attempted as a signal.
@@ -237,6 +258,17 @@ class CopierPipeline:
                     existing_text=combined_text,
                     all_image_paths=extra_images,
                 )
+                # If parse_signal returned an intent field, adopt it so the
+                # separate classify_intent call can be skipped in future messages.
+                # (We already ran classify_intent above; use it for logging only.)
+                ai_intent = (image_result.ai_payload or {}).get("intent")
+                if ai_intent and isinstance(ai_intent, str):
+                    ai_intent_norm = ai_intent.upper()
+                    if ai_intent_norm != intent and intent != "UNKNOWN":
+                        logger.debug(
+                            "[INTENT] AI parse intent=%s differs from classify_intent=%s; keeping classify_intent",
+                            ai_intent_norm, intent,
+                        )
                 # ── Stage 4: Full AI Parse ───────────────────────────────────────────
                 parse_result = self.signal_parser.parse(
                     message,
