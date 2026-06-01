@@ -180,7 +180,6 @@ def main() -> None:
         existing_pid = _read_pid_value(_listener_lock_path(config)) or _read_pid_value(_listener_pid_path(config))
         message = f"Listener already running with PID {existing_pid}" if existing_pid else "Listener already running"
         _outer_logger.warning(message)
-        print(message, flush=True)
         raise SystemExit(0)
     _write_listener_pid(config)
     try:

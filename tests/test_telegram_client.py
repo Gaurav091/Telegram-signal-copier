@@ -52,12 +52,12 @@ class FakeClient:
 
 class TelegramSignalListenerTests(unittest.IsolatedAsyncioTestCase):
     def test_patched_platform_uname_for_telethon_uses_windows_fallback(self) -> None:
-        with patch("telegram_signal_copier.adapters.telegram_client.os.name", "nt"), patch(
-            "telegram_signal_copier.adapters.telegram_client.platform.uname",
+        with patch("telegram_signal_copier.adapters.telegram.helpers.os.name", "nt"), patch(
+            "telegram_signal_copier.adapters.telegram.helpers.platform.uname",
             side_effect=RuntimeError("wmi hang"),
         ):
             with _patched_platform_uname_for_telethon():
-                info = __import__("telegram_signal_copier.adapters.telegram_client", fromlist=["platform"]).platform.uname()
+                info = __import__("telegram_signal_copier.adapters.telegram.helpers", fromlist=["platform"]).platform.uname()
 
             self.assertEqual(info.machine, "AMD64")
             self.assertEqual(info.release, "10")

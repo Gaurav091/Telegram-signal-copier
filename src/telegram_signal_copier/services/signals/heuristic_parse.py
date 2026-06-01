@@ -27,7 +27,7 @@ from telegram_signal_copier.services.signal_patterns import (
     TARGET_LINE_PATTERN,
     TP_PATTERN,
 )
-from telegram_signal_copier.services.signal_heuristic import (
+from telegram_signal_copier.services.signals.heuristic import (
     parse_cluster_context,
     parse_mt5_screenshot,
 )

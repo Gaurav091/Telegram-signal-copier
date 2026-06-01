@@ -11,7 +11,7 @@ from collections import defaultdict
 from typing import Any
 from pathlib import Path
 
-from telegram_signal_copier.agents.developer_agent_models import (
+from telegram_signal_copier.agents.developer.models import (
     FailureReport,
     FalsePositiveReport,
     MAX_FIXES_PER_SESSION,
@@ -110,7 +110,7 @@ def assess_false_positives(
             by_reason[key].append(entry)
             break
 
-    from telegram_signal_copier.agents.developer_agent_patch import _call_llm
+    from telegram_signal_copier.agents.developer.patch import _call_llm
 
     reports: list[FalsePositiveReport] = []
     for reason_key, entries in by_reason.items():
@@ -179,7 +179,7 @@ def fix_false_positives(
     session_state: Any,
 ) -> list[str]:
     """Generate and apply code fixes for confirmed false-positive reports."""
-    from telegram_signal_copier.agents.developer_agent_patch import generate_patch, apply_patch
+    from telegram_signal_copier.agents.developer.patch import generate_patch, apply_patch
 
     fixed: list[str] = []
     for fp in fp_reports:

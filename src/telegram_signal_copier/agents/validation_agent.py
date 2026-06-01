@@ -159,7 +159,7 @@ def validation_agent_node(state: AgentState, app_config: AppConfig) -> dict[str,
             lo, hi = env_range.split(",")
             price_range = (float(lo), float(hi))
         except Exception:
-            pass
+            logger.debug("Invalid SYMBOL_PRICE_RANGE_%s=%r — expected 'lo,hi'", base_sym_for_range, env_range, exc_info=True)
     if price_range is None:
         price_range = _SYMBOL_PRICE_RANGES.get(base_sym_for_range)
 
@@ -197,7 +197,7 @@ def validation_agent_node(state: AgentState, app_config: AppConfig) -> dict[str,
         try:
             min_stop = float(env_min_stop)
         except Exception:
-            pass
+            logger.debug("Invalid SYMBOL_MIN_STOP_%s=%r — expected float", base_sym_for_range, env_min_stop, exc_info=True)
     if min_stop is None:
         min_stop = _SYMBOL_MIN_STOP.get(base_sym_for_range)
 

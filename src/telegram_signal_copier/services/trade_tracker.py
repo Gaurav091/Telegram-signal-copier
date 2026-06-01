@@ -167,7 +167,7 @@ class TradeTracker:
             try:
                 tmp.unlink(missing_ok=True)
             except Exception:
-                pass
+                logger.debug("Failed to remove temp file %s", tmp, exc_info=True)
 
     def _load(self) -> None:
         if not self._state_file.exists():

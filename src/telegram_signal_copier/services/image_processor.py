@@ -1,3 +1,4 @@
+"""Image processor — OCR and AI-based trade signal extraction from chart screenshots."""
 from __future__ import annotations
 
 import re

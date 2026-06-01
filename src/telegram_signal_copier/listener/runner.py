@@ -12,8 +12,8 @@ from contextlib import suppress
 
 from telegram_signal_copier.adapters.telegram_client import TelegramSignalListener
 from telegram_signal_copier.config import AppConfig
-from telegram_signal_copier.listener_builder import build_pipeline
-from telegram_signal_copier.listener_status import _write_bridge_status
+from telegram_signal_copier.listener.builder import build_pipeline
+from telegram_signal_copier.listener.status import _write_bridge_status
 from telegram_signal_copier.models import TelegramSignalMessage, TradeCommand
 from telegram_signal_copier.services.cluster_agent import MessageClusterAgent
 

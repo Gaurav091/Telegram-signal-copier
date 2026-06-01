@@ -11,7 +11,7 @@ import textwrap
 from pathlib import Path
 from typing import Any
 
-from telegram_signal_copier.agents.developer_agent_models import (
+from telegram_signal_copier.agents.developer.models import (
     FailureReport,
     Patch,
     MAX_FIXES_PER_SESSION,

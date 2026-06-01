@@ -1,3 +1,4 @@
+"""Risk engine — validates lot size, symbol allowlist, and daily exposure limits."""
 from __future__ import annotations
 
 from dataclasses import dataclass, field

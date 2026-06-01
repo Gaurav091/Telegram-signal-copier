@@ -1,3 +1,4 @@
+"""MCP server exposing Telegram session tools for external AI agents."""
 from __future__ import annotations
 
 import logging

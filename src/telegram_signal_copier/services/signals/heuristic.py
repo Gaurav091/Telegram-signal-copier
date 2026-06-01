@@ -175,7 +175,3 @@ def parse_mt5_screenshot(
         parser_name="mt5_screenshot",
         notes=notes,
     )
-
-
-# Re-export: callers that imported heuristic_parse from this module continue to work
-from telegram_signal_copier.services.signal_heuristic_parse import heuristic_parse as heuristic_parse  # noqa: E402, F401

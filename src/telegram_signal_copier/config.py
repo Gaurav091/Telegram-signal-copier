@@ -1,5 +1,11 @@
+"""App configuration dataclass loaded from environment variables.
+
+All .env variables are defined here as fields on AppConfig.
+Parsing and loading helpers live in config_helpers.py.
+"""
 from __future__ import annotations
 
+import logging
 import os
 import sys
 from dataclasses import dataclass
@@ -18,6 +24,8 @@ from telegram_signal_copier.config_helpers import (
     _validate_telegram_source_values,
     build_ai_providers,
 )
+
+logger = logging.getLogger(__name__)
 
 
 class ConfigurationError(ValueError):
@@ -112,7 +120,7 @@ class AppConfig:
                 if not path.exists():
                     path.write_text("", encoding="utf-8")
             except Exception:
-                pass
+                logger.debug("Failed to initialise dynamic symbols file", exc_info=True)
 
     def validate(self) -> None:
         """Validate all configuration values and raise :class:`ConfigurationError` listing every issue.
@@ -205,7 +213,7 @@ class AppConfig:
                     if s:
                         symbols.add(s)
         except Exception:
-            pass
+            logger.debug("Failed to load dynamic symbols from %s", self.dynamic_symbols_path, exc_info=True)
         self._dynamic_symbols_cache = symbols
         return symbols
 

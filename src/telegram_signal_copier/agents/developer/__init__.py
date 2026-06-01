@@ -10,15 +10,15 @@ All public symbols are re-exported here so existing imports continue to work.
 """
 from __future__ import annotations
 
-from telegram_signal_copier.agents.developer_agent_analysis import (
+from telegram_signal_copier.agents.developer.analysis import (
     classify_failures,
     _get_examples,
 )
-from telegram_signal_copier.agents.developer_agent_fp import (
+from telegram_signal_copier.agents.developer.fp import (
     assess_false_positives,
     fix_false_positives,
 )
-from telegram_signal_copier.agents.developer_agent_models import (
+from telegram_signal_copier.agents.developer.models import (
     FailureReport,
     FalsePositiveReport,
     MAX_FIXES_PER_SESSION,
@@ -28,7 +28,7 @@ from telegram_signal_copier.agents.developer_agent_models import (
     _CATEGORY_FILES,
     _session_fix_counts,
 )
-from telegram_signal_copier.agents.developer_agent_patch import (
+from telegram_signal_copier.agents.developer.patch import (
     apply_patch,
     generate_patch,
     rollback_last_patch,

@@ -2,7 +2,7 @@ import io
 import json
 import time
 import unittest
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 from telegram_signal_copier.adapters.openai_client import OpenAIClient
 
@@ -18,18 +18,24 @@ class SimpleConfig:
         self.cloudflare_account_id = None
 
 
-class FakeResp:
-    def __init__(self, data_bytes: bytes):
-        self._data = data_bytes
+def _make_requests_response(data: dict) -> MagicMock:
+    """Build a mock requests.Response-like object."""
+    resp = MagicMock()
+    resp.status_code = 200
+    resp.json.return_value = data
+    resp.text = json.dumps(data)
+    resp.raise_for_status.return_value = None
+    return resp
 
-    def read(self):
-        return self._data
 
-    def __enter__(self):
-        return self
-
-    def __exit__(self, exc_type, exc, tb):
-        return False
+def _make_requests_http_error(status_code: int, body: str) -> Exception:
+    """Build a mock requests.exceptions.HTTPError."""
+    import requests
+    mock_resp = MagicMock()
+    mock_resp.status_code = status_code
+    mock_resp.text = body
+    exc = requests.exceptions.HTTPError(response=mock_resp)
+    return exc
 
 
 class OpenAIClientTests(unittest.TestCase):
@@ -37,15 +43,15 @@ class OpenAIClientTests(unittest.TestCase):
         config = SimpleConfig([{"name": "primary", "api_key": "k", "base_url": "https://example.test"}])
         client = OpenAIClient(config)
 
-        response_body = json.dumps({"choices": [{"message": {"content": json.dumps({"symbol": "EURUSD", "confidence": 0.9})}}]})
+        response_data = {"choices": [{"message": {"content": json.dumps({"symbol": "EURUSD", "confidence": 0.9})}}]}
 
         calls = {"n": 0}
 
-        def _urlopen(req, timeout=60):
+        def _post(url, **kwargs):
             calls["n"] += 1
-            return FakeResp(response_body.encode("utf-8"))
+            return _make_requests_response(response_data)
 
-        with patch("urllib.request.urlopen", side_effect=_urlopen):
+        with patch("requests.post", side_effect=_post):
             first = client.parse_signal("test payload")
             self.assertEqual(first.get("symbol"), "EURUSD")
             self.assertEqual(calls["n"], 1)
@@ -71,20 +77,18 @@ class OpenAIClientTests(unittest.TestCase):
         config = SimpleConfig(providers)
         client = OpenAIClient(config)
 
-        # first call -> HTTPError 429 for provider 1, then success for provider 2
-        from urllib import error
+        success_data = {"choices": [{"message": {"content": json.dumps({"symbol": "USDJPY", "confidence": 0.8})}}]}
 
-        def _urlopen(req, timeout=60):
-            # mimic first call failing with 429, second call succeed
-            if _urlopen.calls == 0:
-                _urlopen.calls += 1
-                fp = io.BytesIO(b'{"error":"rate limit"}')
-                raise error.HTTPError(req.full_url if hasattr(req, 'full_url') else str(req), 429, "Too Many Requests", hdrs=None, fp=fp)
-            return FakeResp(json.dumps({"choices": [{"message": {"content": json.dumps({"symbol": "USDJPY", "confidence": 0.8})}}]}).encode("utf-8"))
+        _post_calls = {"n": 0}
 
-        _urlopen.calls = 0
+        def _post(url, **kwargs):
+            n = _post_calls["n"]
+            _post_calls["n"] += 1
+            if n == 0:
+                raise _make_requests_http_error(429, '{"error":"rate limit"}')
+            return _make_requests_response(success_data)
 
-        with patch("urllib.request.urlopen", side_effect=_urlopen):
+        with patch("requests.post", side_effect=_post):
             res = client.parse_signal("circuit test")
             self.assertEqual(res.get("symbol"), "USDJPY")
             # provider 1 should have recorded a failure and been tripped
@@ -98,16 +102,14 @@ class OpenAIClientTests(unittest.TestCase):
         )
         client = OpenAIClient(config)
 
-        response_body = json.dumps(
-            {"choices": [{"message": {"content": json.dumps({"intent": "INFORMATIONAL", "confidence": 0.9})}}]}
-        )
-        seen_payload: dict[str, object] = {}
+        response_data = {"choices": [{"message": {"content": json.dumps({"intent": "INFORMATIONAL", "confidence": 0.9})}}]}
+        seen_payload: dict = {}
 
-        def _urlopen(req, timeout=60):
-            seen_payload.update(json.loads(req.data.decode("utf-8")))
-            return FakeResp(response_body.encode("utf-8"))
+        def _post(url, **kwargs):
+            seen_payload.update(kwargs.get("json", {}))
+            return _make_requests_response(response_data)
 
-        with patch("urllib.request.urlopen", side_effect=_urlopen):
+        with patch("requests.post", side_effect=_post):
             result = client.classify_intent("BUY GOLD")
 
         self.assertEqual(result.get("intent"), "INFORMATIONAL")

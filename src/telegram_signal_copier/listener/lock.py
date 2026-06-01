@@ -99,7 +99,7 @@ def _release_listener_lock() -> None:
 
 
 def _write_listener_pid(config: AppConfig) -> None:
-    from telegram_signal_copier.listener_status import _safe_write_text
+    from telegram_signal_copier.listener.status import _safe_write_text
     pid_path = _listener_pid_path(config)
     pid_path.parent.mkdir(parents=True, exist_ok=True)
     _safe_write_text(pid_path, f"{os.getpid()}\n")

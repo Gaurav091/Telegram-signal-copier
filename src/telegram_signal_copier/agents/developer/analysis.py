@@ -8,7 +8,7 @@ import logging
 from collections import Counter
 from typing import Any
 
-from telegram_signal_copier.agents.developer_agent_models import FailureReport
+from telegram_signal_copier.agents.developer.models import FailureReport
 
 logger = logging.getLogger(__name__)
 

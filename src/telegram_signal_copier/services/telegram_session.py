@@ -1,3 +1,4 @@
+"""Telegram session service — async wrapper around TelegramSessionService for session health queries."""
 from __future__ import annotations
 
 import asyncio

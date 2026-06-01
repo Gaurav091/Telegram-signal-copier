@@ -1,3 +1,4 @@
+"""Shared data contracts: ParsedSignal, TradeCommand, ExecutionResult, TelegramSignalMessage."""
 from __future__ import annotations
 
 from dataclasses import dataclass, field

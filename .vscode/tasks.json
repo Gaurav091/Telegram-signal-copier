@@ -1,0 +1,87 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "Telegram: Start Listener",
+      "type": "shell",
+      "command": "powershell",
+      "args": [
+        "-NoProfile",
+        "-ExecutionPolicy",
+        "Bypass",
+        "-Command",
+        "& \".\\.venv\\Scripts\\python.exe\" -u -m telegram_signal_copier.main listen"
+      ],
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "isBackground": true,
+      "problemMatcher": []
+    },
+    {
+      "label": "Telegram: Restart Listener",
+      "type": "shell",
+      "command": "powershell",
+      "args": [
+        "-NoProfile",
+        "-ExecutionPolicy",
+        "Bypass",
+        "-Command",
+        "Get-Process -Name python,TelegramSignalCopier -ErrorAction SilentlyContinue | Stop-Process -Force; Remove-Item .\\runtime\\listener.lock -ErrorAction SilentlyContinue; Remove-Item .\\runtime\\listener.pid -ErrorAction SilentlyContinue; & \".\\.venv\\Scripts\\python.exe\" -u -m telegram_signal_copier.main listen"
+      ],
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "isBackground": true,
+      "problemMatcher": []
+    },
+    {
+      "label": "Graphify: Update + Query",
+      "type": "shell",
+      "command": "powershell",
+      "args": [
+        "-NoProfile",
+        "-ExecutionPolicy",
+        "Bypass",
+        "-File",
+        "${workspaceFolder}/tools/graphify_query.ps1",
+        "-Question",
+        "${input:graphifyQuestion}",
+        "-Budget",
+        "${input:graphifyBudget}"
+      ],
+      "problemMatcher": []
+    },
+    {
+      "label": "Graphify: Query (Skip Update)",
+      "type": "shell",
+      "command": "powershell",
+      "args": [
+        "-NoProfile",
+        "-ExecutionPolicy",
+        "Bypass",
+        "-File",
+        "${workspaceFolder}/tools/graphify_query.ps1",
+        "-Question",
+        "${input:graphifyQuestion}",
+        "-Budget",
+        "${input:graphifyBudget}",
+        "-SkipUpdate"
+      ],
+      "problemMatcher": []
+    }
+  ],
+  "inputs": [
+    {
+      "id": "graphifyQuestion",
+      "type": "promptString",
+      "description": "Graphify question"
+    },
+    {
+      "id": "graphifyBudget",
+      "type": "promptString",
+      "description": "Token budget",
+      "default": "2000"
+    }
+  ]
+}
