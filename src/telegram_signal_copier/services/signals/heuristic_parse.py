@@ -67,11 +67,33 @@ def heuristic_parse(
 
     upper_text = combined_text.upper()
     symbol = detect_symbol_in_text(upper_text, config.merged_allowed_symbols)
-    side = normalize_side(
-        "BUY" if "BUY" in upper_text or "LONG" in upper_text
-        else "SELL" if "SELL" in upper_text or "SHORT" in upper_text
-        else None
-    )
+
+    buy_keywords = ["BUY", "LONG"]
+    if config.custom_buy_keywords:
+        buy_keywords = [k.upper() for k in config.custom_buy_keywords if k.strip()]
+    
+    sell_keywords = ["SELL", "SHORT"]
+    if config.custom_sell_keywords:
+        sell_keywords = [k.upper() for k in config.custom_sell_keywords if k.strip()]
+
+    is_buy = any(kw in upper_text for kw in buy_keywords)
+    is_sell = any(kw in upper_text for kw in sell_keywords)
+
+    side_candidate = None
+    if is_buy and not is_sell:
+        side_candidate = "BUY"
+    elif is_sell and not is_buy:
+        side_candidate = "SELL"
+    elif is_buy and is_sell:
+        # If both matches occur, choose the one appearing first in the text
+        buy_pos = min((upper_text.find(kw) for kw in buy_keywords if kw in upper_text), default=len(upper_text))
+        sell_pos = min((upper_text.find(kw) for kw in sell_keywords if kw in upper_text), default=len(upper_text))
+        if buy_pos < sell_pos:
+            side_candidate = "BUY"
+        else:
+            side_candidate = "SELL"
+
+    side = normalize_side(side_candidate)
     order_type = detect_order_type(upper_text)
 
     # Entry range support

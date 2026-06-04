@@ -741,13 +741,16 @@ class SignalCopierDashboard:
             self.start_stop_button.style = ft.ButtonStyle(color="#00e676")
         else:
             # Start process
-            # Find python executable
             py_exe = sys.executable
+            if getattr(sys, "frozen", False):
+                args = [py_exe, "listen"]
+            else:
+                args = [py_exe, "-m", "telegram_signal_copier.main", "listen"]
             
             # Start listener background process
             try:
                 self.listener_process = subprocess.Popen(
-                    [py_exe, "-m", "telegram_signal_copier"],
+                    args,
                     cwd=str(self.project_root),
                     stdout=subprocess.DEVNULL,
                     stderr=subprocess.DEVNULL

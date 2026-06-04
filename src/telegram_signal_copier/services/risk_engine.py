@@ -105,6 +105,37 @@ class RiskEngine:
 
     def evaluate(self, signal: ParsedSignal) -> ValidationDecision:
         reasons: list[str] = []
+        
+        # ── Time Range Filter check ─────────────────────────────────────────────
+        if getattr(self.config, "enable_time_filter", False):
+            from datetime import datetime, time
+            try:
+                now_time = datetime.now().time()
+                
+                def parse_time(t_str: str, default: time) -> time:
+                    if not t_str:
+                        return default
+                    parts = [int(p) for p in t_str.split(":") if p.strip().isdigit()]
+                    if len(parts) >= 2:
+                        return time(parts[0], parts[1])
+                    return default
+                    
+                t_from = parse_time(getattr(self.config, "time_from", "00:00"), time(0, 0))
+                t_to = parse_time(getattr(self.config, "time_to", "23:59"), time(23, 59))
+                
+                if t_from <= t_to:
+                    in_range = t_from <= now_time <= t_to
+                else:
+                    in_range = now_time >= t_from or now_time <= t_to
+                    
+                if not in_range:
+                    reasons.append(
+                        f"Current time {now_time.strftime('%H:%M')} is outside "
+                        f"allowed window {t_from.strftime('%H:%M')}-{t_to.strftime('%H:%M')}"
+                    )
+            except Exception as e:
+                logging.getLogger(__name__).debug("Time filter check failed: %s", e)
+
         if not signal.symbol:
             reasons.append("Missing symbol")
         if not signal.side:

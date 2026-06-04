@@ -361,6 +361,55 @@ class PipelineTests(unittest.TestCase):
         self.assertEqual(decision.status, "REJECTED")
         self.assertTrue(any("band" in reason for reason in decision.reasons))
 
+    def test_risk_engine_time_range_filter(self) -> None:
+        config = build_config(Path("."))
+        config.enable_time_filter = True
+        
+        # Test inside standard range
+        config.time_from = "00:00"
+        config.time_to = "23:59"
+        engine = RiskEngine(config=config)
+        decision = engine.evaluate(
+            ParsedSignal(
+                source_group="VIP Gold",
+                message_id="time-test-1",
+                symbol="XAUUSD",
+                side="BUY",
+                order_type="MARKET",
+                entry_price=4540.0,
+                stop_loss=4520.0,
+                take_profits=[4560.0],
+                confidence=0.90,
+                raw_text="XAUUSD BUY 4540 SL 4520 TP 4560",
+            )
+        )
+        self.assertFalse(any("outside" in r for r in decision.reasons))
+
+        # Test outside standard range dynamically using past time window
+        from datetime import datetime, timedelta
+        current_time = datetime.now()
+        t_start = (current_time - timedelta(hours=2)).strftime("%H:%M")
+        t_end = (current_time - timedelta(hours=1)).strftime("%H:%M")
+        
+        config.time_from = t_start
+        config.time_to = t_end
+        engine = RiskEngine(config=config)
+        decision = engine.evaluate(
+            ParsedSignal(
+                source_group="VIP Gold",
+                message_id="time-test-2",
+                symbol="XAUUSD",
+                side="BUY",
+                order_type="MARKET",
+                entry_price=4540.0,
+                stop_loss=4520.0,
+                take_profits=[4560.0],
+                confidence=0.90,
+                raw_text="XAUUSD BUY 4540 SL 4520 TP 4560",
+            )
+        )
+        self.assertTrue(any("outside allowed window" in r for r in decision.reasons))
+
     def test_pipeline_skips_trade_update_caption_with_image_without_ocr(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
             tmp_path = Path(temp_dir)

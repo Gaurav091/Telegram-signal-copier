@@ -314,6 +314,34 @@ class SignalParserTests(unittest.TestCase):
             self.assertEqual(result.signal.stop_loss, 4591.0)
             self.assertLess(result.signal.confidence, 0.45, "Noise message must not exceed minimum_confidence=0.45")
 
+    def test_heuristic_parser_custom_keywords(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            tmp_path = Path(temp_dir)
+            config = build_config(tmp_path)
+            config.custom_buy_keywords = ["BULLISH", "UPWARD", "CALL"]
+            config.custom_sell_keywords = ["BEARISH", "DOWNWARD", "PUT"]
+            parser = SignalParser(config=config, ai_client=None)
+
+            # Test custom buy keyword
+            result_buy = parser.parse(
+                TelegramSignalMessage(
+                    source_group="Custom channel",
+                    message_id="10",
+                    raw_text="XAUUSD BULLISH NOW @ 2320 SL 2315 TP 2330",
+                )
+            )
+            self.assertEqual(result_buy.signal.side, "BUY")
+
+            # Test custom sell keyword
+            result_sell = parser.parse(
+                TelegramSignalMessage(
+                    source_group="Custom channel",
+                    message_id="11",
+                    raw_text="XAUUSD BEARISH NOW @ 2320 SL 2325 TP 2310",
+                )
+            )
+            self.assertEqual(result_sell.signal.side, "SELL")
+
 
 if __name__ == "__main__":
     unittest.main()

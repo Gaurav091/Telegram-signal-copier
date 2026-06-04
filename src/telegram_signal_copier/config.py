@@ -105,6 +105,13 @@ class AppConfig:
     auto_add_new_symbols: bool = False
     # Path to persist dynamic symbols (one per line). If empty, defaults to bridge folder/dynamic_symbols.txt
     dynamic_symbols_file: str = ""
+    # Time Range Filters
+    enable_time_filter: bool = False
+    time_from: str = "00:00"
+    time_to: str = "23:59"
+    # Custom Keywords
+    custom_buy_keywords: list[str] = None
+    custom_sell_keywords: list[str] = None
     # runtime cache for dynamic symbols (not part of env)
     _dynamic_symbols_cache: set[str] = None
 
@@ -138,6 +145,11 @@ class AppConfig:
                     "allowed_symbols": "allowed_symbols",
                     "dry_run": "dry_run",
                     "minimum_rr_ratio": "minimum_rr_ratio",
+                    "enable_time_filter": "enable_time_filter",
+                    "time_from": "time_from",
+                    "time_to": "time_to",
+                    "custom_buy_keywords": "custom_buy_keywords",
+                    "custom_sell_keywords": "custom_sell_keywords",
                 }
                 for json_key, config_key in mappings.items():
                     if json_key in data:
@@ -147,12 +159,17 @@ class AppConfig:
                                 val = float(val)
                             except (ValueError, TypeError):
                                 continue
-                        elif config_key == "dry_run":
+                        elif config_key in {"dry_run", "enable_time_filter"}:
                             val = bool(val)
                         elif config_key == "allowed_symbols" and isinstance(val, str):
                             val = [s.strip() for s in val.split(",") if s.strip()]
                         elif config_key == "telegram_sources" and isinstance(val, str):
                             val = [s.strip() for s in val.split(",") if s.strip()]
+                        elif config_key in {"custom_buy_keywords", "custom_sell_keywords"}:
+                            if isinstance(val, str):
+                                val = [s.strip() for s in val.split(",") if s.strip()]
+                            elif not isinstance(val, list):
+                                val = []
 
                         if val is not None and val != "":
                             kwargs[config_key] = val
