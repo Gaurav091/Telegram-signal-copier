@@ -48,7 +48,19 @@ def bridge_payload_text(payload: dict[str, str]) -> str:
 def bridge_strip_symbol_suffix(symbol: str) -> str:
     value = symbol.strip()
     upper = value.upper()
-    for suffix in (".M", "-M", "M"):
+    # List of suffixes to strip, from longest to shortest to prevent partial matches
+    suffixes = (
+        ".MICRO", "-MICRO", "MICRO",
+        ".CENT", "-CENT", "CENT",
+        ".ECN", "-ECN", "ECN",
+        ".PRO", "-PRO", "PRO",
+        ".STD", "-STD", "STD",
+        ".M", "-M", "M",
+        ".C", "-C", "C",
+        ".I", "-I", "I",
+        "++", "+", "#", "."
+    )
+    for suffix in suffixes:
         if upper.endswith(suffix) and len(value) > len(suffix):
             return value[: -len(suffix)]
     return value
@@ -109,7 +121,21 @@ def bridge_symbol_retry_candidates(symbol: str, symbol_suffix: str) -> list[str]
     configured_suffix = str(symbol_suffix or "").strip()
     if configured_suffix:
         suffixes.append(configured_suffix)
-    for suffix in ("m", ".m", "-m"):
+    
+    # Common suffixes to try in order (covering standard, cent, pro, ecn, micro, etc.)
+    common_suffixes = (
+        "m", ".m", "-m",
+        "c", ".c", "-c",
+        "ecn", ".ecn", "-ecn",
+        "pro", ".pro", "-pro",
+        "micro", ".micro", "-micro",
+        "cent", ".cent", "-cent",
+        "std", ".std", "-std",
+        "i", ".i", "-i",
+        "j", ".j", "-j",
+        "+", "++", "#", "."
+    )
+    for suffix in common_suffixes:
         if suffix not in suffixes:
             suffixes.append(suffix)
 
