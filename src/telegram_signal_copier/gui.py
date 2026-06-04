@@ -841,54 +841,62 @@ class SignalCopierDashboard:
             tabs=[
                 ft.Tab(
                     text="Trading Credentials",
-                    content=ft.Column(
-                        [
-                            api_id_field,
-                            api_hash_field,
-                            phone_field,
-                            symbol_suffix_field,
-                        ],
-                        spacing=10,
-                        scroll=ft.ScrollMode.ALWAYS,
+                    content=ft.Container(
+                        content=ft.Column(
+                            [
+                                api_id_field,
+                                api_hash_field,
+                                phone_field,
+                                symbol_suffix_field,
+                            ],
+                            spacing=10,
+                            scroll=ft.ScrollMode.ALWAYS,
+                        ),
                         padding=15
                     )
                 ),
                 ft.Tab(
                     text="AI Provider Options",
-                    content=ft.Column(
-                        [
-                            openai_key_field,
-                            openai_model_field,
-                            min_confidence_field,
-                        ],
-                        spacing=10,
-                        scroll=ft.ScrollMode.ALWAYS,
+                    content=ft.Container(
+                        content=ft.Column(
+                            [
+                                openai_key_field,
+                                openai_model_field,
+                                min_confidence_field,
+                            ],
+                            spacing=10,
+                            scroll=ft.ScrollMode.ALWAYS,
+                        ),
                         padding=15
                     )
                 ),
                 ft.Tab(
                     text="Time Range Filters",
-                    content=ft.Column(
-                        [
-                            time_filter_switch,
-                            ft.Row([time_from_field, time_to_field], spacing=10),
-                            ft.Text("Define hours during which trades are permitted to copy.", size=11, color="#7c7c82")
-                        ],
-                        spacing=10,
-                        scroll=ft.ScrollMode.ALWAYS,
+                    content=ft.Container(
+                        content=ft.Column(
+                            [
+                                time_filter_switch,
+                                ft.Row([time_from_field, time_to_field], spacing=10),
+                                ft.Text("Define hours during which trades are permitted to copy.", size=11, color="#7c7c82")
+                            ],
+                            spacing=10,
+                            scroll=ft.ScrollMode.ALWAYS,
+                        ),
                         padding=15
                     )
                 ),
                 ft.Tab(
                     text="Keywords Parsing",
-                    content=ft.Column(
-                        [
-                            buy_keywords_field,
-                            sell_keywords_field,
-                            ft.Text("Define custom words to classify signals into BUY/SELL orders.", size=11, color="#7c7c82")
-                        ],
-                        spacing=10,
-                        scroll=ft.ScrollMode.ALWAYS,
+                    content=ft.Container(
+                        content=ft.Column(
+                            [
+                                buy_keywords_field,
+                                sell_keywords_field,
+                                ft.Text("Define custom words to classify signals into BUY/SELL orders.", size=11, color="#7c7c82")
+                            ],
+                            spacing=10,
+                            scroll=ft.ScrollMode.ALWAYS,
+                        ),
                         padding=15
                     )
                 ),
