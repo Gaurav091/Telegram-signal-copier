@@ -577,7 +577,57 @@ class SignalCopierDashboard:
         else:
             self.metric_success_rate.value = "0%"
 
+        self.update_performance_chart()
         self.page.update()
+
+    def update_performance_chart(self) -> None:
+        """Draw a stylized trade outcomes histogram using containers."""
+        if not self.active_trades:
+            self.chart_container.content = ft.Text(
+                "Waiting for trade signals to populate dashboard telemetry...", 
+                size=12, 
+                color="#7c7c82"
+            )
+            return
+
+        # Show latest 15 trades (earliest first for left-to-right timeline)
+        recent_trades = list(reversed(self.active_trades[:15]))
+        
+        bars = []
+        for t in recent_trades:
+            status = t.get("status", "PENDING")
+            action = t.get("action", "BUY")
+            symbol = t.get("symbol", "")
+            vol = t.get("volume", "0.01")
+            
+            # Determine color and height based on trade status/action
+            if status == "FILLED":
+                color = "#00e5ff" if action == "BUY" else "#00e676"  # Cyan/Green for filled
+                height = 80
+            elif "FAIL" in status or "REJECT" in status:
+                color = "#ff1744"  # Red for failed
+                height = 30
+            else:
+                color = "#ffb300"  # Amber for pending
+                height = 50
+                
+            bars.append(
+                ft.Container(
+                    width=24,
+                    height=height,
+                    bgcolor=color,
+                    border_radius=4,
+                    tooltip=f"{symbol} {action} {vol}\nStatus: {status}",
+                    animate_size=300
+                )
+            )
+            
+        self.chart_container.content = ft.Row(
+            controls=bars,
+            alignment=ft.MainAxisAlignment.CENTER,
+            vertical_alignment=ft.CrossAxisAlignment.END,
+            spacing=8
+        )
 
     # --- Action event handlers ---
 
