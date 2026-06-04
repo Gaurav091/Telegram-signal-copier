@@ -74,6 +74,8 @@ hiddenimports = [
     "tkinter",
     "tkinter.ttk",
     "tkinter.messagebox",
+    "flet",
+    "telegram_signal_copier.gui",
     # cryptography used by telethon
     "cryptg",
 ]

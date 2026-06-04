@@ -57,6 +57,7 @@ def _write_env(fields: dict[str, str]) -> Path:
         f"MT5_LOGIN={fields.get('mt5_login', '')}",
         f"MT5_PASSWORD={fields.get('mt5_password', '')}",
         f"MT5_SERVER={fields.get('mt5_server', '')}",
+        f"MT5_SYMBOL_SUFFIX={fields.get('mt5_symbol_suffix', '')}",
         "",
         "# ── AI Provider (SambaNova free tier — swap key/URL for any OpenAI-compatible API)",
         f"OPENAI_API_KEY={fields.get('openai_api_key', '')}",
@@ -227,6 +228,8 @@ class MT5Page(_Page):
              "MT5 investor or master password"),
             ("Broker Server", "mt5_server", "", False,
              "Server name shown in MT5 login screen, e.g. Exness-MT5Real8"),
+            ("Broker Symbol Suffix (optional)", "mt5_symbol_suffix", "", False,
+             "Suffix if required by broker, e.g. 'm' for XAUUSDm"),
         ]
         for label, key, placeholder, secret, hint in fields:
             self._add_field(label, key, placeholder, secret, hint)
@@ -579,6 +582,16 @@ class FinishPage(_Page):
             command=self._run_listener,
         )
         self._listen_btn.pack(side="left")
+        self._dash_btn = tk.Button(
+            btn_row,
+            text=" Open Dashboard ",
+            font=("Segoe UI", 11, "bold"),
+            bg="#c5aae8", fg="#1e1e2e",
+            relief="flat", bd=0,
+            cursor="hand2",
+            command=self._run_dashboard,
+        )
+        self._dash_btn.pack(side="left", padx=(10, 0))
 
     def update_path(self, path: Path) -> None:
         self._env_path = path
@@ -627,6 +640,26 @@ class FinishPage(_Page):
                 self._status_var.set(f"✖  Failed: {exc}")
             finally:
                 self._listen_btn.config(state="normal")
+
+        threading.Thread(target=_do, daemon=True).start()
+
+    def _run_dashboard(self) -> None:
+        self._status_var.set("⏳  Opening Dashboard…")
+        self._dash_btn.config(state="disabled")
+
+        def _do():
+            try:
+                exe = self._exe()
+                if getattr(sys, "frozen", False):
+                    args = [exe, "dashboard"]
+                else:
+                    args = [exe, "-m", "telegram_signal_copier.main", "dashboard"]
+                subprocess.Popen(args, creationflags=subprocess.CREATE_NEW_CONSOLE if os.name == "nt" else 0)
+                self._status_var.set("✔  Dashboard opened.")
+            except Exception as exc:
+                self._status_var.set(f"✖  Failed: {exc}")
+            finally:
+                self._dash_btn.config(state="normal")
 
         threading.Thread(target=_do, daemon=True).start()
 
@@ -840,7 +873,7 @@ class _LauncherWindow(tk.Tk):
         self.resizable(False, False)
         self.configure(bg="#181825")
         self._status_var = tk.StringVar(value="")
-        self._center(420, 300)
+        self._center(420, 350)
         self._build()
 
     def _center(self, w: int, h: int) -> None:
@@ -891,6 +924,15 @@ class _LauncherWindow(tk.Tk):
         ).pack(pady=6)
         tk.Button(
             btn_frame,
+            text="  Open Dashboard  ",
+            font=("Segoe UI", 11, "bold"),
+            bg="#c5aae8", fg="#1e1e2e",
+            relief="flat", bd=0, cursor="hand2",
+            command=self._run_dashboard,
+            width=18,
+        ).pack(pady=6)
+        tk.Button(
+            btn_frame,
             text="  Reconfigure  ",
             font=("Segoe UI", 10),
             bg="#313244", fg="#cdd6f4",
@@ -931,6 +973,18 @@ class _LauncherWindow(tk.Tk):
                 args = [exe, "listen"] if getattr(sys, "frozen", False) else [exe, "-m", "telegram_signal_copier.main", "listen"]
                 subprocess.Popen(args, creationflags=subprocess.CREATE_NEW_CONSOLE if os.name == "nt" else 0)
                 self._status_var.set("✔  Listener started in a new window.")
+            except Exception as exc:
+                self._status_var.set(f"✖  {exc}")
+        threading.Thread(target=_do, daemon=True).start()
+
+    def _run_dashboard(self) -> None:
+        self._status_var.set("⏳  Opening Dashboard in a new window…")
+        def _do():
+            try:
+                exe = self._exe()
+                args = [exe, "dashboard"] if getattr(sys, "frozen", False) else [exe, "-m", "telegram_signal_copier.main", "dashboard"]
+                subprocess.Popen(args, creationflags=subprocess.CREATE_NEW_CONSOLE if os.name == "nt" else 0)
+                self._status_var.set("✔  Dashboard opened.")
             except Exception as exc:
                 self._status_var.set(f"✖  {exc}")
         threading.Thread(target=_do, daemon=True).start()
