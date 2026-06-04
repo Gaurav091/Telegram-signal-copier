@@ -369,9 +369,8 @@ class SignalCopierDashboard:
         self.config = AppConfig.from_env(self.project_root)
         sources = self.config.telegram_source_mappings
         self.metric_active_channels.value = str(len(sources))
-        
         search_query = self.search_box.value.lower() if self.search_box.value else ""
-
+        disabled_sources = self.settings_manager.get("disabled_sources", [])
         for label, identifier in sources:
             if search_query and (search_query not in label.lower() and search_query not in identifier.lower()):
                 continue
@@ -389,7 +388,7 @@ class SignalCopierDashboard:
                                 expand=True
                             ),
                             ft.Switch(
-                                value=True,
+                                value=identifier not in disabled_sources,
                                 active_color="#00e676",
                                 active_track_color="#1a3828",
                                 on_change=lambda e, lid=identifier: self.on_toggle_channel(lid, e.control.value)
@@ -633,9 +632,16 @@ class SignalCopierDashboard:
 
     def on_toggle_channel(self, identifier: str, is_enabled: bool) -> None:
         """Called when a channel's enable switch is toggled."""
-        # For simplicity, if disabled, we filter or warning.
-        # But wait! If they toggle copy, we can remove it from/add it back to configs!
-        pass
+        disabled_sources = self.settings_manager.get("disabled_sources", [])
+        if is_enabled:
+            if identifier in disabled_sources:
+                disabled_sources.remove(identifier)
+        else:
+            if identifier not in disabled_sources:
+                disabled_sources.append(identifier)
+        self.settings_manager.set("disabled_sources", disabled_sources)
+        self.page.show_snack_bar(ft.SnackBar(content=ft.Text(f"Channel {'enabled' if is_enabled else 'disabled'} successfully")))
+        self.refresh_channels_list()
 
     def on_delete_channel(self, identifier: str) -> None:
         """Remove a channel from settings.json and update UI."""

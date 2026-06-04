@@ -81,6 +81,35 @@ async def start_listener(
                 or str(chat.id)
             )
 
+            # Check settings.json dynamically for disabled sources
+            try:
+                import json
+                settings_file = Path(config.project_root) / "settings.json"
+                if settings_file.exists():
+                    data = json.loads(settings_file.read_text(encoding="utf-8"))
+                    disabled = data.get("disabled_sources", [])
+                    disabled_normalized = {str(d).strip().lower().lstrip("@") for d in disabled if d}
+                    
+                    username_clean = (getattr(chat, "username", "") or "").lower().lstrip("@")
+                    chat_id_clean = str(chat.id) if hasattr(chat, "id") else ""
+                    title_clean = (getattr(chat, "title", "") or "").strip().lower()
+                    
+                    is_disabled = False
+                    for d_item in disabled_normalized:
+                        if (
+                            d_item == username_clean 
+                            or d_item == chat_id_clean 
+                            or d_item == title_clean
+                            or (chat_id_clean.startswith("-100") and d_item == chat_id_clean[4:])
+                        ):
+                            is_disabled = True
+                            break
+                    if is_disabled:
+                        logger.info("[LISTENER] Discarding message from disabled source: %s", chat_title)
+                        return
+            except Exception as e:
+                logger.debug("Failed to check disabled sources: %s", e)
+
             if source_ids or source_numeric_ids or source_usernames:
                 username = (getattr(chat, "username", "") or "").lower().lstrip("@")
                 chat_id_str = str(chat.id) if hasattr(chat, "id") else ""
