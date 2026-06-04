@@ -33,25 +33,52 @@ async def _probe():
     fail = []
     for label, ident in sources:
         try:
-            raw_id = int(ident) if ident.isdigit() else None
-            if raw_id:
-                entity = None
-                for attempt_id in (int(f'-100{ident}'), raw_id):
+            is_numeric = False
+            try:
+                int(ident)
+                is_numeric = True
+            except ValueError:
+                pass
+
+            entity = None
+            if is_numeric:
+                raw_id = int(ident)
+                if raw_id < 0:
                     try:
-                        entity = await client.get_entity(attempt_id)
-                        break
-                    except FloodWaitError as e:
-                        print(f'  FLOOD_WAIT {label} ({ident}): {e}')
-                        entity = None
-                        break
+                        entity = await client.get_entity(raw_id)
                     except Exception:
-                        continue
-                if entity is None:
-                    fail.append((label, ident, 'Could not resolve numeric ID'))
+                        pass
                 else:
-                    ok.append((label, ident, getattr(entity, 'title', None) or getattr(entity, 'username', None)))
+                    for attempt_id in (int(f'-100{ident}'), raw_id):
+                        try:
+                            entity = await client.get_entity(attempt_id)
+                            break
+                        except FloodWaitError as e:
+                            print(f'  FLOOD_WAIT {label} ({ident}): {e}')
+                            entity = None
+                            break
+                        except Exception:
+                            continue
             else:
-                entity = await client.get_entity(ident.lstrip('@'))
+                # 1. Try local joined dialogs by name
+                try:
+                    async for dialog in client.iter_dialogs():
+                        if dialog.name and dialog.name.strip().lower() == ident.strip().lower():
+                            entity = dialog.entity
+                            break
+                except Exception:
+                    pass
+
+                # 2. Fallback: try standard get_entity
+                if entity is None:
+                    try:
+                        entity = await client.get_entity(ident.lstrip('@'))
+                    except Exception:
+                        pass
+
+            if entity is None:
+                fail.append((label, ident, 'Could not resolve source by ID, name, or username'))
+            else:
                 ok.append((label, ident, getattr(entity, 'title', None) or getattr(entity, 'username', None)))
         except FloodWaitError as e:
             fail.append((label, ident, f'FloodWait: {e}'))

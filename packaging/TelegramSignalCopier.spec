@@ -2,11 +2,22 @@
 
 from pathlib import Path
 
-from PyInstaller.utils.hooks import collect_data_files, collect_submodules
-
 
 SPEC_DIR = Path(globals().get("SPECPATH", Path.cwd() / "packaging")).resolve()
 ROOT = SPEC_DIR.parent
+
+# ── Venv site-packages (for manual data collection) ──────────────────────────
+import glob as _glob
+
+def _site_data(pkg: str, *patterns: str) -> list[tuple[str, str]]:
+    """Collect data files from a venv package without importing it."""
+    base = ROOT / ".venv" / "Lib" / "site-packages" / pkg
+    result = []
+    for pat in patterns:
+        for f in base.glob(pat):
+            rel = f.parent.relative_to(ROOT / ".venv" / "Lib" / "site-packages")
+            result.append((str(f), str(rel).replace("\\", "/")))
+    return result
 
 datas = [
     (str(ROOT / ".env.example"), "."),
@@ -26,13 +37,46 @@ if _tess_portable.exists():
     for _dll in _tess_portable.glob("*.dll"):
         datas += [(str(_dll), "tesseract")]
 
-datas += collect_data_files("telethon")
-datas += collect_data_files("pytesseract")
-datas += collect_data_files("PIL")
+# Telethon has no non-Python data files — nothing to include
+# PIL / Pillow data files
+datas += _site_data("PIL", "*.dat", "*.txt")
 
-hiddenimports = []
-hiddenimports += collect_submodules("telethon")
-hiddenimports += collect_submodules("pytesseract")
+hiddenimports = [
+    # Telethon — only the submodules actually needed at runtime
+    "telethon.crypto",
+    "telethon.crypto.authkey",
+    "telethon.crypto.rsa",
+    "telethon.network",
+    "telethon.network.connection",
+    "telethon.network.connection.tcpabridged",
+    "telethon.network.connection.tcpfull",
+    "telethon.network.connection.tcpintermediate",
+    "telethon.network.connection.tcpmtproxy",
+    "telethon.network.connection.tcpobfuscated",
+    "telethon.network.mtprotosender",
+    "telethon.network.authenticator",
+    "telethon.sessions",
+    "telethon.sessions.sqlite",
+    "telethon.sessions.memory",
+    "telethon.tl",
+    "telethon.tl.functions",
+    "telethon.tl.types",
+    "telethon.tl.patched",
+    "telethon.events",
+    "telethon.events.newmessage",
+    "telethon.events.album",
+    "telethon.extensions",
+    "telethon.extensions.html",
+    "telethon.extensions.markdown",
+    # pytesseract
+    "pytesseract",
+    # GUI
+    "tkinter",
+    "tkinter.ttk",
+    "tkinter.messagebox",
+    # cryptography used by telethon
+    "cryptg",
+]
 
 
 a = Analysis(
@@ -44,7 +88,13 @@ a = Analysis(
     hookspath=[],
     hooksconfig={},
     runtime_hooks=[str(SPEC_DIR / "hook_tesseract_bundled.py")],
-    excludes=[],
+    excludes=[
+        # These hang during PyInstaller's module-analysis phase on this machine
+        # (SSL handshake stalls). They're available at runtime via the venv/system.
+        "win32com",
+        "win32api",
+        "_ssl",
+    ],
     noarchive=False,
 )
 pyz = PYZ(a.pure)

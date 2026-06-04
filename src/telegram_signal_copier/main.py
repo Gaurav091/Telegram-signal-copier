@@ -153,12 +153,18 @@ def build_arg_parser() -> argparse.ArgumentParser:
 
     subparsers.add_parser("login", help="Log in to Telegram and create a session file")
     subparsers.add_parser("listen", help="Listen to configured Telegram sources")
+    subparsers.add_parser("setup", help="Launch the first-run setup wizard")
     return parser
 
 
 def main() -> None:
     parser = build_arg_parser()
     args = parser.parse_args()
+
+    if args.command == "setup":
+        from telegram_signal_copier.setup_wizard import run_wizard
+        run_wizard()
+        return
 
     config = AppConfig.from_env()
     config.ensure_runtime_dirs()

@@ -57,7 +57,6 @@ class SignalCopierDashboard:
             color_scheme=ft.ColorScheme(
                 primary="#00e5ff",  # Neon Cyan
                 secondary="#00e676",  # Mint Green
-                background="#121214",
                 surface="#1e1e24",
                 error="#ff1744"
             )

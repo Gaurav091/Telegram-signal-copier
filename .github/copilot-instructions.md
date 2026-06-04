@@ -1,3 +1,37 @@
+## project fast-facts
+
+**Stack:** Python 3.11, Telethon, MetaTrader5 (MT5), OpenAI/Groq, asyncio pipeline  
+**Entry point:** `src/telegram_signal_copier/main.py`  
+**Venv:** `.venv\Scripts\python.exe`  
+**Config:** `.env` (root) — holds API keys, `TELEGRAM_SOURCES`, symbol whitelist, risk params  
+**Runtime files:** `runtime/listener.pid`, `runtime/listener.lock`, `runtime/sessions/`  
+**Logs:** `logs/pipeline_YYYY-MM-DD.jsonl` — one JSON record per processed message  
+**Pipeline flow:** Telegram msg → cluster_agent → intent_classifier → signal_parser → validation_agent → executor (MT5)  
+**Key source dirs:**  
+- `src/telegram_signal_copier/` — all app code  
+- `src/telegram_signal_copier/agents/` — agent modules (pipeline, execution, extraction, validation)  
+- `src/telegram_signal_copier/signal/` — heuristic + AI parsers  
+- `tools/` — standalone diagnostic/query scripts (run directly with venv python)  
+
+**Common tool scripts (run with `.venv\Scripts\python.exe tools/<script>.py`):**  
+- `_mt5_group_profits.py` — P&L by source group, last 10 days, from MT5 deal history  
+- `_find_fgmk.py` — find FGMK group signals  
+- `_find_new_groups*.py` — discover unmapped Telegram channels  
+- `search_mt5_logs.py` — search MT5 journal logs  
+
+**MT5 deal comments format:** `TG|<SLUG>|<msg_id>` where SLUG = first 15 chars of group name, uppercased, spaces→hyphens  
+**SLUG_TO_NAME map** lives in `tools/_mt5_group_profits.py` — update when adding new groups  
+
+## trade analysis policy
+
+When user asks about trade performance, losses, profits, group stats:
+
+1. Run `tools/_mt5_group_profits.py` directly — it pulls live MT5 history and prints ranked P&L table.
+2. Do NOT parse pipeline JSONL logs for P&L — MT5 deal history is authoritative.
+3. For per-signal detail, query `logs/pipeline_YYYY-MM-DD.jsonl` filtering by `source_group` and `action_taken: "FILLED"`.
+4. Loss groups = negative `profit_by_channel`. Win rate < 50% AND negative P&L = candidate to disable.
+5. To disable a group: remove or comment its entry from `TELEGRAM_SOURCES` in `.env`, then restart listener.
+
 ## graphify
 
 For any repository question in chat, use Graphify first.

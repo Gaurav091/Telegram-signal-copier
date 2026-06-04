@@ -11,3 +11,8 @@ bridge/inbox/*.cmd
 bridge/outbox/*.result
 bridge/inbox/*.json
 bridge/outbox/*.json
+settings.json
+runtime/
+logs/
+*.log
+*.egg-info/

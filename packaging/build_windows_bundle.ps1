@@ -58,6 +58,13 @@ function Find-Iscc {
 }
 
 if ($Clean) {
+    Write-Host "Stopping any running instances of TelegramSignalCopier or Python in this project to clear file locks..."
+    Get-Process -Name TelegramSignalCopier -ErrorAction SilentlyContinue | Stop-Process -Force
+    Get-Process -Name python -ErrorAction SilentlyContinue | Where-Object {
+        try { $_.Path -like "*Telegram signal Copier*" } catch { $false }
+    } | Stop-Process -Force
+    Start-Sleep -Seconds 1 # Allow file system handles to close
+
     Remove-Item (Join-Path $RepoRoot "build") -Recurse -Force -ErrorAction SilentlyContinue
     Remove-Item (Join-Path $RepoRoot "dist") -Recurse -Force -ErrorAction SilentlyContinue
 }

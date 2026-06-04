@@ -63,8 +63,41 @@ async def _probe():
     if sources:
         label, ident = sources[0]
         try:
-            entity = await client.get_entity(int(ident) if ident.isdigit() else ident)
-            print('Resolved source:', label, '->', getattr(entity, 'title', None) or getattr(entity, 'username', None))
+            is_numeric = False
+            try:
+                int(ident)
+                is_numeric = True
+            except ValueError:
+                pass
+
+            entity = None
+            if is_numeric:
+                raw_id = int(ident)
+                if raw_id < 0:
+                    entity = await client.get_entity(raw_id)
+                else:
+                    for attempt_id in (int(f'-100{ident}'), raw_id):
+                        try:
+                            entity = await client.get_entity(attempt_id)
+                            break
+                        except Exception:
+                            continue
+            else:
+                try:
+                    async for dialog in client.iter_dialogs():
+                        if dialog.name and dialog.name.strip().lower() == ident.strip().lower():
+                            entity = dialog.entity
+                            break
+                except Exception:
+                    pass
+
+                if entity is None:
+                    entity = await client.get_entity(ident)
+
+            if entity:
+                print('Resolved source:', label, '->', getattr(entity, 'title', None) or getattr(entity, 'username', None))
+            else:
+                raise ValueError('Could not resolve entity')
         except Exception as e:
             print('Failed to resolve source:', label, ident, ':', e)
 

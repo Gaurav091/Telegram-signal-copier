@@ -43,24 +43,48 @@ async def _probe():
     resolved = []
     for label, ident in sources:
         try:
-            raw_id = int(ident) if ident.isdigit() else None
-            if raw_id:
-                entity = None
-                for attempt_id in (int(f'-100{ident}'), raw_id):
+            is_numeric = False
+            try:
+                int(ident)
+                is_numeric = True
+            except ValueError:
+                pass
+
+            entity = None
+            if is_numeric:
+                raw_id = int(ident)
+                if raw_id < 0:
                     try:
-                        entity = await client.get_entity(attempt_id)
-                        break
+                        entity = await client.get_entity(raw_id)
                     except Exception:
-                        continue
-                if entity:
-                    resolved.append(entity)
-                    log.info('Resolved: %s', label)
+                        pass
                 else:
-                    log.warning('FAILED: %s (%s)', label, ident)
+                    for attempt_id in (int(f'-100{ident}'), raw_id):
+                        try:
+                            entity = await client.get_entity(attempt_id)
+                            break
+                        except Exception:
+                            continue
             else:
-                entity = await client.get_entity(ident.lstrip('@'))
+                try:
+                    async for dialog in client.iter_dialogs():
+                        if dialog.name and dialog.name.strip().lower() == ident.strip().lower():
+                            entity = dialog.entity
+                            break
+                except Exception:
+                    pass
+
+                if entity is None:
+                    try:
+                        entity = await client.get_entity(ident.lstrip('@'))
+                    except Exception:
+                        pass
+
+            if entity:
                 resolved.append(entity)
                 log.info('Resolved: %s', label)
+            else:
+                log.warning('FAILED: %s (%s)', label, ident)
         except Exception as e:
             log.warning('FAILED: %s (%s): %s', label, ident, e)
 

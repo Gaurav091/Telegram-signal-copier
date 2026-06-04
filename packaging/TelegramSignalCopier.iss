@@ -27,10 +27,11 @@ Source: "..\dist\TelegramSignalCopier\*"; DestDir: "{app}"; Flags: ignoreversion
 Source: "..\.env.example"; DestDir: "{userappdata}\TelegramSignalCopier"; DestName: ".env.example"; Flags: onlyifdoesntexist
 
 [Icons]
+Name: "{group}\Setup Wizard"; Filename: "{app}\{#MyAppExeName}"; Parameters: "setup"; WorkingDir: "{userappdata}\TelegramSignalCopier"; Comment: "First-run configuration wizard"
 Name: "{group}\Start Listener"; Filename: "{app}\{#MyAppExeName}"; Parameters: "listen"; WorkingDir: "{userappdata}\TelegramSignalCopier"
 Name: "{group}\Telegram Login"; Filename: "{app}\{#MyAppExeName}"; Parameters: "login"; WorkingDir: "{userappdata}\TelegramSignalCopier"
 Name: "{group}\Open Config Folder"; Filename: "{win}\explorer.exe"; Parameters: """{userappdata}\TelegramSignalCopier"""
 Name: "{group}\README"; Filename: "{app}\README.md"
 
 [Run]
-Filename: "{cmd}"; Parameters: "/C if not exist ""{userappdata}\TelegramSignalCopier\.env"" copy /Y ""{userappdata}\TelegramSignalCopier\.env.example"" ""{userappdata}\TelegramSignalCopier\.env"" >nul"; Flags: runhidden
+Filename: "{app}\{#MyAppExeName}"; Parameters: "setup"; WorkingDir: "{userappdata}\TelegramSignalCopier"; Description: "Run Setup Wizard now"; Flags: postinstall nowait skipifsilent

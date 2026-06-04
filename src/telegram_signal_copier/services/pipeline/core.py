@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import logging
 from dataclasses import asdict, dataclass
+from datetime import UTC, datetime
 from typing import Optional
 
 from telegram_signal_copier.adapters.bridge import FileBridgeExecutor
@@ -241,7 +242,25 @@ class CopierPipeline:
         # ── Stage 6: Execution ───────────────────────────────────────────────────────
         execution_result: ExecutionResult | None = None
         if decision.approved:
-            if self.config.dry_run:
+            # ── Expiry check — reject stale signals before sending to MT5 ────────────
+            max_age = getattr(self.config, "signal_max_age_seconds", 5400.0)
+            try:
+                received_dt = datetime.fromisoformat(message.received_at)
+                signal_age = (datetime.now(tz=UTC) - received_dt).total_seconds()
+            except Exception:
+                signal_age = 0.0
+            if signal_age > max_age:
+                age_min = signal_age / 60
+                logger.warning(
+                    "[EXPIRED] source=%s msg_id=%s age=%.1f min > max=%.0f min — signal discarded",
+                    message.source_group, message.message_id, age_min, max_age / 60,
+                )
+                execution_result = ExecutionResult(
+                    request_id="expired",
+                    status="EXPIRED",
+                    message=f"Signal expired: {age_min:.1f} min old (max {max_age/60:.0f} min)",
+                )
+            elif self.config.dry_run:
                 execution_result = ExecutionResult(
                     request_id="dry-run",
                     status="DRY_RUN",

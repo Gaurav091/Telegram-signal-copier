@@ -1,3 +1,0 @@
-[console_scripts]
-telegram-signal-copier = telegram_signal_copier.main:main
-telegram-signal-copier-mcp = telegram_signal_copier.mcp_server:main
