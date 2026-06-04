@@ -70,7 +70,7 @@ class SignalCopierDashboard:
         )
         self.search_box = ft.TextField(
             hint_text="Search channels...",
-            prefix_icon=ft.icons.SEARCH_ROUNDED,
+            prefix_icon=ft.Icons.SEARCH,
             height=40,
             text_size=13,
             content_padding=10,
@@ -84,12 +84,12 @@ class SignalCopierDashboard:
                 [
                     ft.Row(
                         [
-                            ft.Icon(ft.icons.SHIELD_SHAPED, color="#00e5ff", size=28),
+                            ft.Icon(ft.Icons.SHIELD, color="#00e5ff", size=28),
                             ft.Text("TRADECOPIER", size=20, weight=ft.FontWeight.BOLD, color="#ffffff"),
                             ft.Container(
                                 content=ft.Text("v1.2", size=10, color="#00e5ff"),
                                 bgcolor="#1a3238",
-                                padding=ft.padding.symmetric(horizontal=6, vertical=2),
+                                padding=ft.Padding.symmetric(horizontal=6, vertical=2),
                                 border_radius=4,
                             )
                         ],
@@ -99,7 +99,7 @@ class SignalCopierDashboard:
                     ft.Row(
                         [
                             ft.IconButton(
-                                icon=ft.icons.PLAY_ARROW_ROUNDED,
+                                icon=ft.Icons.PLAY_ARROW,
                                 icon_color="#00e676",
                                 icon_size=28,
                                 tooltip="Start Listener Daemon",
@@ -107,7 +107,7 @@ class SignalCopierDashboard:
                             ),
                             self.start_stop_button,
                             ft.IconButton(
-                                icon=ft.icons.SETTINGS_ROUNDED,
+                                icon=ft.Icons.SETTINGS,
                                 icon_color="#ffffff",
                                 tooltip="Open Settings",
                                 on_click=self.on_open_settings
@@ -118,9 +118,9 @@ class SignalCopierDashboard:
                 ],
                 alignment=ft.MainAxisAlignment.SPACE_BETWEEN
             ),
-            padding=ft.padding.only(left=20, right=20, top=15, bottom=15),
+            padding=ft.Padding.only(left=20, right=20, top=15, bottom=15),
             bgcolor="#16161a",
-            border=ft.border.only(bottom=ft.BorderSide(1, "#26262b"))
+            border=ft.Border.only(bottom=ft.BorderSide(1, "#26262b"))
         )
 
         # 2. Left sidebar: Channel List Manager
@@ -134,7 +134,7 @@ class SignalCopierDashboard:
                     self.sidebar_channels,
                     ft.ElevatedButton(
                         "Add New Channel",
-                        icon=ft.icons.ADD_ROUNDED,
+                        icon=ft.Icons.ADD,
                         color="#00e5ff",
                         bgcolor="#1a3238",
                         style=ft.ButtonStyle(shape=ft.RoundedRectangleBorder(radius=6)),
@@ -146,13 +146,13 @@ class SignalCopierDashboard:
             width=280,
             bgcolor="#16161a",
             padding=20,
-            border=ft.border.only(right=ft.BorderSide(1, "#26262b"))
+            border=ft.Border.only(right=ft.BorderSide(1, "#26262b"))
         )
 
         # 3. Right sidebar: Live Connection Status and lot sizes
-        self.tg_status_icon = ft.Icon(ft.icons.CIRCLE, color="#ff1744", size=10)
+        self.tg_status_icon = ft.Icon(ft.Icons.CIRCLE, color="#ff1744", size=10)
         self.tg_status_text = ft.Text("Disconnected", size=13, weight=ft.FontWeight.W_500)
-        self.mt5_status_icon = ft.Icon(ft.icons.CIRCLE, color="#ff1744", size=10)
+        self.mt5_status_icon = ft.Icon(ft.Icons.CIRCLE, color="#ff1744", size=10)
         self.mt5_status_text = ft.Text("Waiting (No Terminal)", size=13, weight=ft.FontWeight.W_500)
         
         self.metric_active_channels = ft.Text("0", size=16, color="#00e5ff", weight=ft.FontWeight.BOLD)
@@ -170,7 +170,7 @@ class SignalCopierDashboard:
             text_size=12,
             border_color="#36363b",
             content_padding=5,
-            on_change=self.on_quick_lot_mode_change
+            on_select=self.on_quick_lot_mode_change
         )
         self.quick_lot_input = ft.TextField(
             value="0.01",
@@ -209,7 +209,7 @@ class SignalCopierDashboard:
                         bgcolor="#1e1e24",
                         padding=12,
                         border_radius=6,
-                        border=ft.border.all(1, "#26262b")
+                        border=ft.Border.all(1, "#26262b")
                     ),
                     
                     ft.Text("SESSION METRICS", size=12, color="#7c7c82", weight=ft.FontWeight.W_600),
@@ -226,7 +226,7 @@ class SignalCopierDashboard:
                         bgcolor="#1e1e24",
                         padding=12,
                         border_radius=6,
-                        border=ft.border.all(1, "#26262b")
+                        border=ft.Border.all(1, "#26262b")
                     ),
                     
                     ft.Text("LOT SIZING", size=12, color="#7c7c82", weight=ft.FontWeight.W_600),
@@ -249,7 +249,7 @@ class SignalCopierDashboard:
                         bgcolor="#1e1e24",
                         padding=12,
                         border_radius=6,
-                        border=ft.border.all(1, "#26262b")
+                        border=ft.Border.all(1, "#26262b")
                     ),
                     
                     ft.Text("TP MODE STRATEGY", size=12, color="#7c7c82", weight=ft.FontWeight.W_600),
@@ -264,7 +264,7 @@ class SignalCopierDashboard:
                         bgcolor="#1e1e24",
                         padding=12,
                         border_radius=6,
-                        border=ft.border.all(1, "#26262b")
+                        border=ft.Border.all(1, "#26262b")
                     )
                 ],
                 spacing=12,
@@ -273,7 +273,7 @@ class SignalCopierDashboard:
             width=240,
             bgcolor="#16161a",
             padding=20,
-            border=ft.border.only(left=ft.BorderSide(1, "#26262b"))
+            border=ft.Border.only(left=ft.BorderSide(1, "#26262b"))
         )
 
         # 4. Central Dashboard Area: Trades list and charts
@@ -297,11 +297,11 @@ class SignalCopierDashboard:
 
         self.chart_container = ft.Container(
             content=ft.Text("Real-time equity/win tracking charts will load here once trades populate.", size=12, color="#7c7c82"),
-            alignment=ft.alignment.center,
+            alignment=ft.Alignment.CENTER,
             bgcolor="#16161a",
             height=140,
             border_radius=6,
-            border=ft.border.all(1, "#26262b")
+            border=ft.Border.all(1, "#26262b")
         )
 
         self.center_area = ft.Container(
@@ -312,7 +312,7 @@ class SignalCopierDashboard:
                             ft.Text("ACTIVE COPIED TRADES", size=14, weight=ft.FontWeight.BOLD, color="#ffffff"),
                             ft.TextButton(
                                 "Clear Table",
-                                icon=ft.icons.DELETE_SWEEP_ROUNDED,
+                                icon=ft.Icons.DELETE_SWEEP,
                                 style=ft.ButtonStyle(color="#ff1744"),
                                 on_click=self.on_clear_trades
                             )
@@ -324,7 +324,7 @@ class SignalCopierDashboard:
                         expand=True,
                         bgcolor="#16161a",
                         border_radius=6,
-                        border=ft.border.all(1, "#26262b"),
+                        border=ft.Border.all(1, "#26262b"),
                         padding=10
                     ),
                     ft.Text("PROFIT PERFORMANCE GROWTH", size=13, weight=ft.FontWeight.W_600, color="#ffffff"),
@@ -395,7 +395,7 @@ class SignalCopierDashboard:
                                 on_change=lambda e, lid=identifier: self.on_toggle_channel(lid, e.control.value)
                             ),
                             ft.IconButton(
-                                icon=ft.icons.DELETE_OUTLINE_ROUNDED,
+                                icon=ft.Icons.DELETE_OUTLINE,
                                 icon_color="#ff1744",
                                 icon_size=16,
                                 on_click=lambda e, lid=identifier: self.on_delete_channel(lid)
@@ -406,7 +406,7 @@ class SignalCopierDashboard:
                     bgcolor="#1e1e24",
                     padding=10,
                     border_radius=6,
-                    border=ft.border.all(1, "#26262b")
+                    border=ft.Border.all(1, "#26262b")
                 )
             )
         self.page.update()
@@ -561,7 +561,7 @@ class SignalCopierDashboard:
                             ft.Container(
                                 content=ft.Text(status_val, size=10, weight=ft.FontWeight.BOLD, color="#ffffff"),
                                 bgcolor=status_color,
-                                padding=ft.padding.symmetric(horizontal=8, vertical=2),
+                                padding=ft.Padding.symmetric(horizontal=8, vertical=2),
                                 border_radius=4
                             )
                         ),
@@ -840,7 +840,7 @@ class SignalCopierDashboard:
         dlg = ft.AlertDialog(
             title=ft.Row(
                 [
-                    ft.Icon(ft.icons.SETTINGS, color="#00e5ff"),
+                    ft.Icon(ft.Icons.SETTINGS, color="#00e5ff"),
                     ft.Text("TradeSync Parameters Configuration")
                 ],
                 spacing=8
