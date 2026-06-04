@@ -123,6 +123,17 @@ async def _run_with_restarts(config: AppConfig) -> None:
             _restart_logger.error("Listener crashed (attempt %d): %s\n%s", attempt, exc, tb)
             if isinstance(exc, (KeyboardInterrupt, SystemExit)):
                 raise
+            if "AuthKeyDuplicatedError" in type(exc).__name__:
+                _restart_logger.error(
+                    "CRITICAL ERROR: Telegram session authentication key was invalidated (AuthKeyDuplicatedError).\n"
+                    "This happens when the same session is used on two different machines/IPs simultaneously.\n"
+                    "TO RESOLVE:\n"
+                    "  1. Delete all '.session' files in the project root and in 'runtime/sessions/'.\n"
+                    "  2. Run the login command to create a new session: python -m telegram_signal_copier login\n"
+                    "  3. Restart the listener.\n"
+                    "Terminating runner..."
+                )
+                raise SystemExit(0)
             backoff = _restart_backoff_seconds(attempt)
             _restart_logger.info("Restarting listener in %ds (attempt %d)", backoff, attempt)
             await asyncio.sleep(backoff)

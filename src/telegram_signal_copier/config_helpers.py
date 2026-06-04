@@ -45,18 +45,11 @@ def _parse_source_spec(value: str) -> tuple[str, str]:
 
 
 def _validate_telegram_source_values(sources: list[str]) -> None:
-    invalid: list[str] = []
-    for source in sources:
-        label, identifier = _parse_source_spec(source)
-        normalized_identifier = identifier.strip()
-        if normalized_identifier and not normalized_identifier.isdigit():
-            invalid.append(f"{label}::{normalized_identifier}" if label != normalized_identifier else normalized_identifier)
-    if invalid:
-        joined = ", ".join(invalid)
-        raise ValueError(
-            "Invalid TELEGRAM_SOURCES values. Each source value must be numeric chat ID only "
-            f"(use Label{SOURCE_SPEC_SEPARATOR}1234567890 or 1234567890 format). Invalid entries: {joined}"
-        )
+    """Validate all Telegram source config mappings.
+
+    Relaxed to allow both numeric IDs (positive or negative) and text-based names.
+    """
+    pass
 
 
 def _bool_env(name: str, default: bool = False) -> bool:
@@ -119,11 +112,24 @@ def _load_first_dotenv(project_root: Path) -> None:
             return
 
 
+def _get_hostname() -> str:
+    import socket
+    try:
+        return socket.gethostname().strip().lower().replace(" ", "-")
+    except Exception:
+        return "local"
+
+
 def _build_env_kwargs(root: Path) -> dict:
     """Build the full kwargs dict for AppConfig from environment variables."""
     bridge_root = Path(os.getenv("MT5_BRIDGE_DIR", str(_default_bridge_root(root))))
     telegram_sources = _csv_env("TELEGRAM_SOURCES")
     _validate_telegram_source_values(telegram_sources)
+
+    session_name = os.getenv("TELEGRAM_SESSION_NAME", "telegram-signal-copier")
+    if not session_name or session_name == "telegram-signal-copier":
+        session_name = f"telegram-signal-copier-{_get_hostname()}"
+
     return {
         "project_root": root,
         "bridge_inbox_dir": bridge_root,
@@ -131,7 +137,7 @@ def _build_env_kwargs(root: Path) -> dict:
         "telegram_api_id": os.getenv("TELEGRAM_API_ID"),
         "telegram_api_hash": os.getenv("TELEGRAM_API_HASH"),
         "telegram_phone_number": os.getenv("TELEGRAM_PHONE_NUMBER"),
-        "telegram_session_name": os.getenv("TELEGRAM_SESSION_NAME", "telegram-signal-copier"),
+        "telegram_session_name": session_name,
         "telegram_sources": telegram_sources,
         "openai_api_key": os.getenv("OPENAI_API_KEY"),
         "openai_model": os.getenv("OPENAI_MODEL", "gpt-4o-mini"),
@@ -160,6 +166,10 @@ def _build_env_kwargs(root: Path) -> dict:
         "telegram_heuristic_only": _csv_env("TELEGRAM_HEURISTIC_ONLY"),
         "mt5_bridge_timeout_seconds": float(os.getenv("MT5_BRIDGE_TIMEOUT_SECONDS", "60")),
         "mt5_symbol_suffix": os.getenv("MT5_SYMBOL_SUFFIX", ""),
+        "signal_max_age_seconds": float(os.getenv("SIGNAL_MAX_AGE_SECONDS", "5400")),
+        "mt5_login": os.getenv("MT5_LOGIN", ""),
+        "mt5_password": os.getenv("MT5_PASSWORD", ""),
+        "mt5_server": os.getenv("MT5_SERVER", ""),
         "auto_add_new_symbols": _bool_env("AUTO_ADD_NEW_SYMBOLS", False),
         "dynamic_symbols_file": os.getenv("DYNAMIC_SYMBOLS_FILE", ""),
         "minimum_confidence": float(os.getenv("MINIMUM_CONFIDENCE", "0.70")),

@@ -1,4 +1,4 @@
-﻿"""Telegram signal listener — connects to Telegram and dispatches messages.
+"""Telegram signal listener — connects to Telegram and dispatches messages.
 
 Connection helpers, platform patches, and MessageBuffer live in telegram_helpers.py.
 """
@@ -89,8 +89,9 @@ class TelegramSignalListener:
         _prepare_telethon_ssl_runtime(self.config.project_root)
         from telethon import TelegramClient  # type: ignore[import-not-found]
 
+        session_path = self.config.project_root / self.config.telegram_session_name
         client = TelegramClient(
-            self.config.telegram_session_name,
+            str(session_path),
             int(self.config.telegram_api_id or "0"),
             self.config.telegram_api_hash or "",
         )
@@ -182,39 +183,60 @@ class TelegramSignalListener:
         except ImportError:
             FloodWaitError = Exception  # type: ignore[assignment,misc]
 
-        normalized_identifier = identifier[1:] if identifier.startswith("@") else identifier
+        normalized_identifier = identifier.strip()
 
-        if normalized_identifier.isdigit():
+        # 1. Try resolving as a numeric ID (integer, including negative signs)
+        is_numeric = False
+        try:
+            int(normalized_identifier)
+            is_numeric = True
+        except ValueError:
+            pass
+
+        if is_numeric:
             raw_id = int(normalized_identifier)
-            channel_id = int(f"-100{normalized_identifier}")
-            for attempt_id in (channel_id, raw_id):
+            # If positive ID (e.g. 192837465), try prepending -100 first, then raw
+            if raw_id > 0:
+                channel_id = int(f"-100{normalized_identifier}")
+                for attempt_id in (channel_id, raw_id):
+                    try:
+                        return await client.get_entity(attempt_id)  # type: ignore[attr-defined]
+                    except FloodWaitError as exc:
+                        raise _FloodWaitSkip(str(exc)) from exc
+                    except Exception:
+                        continue
+            else:
+                # If negative ID (e.g. -100192837465), try it directly
                 try:
-                    return await client.get_entity(attempt_id)  # type: ignore[attr-defined]
+                    return await client.get_entity(raw_id)  # type: ignore[attr-defined]
                 except FloodWaitError as exc:
                     raise _FloodWaitSkip(str(exc)) from exc
                 except Exception:
-                    logger.debug("get_entity(%s) failed, trying next format", attempt_id, exc_info=True)
-                    continue
+                    pass
+
+            raise RuntimeError(
+                f"Could not resolve numeric source '{label}' ({identifier}). "
+                "Check that the account has joined the channel."
+            )
+
+        # 2. If it's a name, search local joined dialogs first (works for private & public chats)
+        try:
+            async for dialog in client.iter_dialogs():  # type: ignore[attr-defined]
+                if dialog.name and dialog.name.strip().lower() == normalized_identifier.lower():
+                    return dialog.entity
+        except Exception as exc:
+            logger.debug("Local dialog search failed for %s: %s", normalized_identifier, exc)
+
+        # 3. If it starts with @ or is a username, try get_entity directly
+        if normalized_identifier.startswith("@"):
             try:
-                from telethon.tl.types import PeerChannel  # type: ignore[import-not-found]
-                return await client.get_entity(PeerChannel(raw_id))  # type: ignore[attr-defined]
+                return await client.get_entity(normalized_identifier)  # type: ignore[attr-defined]
             except FloodWaitError as exc:
                 raise _FloodWaitSkip(str(exc)) from exc
             except Exception:
-                logger.debug("get_entity(PeerChannel(%s)) failed", raw_id, exc_info=True)
                 pass
-            raise RuntimeError(
-                f"Could not resolve numeric source '{label}' ({identifier}) with any ID format. "
-                "Check that the account is a member of the channel."
-            )
 
-        try:
-            return await client.get_entity(normalized_identifier)  # type: ignore[attr-defined]
-        except FloodWaitError as exc:
-            raise _FloodWaitSkip(str(exc)) from exc
-        except Exception:
-            logger.debug("get_entity(%r) by string failed, falling back to search", normalized_identifier, exc_info=True)
-
+        # 4. Fallback: global search
         return await self._search_source_chat(client, label, normalized_identifier)
 
     async def _search_source_chat(self, client: object, label: str, identifier: str) -> object:

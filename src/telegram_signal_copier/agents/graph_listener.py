@@ -32,9 +32,12 @@ async def start_listener(
     except ImportError as exc:
         raise RuntimeError("telethon required: uv pip install telethon") from exc
 
+    import os
     api_id   = int(config.telegram_api_id or 0)
     api_hash = config.telegram_api_hash or ""
-    session  = session_path or config.telegram_session_name
+    session = session_path or config.telegram_session_name
+    if not os.path.isabs(str(session)):
+        session = str(config.project_root / session)
 
     client = TelegramClient(session, api_id, api_hash)
 
@@ -47,7 +50,14 @@ async def start_listener(
         label, identifier = _parse_source_spec(src)
         source_ids.add(_normalize_source_name(label))
         ident = identifier.lstrip("@").strip()
-        if ident.isdigit():
+        is_numeric = False
+        try:
+            int(ident)
+            is_numeric = True
+        except ValueError:
+            pass
+
+        if is_numeric:
             source_numeric_ids.add(ident)
         elif ident:
             source_usernames.add(ident.lower())
@@ -75,10 +85,34 @@ async def start_listener(
                 username = (getattr(chat, "username", "") or "").lower().lstrip("@")
                 chat_id_str = str(chat.id) if hasattr(chat, "id") else ""
                 normalized_title = _normalize_source_name(chat_title)
+
+                def numeric_match(cid: str, target_set: set[str]) -> bool:
+                    if not cid:
+                        return False
+                    try:
+                        c_val = int(cid)
+                        for target in target_set:
+                            try:
+                                t_val = int(target)
+                                if c_val == t_val:
+                                    return True
+                                s_c = str(c_val)
+                                s_t = str(t_val)
+                                if s_c.startswith("-100") and s_c[4:] == s_t:
+                                    return True
+                                if s_t.startswith("-100") and s_t[4:] == s_c:
+                                    return True
+                            except ValueError:
+                                continue
+                    except ValueError:
+                        pass
+                    return False
+
                 if not (
                     normalized_title in source_ids
                     or username in source_usernames
                     or chat_id_str in source_numeric_ids
+                    or numeric_match(chat_id_str, source_numeric_ids)
                 ):
                     return
 

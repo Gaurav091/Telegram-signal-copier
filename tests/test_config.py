@@ -87,7 +87,7 @@ class AppConfigTests(unittest.TestCase):
             self.assertEqual(config.telegram_api_id, "123456")
             self.assertEqual(config.default_volume, 0.05)
 
-    def test_from_env_rejects_non_numeric_telegram_sources(self) -> None:
+    def test_from_env_accepts_non_numeric_telegram_sources(self) -> None:
         with TemporaryDirectory() as tmp_dir:
             project_root = Path(tmp_dir) / "project"
             env = {
@@ -95,8 +95,12 @@ class AppConfigTests(unittest.TestCase):
                 "TELEGRAM_SOURCES": "FX VIP CLUB::@fxvipclub,1609490547",
             }
             with patch.dict(environ, env, clear=True):
-                with self.assertRaisesRegex(ValueError, "Invalid TELEGRAM_SOURCES values"):
-                    AppConfig.from_env(project_root=project_root)
+                config = AppConfig.from_env(project_root=project_root)
+
+        self.assertEqual(
+            config.telegram_source_mappings,
+            [("FX VIP CLUB", "@fxvipclub"), ("1609490547", "1609490547")],
+        )
 
     def test_from_env_accepts_labeled_numeric_telegram_sources(self) -> None:
         with TemporaryDirectory() as tmp_dir:

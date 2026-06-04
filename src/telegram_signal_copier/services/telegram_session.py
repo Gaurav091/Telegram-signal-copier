@@ -100,8 +100,9 @@ class TelegramSessionService:
 
             from telethon import TelegramClient  # type: ignore[import-not-found]
 
+            session_path = self.config.project_root / self.config.telegram_session_name
             client = TelegramClient(
-                self.config.telegram_session_name,
+                str(session_path),
                 int(self.config.telegram_api_id),
                 self.config.telegram_api_hash,
             )
@@ -120,8 +121,25 @@ class TelegramSessionService:
 
     async def _resolve_entity(self, client: Any, chat: str) -> Any:
         identifier = chat.strip()
-        if identifier.startswith("@"):
-            identifier = identifier[1:]
-        if identifier.isdigit():
-            return await client.get_entity(int(identifier))
-        return await client.get_entity(identifier)
+
+        # 1. Try resolving as a numeric ID (positive or negative integer)
+        try:
+            val = int(identifier)
+            return await client.get_entity(val)
+        except ValueError:
+            pass
+
+        # 2. Try matching case-insensitively by display name from local joined dialogs
+        try:
+            async for dialog in client.iter_dialogs():
+                if dialog.name and dialog.name.strip().lower() == identifier.lower():
+                    return dialog.entity
+        except Exception:
+            pass
+
+        # 3. Fallback: handle username (strip leading '@' if present, then get_entity)
+        username = identifier
+        if username.startswith("@"):
+            username = username[1:]
+
+        return await client.get_entity(username)
