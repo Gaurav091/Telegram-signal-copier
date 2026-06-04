@@ -95,6 +95,12 @@ class AppConfig:
     mt5_bridge_timeout_seconds: float = 60.0
     # Optional broker symbol suffix to append when writing bridge commands (e.g. 'm')
     mt5_symbol_suffix: str = ""
+    # Maximum age of a signal before it is expired instead of executed (seconds, default 90 min)
+    signal_max_age_seconds: float = 5400.0
+    # MT5 account credentials (used for analytics; MT5 terminal must be running)
+    mt5_login: str = ""
+    mt5_password: str = ""
+    mt5_server: str = ""
     # Auto-add new symbols discovered in incoming signals
     auto_add_new_symbols: bool = False
     # Path to persist dynamic symbols (one per line). If empty, defaults to bridge folder/dynamic_symbols.txt
@@ -107,7 +113,53 @@ class AppConfig:
         root = (project_root or _default_project_root()).expanduser()
         root.mkdir(parents=True, exist_ok=True)
         _load_first_dotenv(root)
-        return cls(**_build_env_kwargs(root))
+
+        kwargs = _build_env_kwargs(root)
+
+        # Override with settings.json if present
+        settings_file = root / "settings.json"
+        if settings_file.exists():
+            try:
+                import json
+                data = json.loads(settings_file.read_text(encoding="utf-8"))
+                mappings = {
+                    "telegram_api_id": "telegram_api_id",
+                    "telegram_api_hash": "telegram_api_hash",
+                    "telegram_phone_number": "telegram_phone_number",
+                    "telegram_session_name": "telegram_session_name",
+                    "telegram_sources": "telegram_sources",
+                    "openai_api_key": "openai_api_key",
+                    "openai_model": "openai_model",
+                    "openai_base_url": "openai_base_url",
+                    "mt5_symbol_suffix": "mt5_symbol_suffix",
+                    "default_volume": "default_volume",
+                    "minimum_confidence": "minimum_confidence",
+                    "approval_required_below": "approval_required_below",
+                    "allowed_symbols": "allowed_symbols",
+                    "dry_run": "dry_run",
+                    "minimum_rr_ratio": "minimum_rr_ratio",
+                }
+                for json_key, config_key in mappings.items():
+                    if json_key in data:
+                        val = data[json_key]
+                        if config_key in {"default_volume", "minimum_confidence", "approval_required_below", "minimum_rr_ratio"}:
+                            try:
+                                val = float(val)
+                            except (ValueError, TypeError):
+                                continue
+                        elif config_key == "dry_run":
+                            val = bool(val)
+                        elif config_key == "allowed_symbols" and isinstance(val, str):
+                            val = [s.strip() for s in val.split(",") if s.strip()]
+                        elif config_key == "telegram_sources" and isinstance(val, str):
+                            val = [s.strip() for s in val.split(",") if s.strip()]
+
+                        if val is not None and val != "":
+                            kwargs[config_key] = val
+            except Exception as exc:
+                logger.error("Failed to load settings.json into config: %s", exc)
+
+        return cls(**kwargs)
 
     def ensure_runtime_dirs(self) -> None:
         self.bridge_inbox_dir.mkdir(parents=True, exist_ok=True)
