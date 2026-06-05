@@ -437,9 +437,13 @@ class SignalCopierDashboard:
                 self.start_stop_button.style = ft.ButtonStyle(color="#00e676")
                 self.page.update()
 
-        # Read telegram_status.txt from bridge folder
+        # Read telegram_status.txt and ea_status.txt from bridge folder
         bridge_root = self.config.bridge_inbox_dir
+        if bridge_root.name.lower() == "inbox":
+            bridge_root = bridge_root.parent
+            
         status_file = bridge_root / "telegram_status.txt"
+        ea_status_file = bridge_root / "ea_status.txt"
         
         tg_connected = False
         mt5_connected = False
@@ -447,12 +451,29 @@ class SignalCopierDashboard:
         if status_file.exists():
             try:
                 status_text = status_file.read_text(encoding="utf-8")
-                lines = [l.strip() for l in status_text.splitlines() if l.strip()]
-                for line in lines:
-                    if "Telegram:" in line:
-                        tg_connected = "CONNECTED" in line or "running" in line
-                    if "Bridge:" in line or "MetaTrader:" in line:
-                        # If file exists and EA updates, MT5 is listening
+                for line in status_text.splitlines():
+                    if "=" in line:
+                        k, v = line.split("=", 1)
+                        if k.strip() == "telegram_connected" and v.strip() in {"1", "true", "True"}:
+                            tg_connected = True
+                        elif k.strip() == "listener_state" and v.strip() in {"running", "connected"}:
+                            tg_connected = True
+            except Exception:
+                pass
+
+        if ea_status_file.exists():
+            try:
+                ea_text = ea_status_file.read_text(encoding="utf-8")
+                ea_data = {}
+                for line in ea_text.splitlines():
+                    if "=" in line:
+                        k, v = line.split("=", 1)
+                        ea_data[k.strip()] = v.strip()
+                
+                hb_epoch = int(ea_data.get("heartbeat_epoch", "0"))
+                if hb_epoch > 0:
+                    current_epoch = int(time.time())
+                    if abs(current_epoch - hb_epoch) < 20:
                         mt5_connected = True
             except Exception:
                 pass
@@ -840,7 +861,7 @@ class SignalCopierDashboard:
             selected_index=0,
             tabs=[
                 ft.Tab(
-                    text="Trading Credentials",
+                    label="Trading Credentials",
                     content=ft.Container(
                         content=ft.Column(
                             [
@@ -856,7 +877,7 @@ class SignalCopierDashboard:
                     )
                 ),
                 ft.Tab(
-                    text="AI Provider Options",
+                    label="AI Provider Options",
                     content=ft.Container(
                         content=ft.Column(
                             [
@@ -871,7 +892,7 @@ class SignalCopierDashboard:
                     )
                 ),
                 ft.Tab(
-                    text="Time Range Filters",
+                    label="Time Range Filters",
                     content=ft.Container(
                         content=ft.Column(
                             [
@@ -886,7 +907,7 @@ class SignalCopierDashboard:
                     )
                 ),
                 ft.Tab(
-                    text="Keywords Parsing",
+                    label="Keywords Parsing",
                     content=ft.Container(
                         content=ft.Column(
                             [
