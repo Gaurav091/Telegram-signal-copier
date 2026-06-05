@@ -858,71 +858,76 @@ class SignalCopierDashboard:
             self.refresh_channels_list()
 
         tabs = ft.Tabs(
+            length=4,
             selected_index=0,
-            tabs=[
-                ft.Tab(
-                    label="Trading Credentials",
-                    content=ft.Container(
-                        content=ft.Column(
-                            [
-                                api_id_field,
-                                api_hash_field,
-                                phone_field,
-                                symbol_suffix_field,
-                            ],
-                            spacing=10,
-                            scroll=ft.ScrollMode.ALWAYS,
-                        ),
-                        padding=15
+            expand=True,
+            content=ft.Column(
+                expand=True,
+                controls=[
+                    ft.TabBar(
+                        tabs=[
+                            ft.Tab(label="Trading Credentials"),
+                            ft.Tab(label="AI Provider Options"),
+                            ft.Tab(label="Time Range Filters"),
+                            ft.Tab(label="Keywords Parsing"),
+                        ]
+                    ),
+                    ft.TabBarView(
+                        expand=True,
+                        controls=[
+                            ft.Container(
+                                content=ft.Column(
+                                    [
+                                        api_id_field,
+                                        api_hash_field,
+                                        phone_field,
+                                        symbol_suffix_field,
+                                    ],
+                                    spacing=10,
+                                    scroll=ft.ScrollMode.ALWAYS,
+                                ),
+                                padding=15
+                            ),
+                            ft.Container(
+                                content=ft.Column(
+                                    [
+                                        openai_key_field,
+                                        openai_model_field,
+                                        min_confidence_field,
+                                    ],
+                                    spacing=10,
+                                    scroll=ft.ScrollMode.ALWAYS,
+                                ),
+                                padding=15
+                            ),
+                            ft.Container(
+                                content=ft.Column(
+                                    [
+                                        time_filter_switch,
+                                        ft.Row([time_from_field, time_to_field], spacing=10),
+                                        ft.Text("Define hours during which trades are permitted to copy.", size=11, color="#7c7c82")
+                                    ],
+                                    spacing=10,
+                                    scroll=ft.ScrollMode.ALWAYS,
+                                ),
+                                padding=15
+                            ),
+                            ft.Container(
+                                content=ft.Column(
+                                    [
+                                        buy_keywords_field,
+                                        sell_keywords_field,
+                                        ft.Text("Define custom words to classify signals into BUY/SELL orders.", size=11, color="#7c7c82")
+                                    ],
+                                    spacing=10,
+                                    scroll=ft.ScrollMode.ALWAYS,
+                                ),
+                                padding=15
+                            ),
+                        ]
                     )
-                ),
-                ft.Tab(
-                    label="AI Provider Options",
-                    content=ft.Container(
-                        content=ft.Column(
-                            [
-                                openai_key_field,
-                                openai_model_field,
-                                min_confidence_field,
-                            ],
-                            spacing=10,
-                            scroll=ft.ScrollMode.ALWAYS,
-                        ),
-                        padding=15
-                    )
-                ),
-                ft.Tab(
-                    label="Time Range Filters",
-                    content=ft.Container(
-                        content=ft.Column(
-                            [
-                                time_filter_switch,
-                                ft.Row([time_from_field, time_to_field], spacing=10),
-                                ft.Text("Define hours during which trades are permitted to copy.", size=11, color="#7c7c82")
-                            ],
-                            spacing=10,
-                            scroll=ft.ScrollMode.ALWAYS,
-                        ),
-                        padding=15
-                    )
-                ),
-                ft.Tab(
-                    label="Keywords Parsing",
-                    content=ft.Container(
-                        content=ft.Column(
-                            [
-                                buy_keywords_field,
-                                sell_keywords_field,
-                                ft.Text("Define custom words to classify signals into BUY/SELL orders.", size=11, color="#7c7c82")
-                            ],
-                            spacing=10,
-                            scroll=ft.ScrollMode.ALWAYS,
-                        ),
-                        padding=15
-                    )
-                ),
-            ],
-            expand=True
+                ]
+            )
         )
 
         dlg = ft.AlertDialog(
