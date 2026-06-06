@@ -20,7 +20,7 @@ async def main() -> None:
     tmp_session = tmp_dir / "scan.session"
     shutil.copy2(primary, tmp_session)
     session_arg = str(tmp_session.with_suffix(""))
-    async with TelegramClient(session_arg, int(cfg.telegram_api_id), cfg.telegram_api_hash) as client:
+    async with TelegramClient(session_arg, int(cfg.telegram_api_id), cfg.telegram_api_hash) as client:  # type: ignore[not-async]
         for q in ["Forex Gold Market Killer", "Gold Market Killer", "FGMK"]:
             result = await client(SearchRequest(q=q, limit=10))
             if result.chats:

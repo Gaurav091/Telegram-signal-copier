@@ -186,7 +186,7 @@ def _build_env_kwargs(root: Path) -> dict:
     }
 
 
-def build_ai_providers(config: object) -> list[dict]:
+def build_ai_providers(config: Any) -> list[dict]:
     """Build the AI provider list from an AppConfig instance."""
     providers: list[dict] = []
     if getattr(config, "openai_api_key", None):

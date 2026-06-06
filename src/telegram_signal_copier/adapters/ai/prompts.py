@@ -4,6 +4,66 @@ Extracted from openai_client.py for maintainability.
 """
 from __future__ import annotations
 
+import os
+import textwrap
+
+
+_SMALL_MODEL_KEYWORDS = [
+    "haiku", "flash", "8b", "7b", "3b", "1b", "mini", "small",
+    "nano", "pico", "deepseek-chat", "llama-3.1-8b", "llama-3.2",
+    "gemini-flash", "gemini-nano", "mistral-7b", "mixtral-8x7b",
+    "phi-3", "qwen2", "qwen-2", "codestral", "command-r",
+]
+
+
+def _is_small_model(model_name: str | None) -> bool:
+    """Heuristic: does the model name sound like a "small" / cheap model?"""
+    if not model_name:
+        return False
+    lower = model_name.lower()
+    return any(kw in lower for kw in _SMALL_MODEL_KEYWORDS)
+
+
+def boost_system_prompt(base_prompt: str, extra_context: str = "", *,
+                        task_type: str = "GENERAL",
+                        model_name: str | None = None) -> str:
+    """Wrap a system prompt with the universal booster prefix.
+
+    Adds role hardening, chain-of-thought instruction, format constraints, and
+    a limitations footer.  Pass ``extra_context`` for per-invocation context
+    (e.g. recent trade state).
+
+    Boosting is automatically applied when:
+    - ``AI_BOOST_ENABLED=1`` is set in the environment, OR
+    - *model_name* looks like a "small" model (haiku, flash, 8b, etc.)
+    """
+    env_boost = os.environ.get("AI_BOOST_ENABLED", "")
+    if env_boost not in ("1", "true", "yes") and not _is_small_model(model_name):
+        return base_prompt
+    return textwrap.dedent(f"""\
+        {base_prompt}
+
+        --- Booster instructions ---
+        Before your final JSON output, write your internal reasoning step by step
+        inside <thinking> tags.
+
+        Task type: {task_type}
+
+        RULES:
+        - Be precise. Use specific numbers and facts.
+        - Avoid "might", "perhaps", "maybe", "I think".
+        - If insufficient data, set confidence=0.0 and explain in notes.
+        - Every numeric field must be extracted or null — never invented.
+
+        Extra context:
+        {extra_context if extra_context else "(none)"}
+
+        Limitations / assumptions:
+        - You see only this single message, not the full conversation.
+        - Price levels are parsed as-is; verify consistency with side before emitting.
+    """)
+
+
 PARSE_SIGNAL_SYSTEM_PROMPT = (
     "You are an expert trading signal analyst for a Telegram-to-MT5 signal copier. "
     "Extract a COMPLETE trading signal from the provided text and/or chart image(s).\n\n"

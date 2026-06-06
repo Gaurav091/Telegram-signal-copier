@@ -170,7 +170,7 @@ def main() -> None:
     if args.command == "dashboard":
         import flet as ft
         from telegram_signal_copier.gui import main as gui_main
-        ft.app(target=gui_main)
+        ft.run(gui_main, view=ft.AppView.FLET_APP)
         return
 
     config = AppConfig.from_env()

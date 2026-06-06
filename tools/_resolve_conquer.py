@@ -1,5 +1,6 @@
 """Resolve FOREX MARKET CONQUER group ID using Telethon."""
 import asyncio
+from typing import Any
 from telethon import TelegramClient
 from telethon.tl.functions.contacts import SearchRequest
 from telethon.tl.functions.channels import GetFullChannelRequest
@@ -12,7 +13,7 @@ cfg = AppConfig.from_env()
 session = str(pathlib.Path("runtime/sessions/telegram-signal-copier-listener.session"))
 
 async def main():
-    client = TelegramClient(session, cfg.telegram_api_id, cfg.telegram_api_hash)
+    client: Any = TelegramClient(session, int(cfg.telegram_api_id or 0), cfg.telegram_api_hash or "")
     await client.connect()
     if not await client.is_user_authorized():
         print("Not authorized")

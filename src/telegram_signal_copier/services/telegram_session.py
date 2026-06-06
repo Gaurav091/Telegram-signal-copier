@@ -45,7 +45,7 @@ class TelegramSessionService:
     async def list_dialogs(self, limit: int = 25, archived: bool = False) -> list[dict[str, Any]]:
         client = await self.get_client()
         dialogs: list[dict[str, Any]] = []
-        async for dialog in client.iter_dialogs(limit=max(1, min(limit, 100)), archived=archived):
+        async for dialog in client.iter_dialogs(limit=max(1, min(limit, 500)), archived=archived):
             entity = dialog.entity
             dialogs.append(
                 {
@@ -101,7 +101,7 @@ class TelegramSessionService:
             from telethon import TelegramClient  # type: ignore[import-not-found]
 
             session_path = self.config.project_root / self.config.telegram_session_name
-            client = TelegramClient(
+            client: Any = TelegramClient(
                 str(session_path),
                 int(self.config.telegram_api_id),
                 self.config.telegram_api_hash,
@@ -110,7 +110,7 @@ class TelegramSessionService:
 
             if not await client.is_user_authorized():
                 if self.config.telegram_bot_token:
-                    await client.start(bot_token=self.config.telegram_bot_token)
+                    await client.start(bot_token=self.config.telegram_bot_token)  # type: ignore[reportGeneralTypeIssues]
                 else:
                     raise RuntimeError(
                         "Telegram session is not authorized. Run `python -m telegram_signal_copier login` first."

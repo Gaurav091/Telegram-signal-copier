@@ -11,6 +11,7 @@ def norm(s):
     return unicodedata.normalize("NFKD", s or "").casefold().strip()
 
 async def main():
+    from typing import Any
     from telethon import TelegramClient
     from telegram_signal_copier.config import AppConfig
 
@@ -25,7 +26,7 @@ async def main():
     session_arg = str(tmp_session.with_suffix(""))
     print(f"Session copy: {tmp_session}", flush=True)
 
-    client = TelegramClient(session_arg, int(cfg.telegram_api_id), cfg.telegram_api_hash)
+    client: Any = TelegramClient(session_arg, int(cfg.telegram_api_id or 0), cfg.telegram_api_hash or "")
     try:
         await client.connect()
         if not await client.is_user_authorized():

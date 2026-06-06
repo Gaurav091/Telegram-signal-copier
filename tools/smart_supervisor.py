@@ -221,7 +221,7 @@ def _dry_run_message(raw_text: str, source_group: str) -> dict:
         from telegram_signal_copier.config import AppConfig
         from telegram_signal_copier.agents.graph import build_graph, run_on_message
         from telegram_signal_copier.agents._llm_shim import SimpleLLM
-        from telegram_signal_copier.services.openai_client import OpenAIClient
+        from telegram_signal_copier.adapters.openai_client import OpenAIClient  # type: ignore[import-not-found]
         from telegram_signal_copier.adapters.bridge import FileBridgeExecutor
 
         cfg = AppConfig.from_env(ROOT)
@@ -403,7 +403,7 @@ def _try_fix(failure, state: SupervisorState, args) -> bool:
     """Attempt to apply a developer-agent fix for the failure. Returns True if applied."""
     from telegram_signal_copier.agents.developer_agent import generate_patch, apply_patch
     from telegram_signal_copier.config import AppConfig
-    from telegram_signal_copier.services.openai_client import OpenAIClient
+    from telegram_signal_copier.adapters.openai_client import OpenAIClient  # type: ignore[import-not-found]
 
     category = failure.category
 
@@ -705,7 +705,7 @@ def _retro_fix_missed(missed_trades: list[dict], state: "SupervisorState", args)
         from telegram_signal_copier.agents.developer_agent import (
             FailureReport, generate_patch, apply_patch
         )
-        from telegram_signal_copier.services.openai_client import OpenAIClient
+        from telegram_signal_copier.adapters.openai_client import OpenAIClient  # type: ignore[import-not-found]
         from telegram_signal_copier.config import AppConfig
 
         cfg = AppConfig.from_env(ROOT)
@@ -780,7 +780,7 @@ def _analyse_rejections(
         from telegram_signal_copier.agents.developer_agent import (
             assess_false_positives, fix_false_positives,
         )
-        from telegram_signal_copier.services.openai_client import OpenAIClient
+        from telegram_signal_copier.adapters.openai_client import OpenAIClient  # type: ignore[import-not-found]
         from telegram_signal_copier.config import AppConfig
 
         rejected = [e for e in recent_logs if e.get("action_taken") == "REJECTED"]

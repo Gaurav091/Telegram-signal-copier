@@ -9,6 +9,7 @@ def norm(s):
     return unicodedata.normalize("NFKD", s or "").casefold().strip()
 
 async def main():
+    from typing import Any
     from telethon import TelegramClient
     from telethon.sessions import SQLiteSession, StringSession
     from telegram_signal_copier.config import AppConfig
@@ -30,7 +31,7 @@ async def main():
         return
 
     print("Session serialized OK. Connecting...")
-    client = TelegramClient(StringSession(serialized), int(cfg.telegram_api_id), cfg.telegram_api_hash)
+    client: Any = TelegramClient(StringSession(serialized), int(cfg.telegram_api_id or 0), cfg.telegram_api_hash or "")
     await client.connect()
     print("Connected. Scanning dialogs...")
 

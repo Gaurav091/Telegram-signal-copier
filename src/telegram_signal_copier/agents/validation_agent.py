@@ -114,9 +114,11 @@ def validation_agent_node(state: AgentState, app_config: AppConfig) -> dict[str,
 
     if not signal.symbol_raw:
         reasons.append(RejectionReason.MISSING_SYMBOL)
-    if signal.side is None:
+    side = signal.side
+    sl = signal.stop_loss
+    if side is None:
         reasons.append(RejectionReason.MISSING_SIDE)
-    if signal.stop_loss is None:
+    if sl is None:
         reasons.append(RejectionReason.MISSING_SL)
 
     if reasons:
@@ -219,12 +221,12 @@ def validation_agent_node(state: AgentState, app_config: AppConfig) -> dict[str,
             return {"rejection_reasons": reasons, "next_node": "reject"}
 
     rr = 0.0
-    if tps and entry_price is not None:
+    if tps and entry_price is not None and sl is not None and side is not None:
         # For multi-TP signals the trade is NOT forced to close at TP1.
         # Use the best achievable R:R (farthest TP) so that valid multi-TP
         # setups like "TP1 4543 / TP2 4557 / TP3 4570" aren't rejected just
         # because the first partial-profit target is close to entry.
-        rr_values = [_rr_ratio(signal.side, entry_price, sl, tp) for tp in tps]
+        rr_values = [_rr_ratio(side, entry_price, sl, tp) for tp in tps]
         rr = max(rr_values)                 # best R:R across all targets
         rr_tp1 = rr_values[0]              # kept for logging clarity
         if rr < min_rr:
@@ -245,17 +247,20 @@ def validation_agent_node(state: AgentState, app_config: AppConfig) -> dict[str,
         )
         return {"rejection_reasons": reasons, "next_node": "reject"}
 
-    fp = _fingerprint(broker_symbol, signal.side.value, entry_price, sl)
-    if fp in _SEEN_FINGERPRINTS:
-        reasons.append(RejectionReason.DUPLICATE)
-        logger.warning("[VALIDATE] REJECTED duplicate signal fingerprint")
-        return {"rejection_reasons": reasons, "next_node": "reject"}
-    _SEEN_FINGERPRINTS.add(fp)
+    if side is not None and sl is not None:
+        fp = _fingerprint(broker_symbol, side.value, entry_price, sl)
+        if fp in _SEEN_FINGERPRINTS:
+            reasons.append(RejectionReason.DUPLICATE)
+            logger.warning("[VALIDATE] REJECTED duplicate signal fingerprint")
+            return {"rejection_reasons": reasons, "next_node": "reject"}
+        _SEEN_FINGERPRINTS.add(fp)
 
     volume = getattr(app_config, "default_volume", 0.01)
+    assert side is not None  # validated earlier
+    assert sl is not None  # validated earlier
     validated = ValidatedSignal(
         symbol=broker_symbol,
-        side=signal.side,
+        side=side,
         order_type=signal.order_type,
         entry_price=entry_price,
         stop_loss=sl,

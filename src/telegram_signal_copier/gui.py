@@ -38,6 +38,7 @@ class SignalCopierDashboard:
         # UI State Cache
         self.channels_list: list[dict[str, str]] = []
         self.active_trades: list[dict[str, Any]] = []
+        self._all_telegram_dialogs: list[dict[str, Any]] = []
         
         self.setup_page_properties()
         self.build_ui()
@@ -433,7 +434,7 @@ class SignalCopierDashboard:
                 # Process died
                 self.listener_process = None
                 self.is_listener_running = False
-                self.start_stop_button.value = "START LISTENER"
+                self.start_stop_button.content = "START LISTENER"
                 self.start_stop_button.style = ft.ButtonStyle(color="#00e676")
                 self.page.update()
 
@@ -661,7 +662,7 @@ class SignalCopierDashboard:
             if identifier not in disabled_sources:
                 disabled_sources.append(identifier)
         self.settings_manager.set("disabled_sources", disabled_sources)
-        self.page.show_snack_bar(ft.SnackBar(content=ft.Text(f"Channel {'enabled' if is_enabled else 'disabled'} successfully")))
+        self.page.show_dialog(ft.SnackBar(content=ft.Text(f"Channel {'enabled' if is_enabled else 'disabled'} successfully")))
         self.refresh_channels_list()
 
     def on_delete_channel(self, identifier: str) -> None:
@@ -680,43 +681,191 @@ class SignalCopierDashboard:
         self.refresh_channels_list()
 
     def on_add_channel_dialog(self, e: ft.ControlEvent) -> None:
-        # Show input popup dialog
-        name_input = ft.TextField(label="Channel Display Name (Label)", autofocus=True)
-        ident_input = ft.TextField(label="Username (e.g. @channel) or Chat ID")
+        # Show input popup dialog with searching capability
+        search_field = ft.TextField(
+            label="Search joined Telegram groups/channels...",
+            autofocus=True,
+            on_change=lambda ev: self.populate_dialogs_list(results_list, ev.control.value)
+        )
+        results_list = ft.ListView(expand=True, spacing=5, height=220)
+        progress_indicator = ft.ProgressRing(visible=True, width=20, height=20)
+        status_text = ft.Text("Loading groups...", size=11, color="#7c7c82")
         
-        def close_dlg(ev):
-            self.page.dialog.open = False
-            self.page.update()
-
-        def add_channel(ev):
-            name = name_input.value.strip()
-            ident = ident_input.value.strip()
+        manual_name = ft.TextField(label="Custom Label / Name")
+        manual_ident = ft.TextField(label="Username (e.g. @channel) or Chat ID")
+        
+        def on_manual_add(ev):
+            name = manual_name.value.strip()
+            ident = manual_ident.value.strip()
             if not name or not ident:
                 return
-            
             sources = self.settings_manager.get("telegram_sources", [])
             sources.append(f"{name}::{ident}")
             self.settings_manager.set("telegram_sources", sources)
-            
             self.refresh_channels_list()
-            close_dlg(ev)
+            self.page.show_dialog(ft.SnackBar(content=ft.Text(f"Added custom source: {name}")))
+            self.page.pop_dialog()
 
         dlg = ft.AlertDialog(
-            title=ft.Text("Add Telegram Channel"),
-            content=ft.Column(
-                [name_input, ident_input],
-                tight=True,
-                spacing=10
+            title=ft.Text("Add Telegram Channel/Group"),
+            content=ft.Container(
+                content=ft.Column(
+                    [
+                        search_field,
+                        ft.Row([progress_indicator, status_text], spacing=8),
+                        results_list,
+                        ft.Divider(color="#26262b"),
+                        ft.ExpansionTile(
+                            title=ft.Text("Manually Add Custom Channel", size=12, weight=ft.FontWeight.W_600),
+                            controls=[
+                                ft.Column(
+                                    [
+                                        manual_name,
+                                        manual_ident,
+                                        ft.ElevatedButton(
+                                            "Add Custom Channel", 
+                                            bgcolor="#00e5ff", 
+                                            color="#121214", 
+                                            on_click=on_manual_add
+                                        )
+                                    ],
+                                    spacing=10
+                                )
+                            ]
+                        )
+                    ],
+                    tight=True,
+                    spacing=10
+                ),
+                width=500
             ),
             actions=[
-                ft.TextButton("Cancel", on_click=close_dlg),
-                ft.ElevatedButton("Add", bgcolor="#00e5ff", color="#121214", on_click=add_channel)
+                ft.TextButton("Cancel", on_click=lambda ev: self.page.pop_dialog())
             ],
             actions_alignment=ft.MainAxisAlignment.END
         )
-        self.page.dialog = dlg
-        dlg.open = True
-        self.page.update()
+        self.page.show_dialog(dlg)
+        # Load dialogs asynchronously in Flet background task
+        self.page.run_task(self.load_dialogs_async, results_list, progress_indicator, status_text)
+
+    async def load_dialogs_async(self, results_list: ft.ListView, progress_indicator: ft.ProgressRing, status_text: ft.Text) -> None:
+        import json
+        bridge_root = self.config.bridge_inbox_dir
+        if bridge_root.name.lower() == "inbox":
+            bridge_root = bridge_root.parent
+        dialogs_file = bridge_root / "telegram_dialogs.json"
+        
+        cached_dialogs = []
+        if dialogs_file.exists():
+            try:
+                cached_dialogs = json.loads(dialogs_file.read_text(encoding="utf-8"))
+            except Exception:
+                pass
+                
+        self._all_telegram_dialogs = cached_dialogs
+        self.populate_dialogs_list(results_list)
+        
+        if not self.is_listener_running:
+            try:
+                status_text.value = "Refreshing groups list from Telegram..."
+                status_text.update()
+            except Exception:
+                pass
+            try:
+                from telegram_signal_copier.services.telegram_session import TelegramSessionService
+                srv = TelegramSessionService(self.config)
+                fresh_dialogs = await srv.list_dialogs(limit=250)
+                dialogs_file.write_text(json.dumps(fresh_dialogs, indent=2, ensure_ascii=False), encoding="utf-8")
+                self._all_telegram_dialogs = fresh_dialogs
+                self.populate_dialogs_list(results_list)
+                status_text.value = f"Loaded {len(fresh_dialogs)} groups from Telegram."
+            except Exception as exc:
+                logger.debug("Failed dynamic dialog fetch: %s", exc)
+                status_text.value = f"Loaded {len(cached_dialogs)} groups from cache (offline)."
+        else:
+            status_text.value = f"Loaded {len(cached_dialogs)} groups from cache (active listener)."
+            
+        progress_indicator.visible = False
+        try:
+            progress_indicator.update()
+        except Exception:
+            pass
+        try:
+            status_text.update()
+        except Exception:
+            pass
+
+    def populate_dialogs_list(self, results_list: ft.ListView, query: str = "") -> None:
+        results_list.controls.clear()
+        query = query.lower().strip()
+        
+        configured_ids = {str(ident) for _, ident in self.config.telegram_source_mappings}
+        
+        count = 0
+        for dlg in self._all_telegram_dialogs:
+            title = dlg.get("title", "")
+            username = dlg.get("username", "") or ""
+            ident = str(dlg.get("id", ""))
+            
+            if query and (query not in title.lower() and query not in username.lower() and query not in ident):
+                continue
+                
+            is_added = ident in configured_ids or (username and f"@{username}" in configured_ids)
+            
+            results_list.controls.append(
+                ft.Container(
+                    content=ft.Row(
+                        [
+                            ft.Icon(
+                                ft.Icons.SETTINGS_INPUT_ANTENNA if dlg.get("is_channel") else ft.Icons.PEOPLE_ALT,
+                                color="#00e5ff" if dlg.get("is_channel") else "#00e676",
+                                size=20
+                            ),
+                            ft.Column(
+                                [
+                                    ft.Text(title, size=12, weight=ft.FontWeight.BOLD, color="#ffffff"),
+                                    ft.Text(f"@{username}" if username else f"ID: {ident}", size=10, color="#7c7c82")
+                                ],
+                                spacing=2,
+                                expand=True
+                            ),
+                            ft.IconButton(
+                                icon=ft.Icons.CHECK if is_added else ft.Icons.ADD,
+                                icon_color="#7c7c82" if is_added else "#00e676",
+                                tooltip="Already Added" if is_added else "Add Channel",
+                                disabled=is_added,
+                                on_click=lambda e, t=title, i=ident, u=username: self.add_dialog_to_sources(t, i, u)
+                            )
+                        ],
+                        alignment=ft.MainAxisAlignment.SPACE_BETWEEN
+                    ),
+                    padding=8,
+                    bgcolor="#26262b" if is_added else "#1e1e24",
+                    border_radius=5,
+                    border=ft.Border.all(1, "#36363b")
+                )
+            )
+            count += 1
+            if count >= 50:
+                break
+                
+        if not results_list.controls:
+            results_list.controls.append(ft.Text("No matching groups found.", size=12, color="#7c7c82"))
+            
+        try:
+            results_list.update()
+        except Exception:
+            pass
+
+    def add_dialog_to_sources(self, title: str, ident: str, username: str) -> None:
+        target_id = f"@{username}" if username else ident
+        sources = self.settings_manager.get("telegram_sources", [])
+        sources.append(f"{title}::{target_id}")
+        self.settings_manager.set("telegram_sources", sources)
+        
+        self.refresh_channels_list()
+        self.page.show_dialog(ft.SnackBar(content=ft.Text(f"Added source: {title}")))
+        self.page.pop_dialog()
 
     def on_clear_trades(self, e: ft.ControlEvent) -> None:
         """Clear the visual active trades list (deletes files from bridge folder)."""
@@ -758,7 +907,7 @@ class SignalCopierDashboard:
                 self.listener_process = None
             
             self.is_listener_running = False
-            self.start_stop_button.value = "START LISTENER"
+            self.start_stop_button.content = "START LISTENER"
             self.start_stop_button.style = ft.ButtonStyle(color="#00e676")
         else:
             # Start process
@@ -777,10 +926,10 @@ class SignalCopierDashboard:
                     stderr=subprocess.DEVNULL
                 )
                 self.is_listener_running = True
-                self.start_stop_button.value = "STOP LISTENER"
+                self.start_stop_button.content = "STOP LISTENER"
                 self.start_stop_button.style = ft.ButtonStyle(color="#ff1744")
             except Exception as exc:
-                self.page.show_snack_bar(ft.SnackBar(content=ft.Text(f"Failed to start listener: {exc}")))
+                self.page.show_dialog(ft.SnackBar(content=ft.Text(f"Failed to start listener: {exc}")))
         
         self.page.update()
 
@@ -788,9 +937,9 @@ class SignalCopierDashboard:
         try:
             val = float(self.quick_lot_input.value)
             self.settings_manager.set("default_volume", val)
-            self.page.show_snack_bar(ft.SnackBar(content=ft.Text(f"Quick lot size set to {val}!")))
+            self.page.show_dialog(ft.SnackBar(content=ft.Text(f"Quick lot size set to {val}!")))
         except ValueError:
-            self.page.show_snack_bar(ft.SnackBar(content=ft.Text("Invalid lot size! must be a float number.")))
+            self.page.show_dialog(ft.SnackBar(content=ft.Text("Invalid lot size! must be a float number.")))
 
     def on_quick_lot_mode_change(self, e: ft.ControlEvent) -> None:
         pass
@@ -825,8 +974,7 @@ class SignalCopierDashboard:
         )
 
         def close_settings(ev):
-            self.page.dialog.open = False
-            self.page.update()
+            self.page.pop_dialog()
 
         def save_settings(ev):
             # Save settings fields to settings_manager cache
@@ -853,7 +1001,7 @@ class SignalCopierDashboard:
             self.settings_manager.set("custom_buy_keywords", buy_list)
             self.settings_manager.set("custom_sell_keywords", sell_list)
             
-            self.page.show_snack_bar(ft.SnackBar(content=ft.Text("Settings saved successfully! (Config is updated)")))
+            self.page.show_dialog(ft.SnackBar(content=ft.Text("Settings saved successfully! (Config is updated)")))
             close_settings(ev)
             self.refresh_channels_list()
 
@@ -949,9 +1097,7 @@ class SignalCopierDashboard:
             ],
             actions_alignment=ft.MainAxisAlignment.END
         )
-        self.page.dialog = dlg
-        dlg.open = True
-        self.page.update()
+        self.page.show_dialog(dlg)
 
 
 def main(page: ft.Page) -> None:

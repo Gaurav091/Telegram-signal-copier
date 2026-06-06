@@ -39,7 +39,7 @@ async def start_listener(
     if not os.path.isabs(str(session)):
         session = str(config.project_root / session)
 
-    client = TelegramClient(session, api_id, api_hash)
+    client: Any = TelegramClient(session, api_id, api_hash)
 
     from telegram_signal_copier.config import _parse_source_spec  # type: ignore[attr-defined]
 
@@ -68,7 +68,7 @@ async def start_listener(
     _msg_logger.init(config.project_root / "logs")
 
     logger.info("[LISTENER] Connecting session=%s sources=%s", session, source_ids)
-    await client.start(phone=config.telegram_phone_number)
+    await client.start(phone=config.telegram_phone_number)  # type: ignore[reportGeneralTypeIssues]
     logger.info("[LISTENER] Connected.")
 
     @client.on(events.NewMessage())
@@ -198,4 +198,4 @@ async def start_listener(
         except Exception as exc:  # noqa: BLE001
             logger.exception("[LISTENER] Unhandled error: %s", exc)
 
-    await client.run_until_disconnected()
+    await client.run_until_disconnected()  # type: ignore[reportGeneralTypeIssues]

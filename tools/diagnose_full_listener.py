@@ -13,6 +13,7 @@ from telegram_signal_copier.config import AppConfig
 
 
 async def _probe():
+    from typing import Any
     from telethon import TelegramClient, events
     from telethon.sessions import SQLiteSession, StringSession
 
@@ -29,10 +30,10 @@ async def _probe():
         log.error('StringSession empty — not authorized')
         return
 
-    client = TelegramClient(StringSession(serialized), int(cfg.telegram_api_id), cfg.telegram_api_hash)
+    client: Any = TelegramClient(StringSession(serialized), int(cfg.telegram_api_id or 0), cfg.telegram_api_hash or "")
     log.info('Calling client.start...')
     try:
-        await client.start(phone=cfg.telegram_phone_number)
+        await client.start(phone=cfg.telegram_phone_number)  # type: ignore[reportGeneralTypeIssues]
         log.info('client.start complete')
     except Exception as e:
         log.error('client.start FAILED: %s', traceback.format_exc())
@@ -91,7 +92,7 @@ async def _probe():
     log.info('Resolved %d / %d sources', len(resolved), len(sources))
     if not resolved:
         log.error('No sources resolved')
-        await client.disconnect()
+        await client.disconnect()  # type: ignore[reportGeneralTypeIssues]
         return
 
     @client.on(events.NewMessage(chats=resolved))
@@ -107,7 +108,7 @@ async def _probe():
     except Exception as e:
         log.error('run_until_disconnected error: %s', traceback.format_exc())
     finally:
-        await client.disconnect()
+        await client.disconnect()  # type: ignore[reportGeneralTypeIssues]
         log.info('Disconnected')
 
 

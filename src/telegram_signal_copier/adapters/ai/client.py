@@ -21,6 +21,7 @@ from telegram_signal_copier.adapters.openai_prompts import (
     CLASSIFY_INTENT_SYSTEM_PROMPT,
     EXTRACT_CHART_LEVELS_SYSTEM_PROMPT,
     PARSE_SIGNAL_SYSTEM_PROMPT,
+    boost_system_prompt,
 )
 from telegram_signal_copier.adapters.openai_utils import (
     build_providers,
@@ -125,12 +126,14 @@ class OpenAIClient:
         ]
         if image_path:
             content.append({"type": "image_url", "image_url": {"url": image_data_url(Path(image_path))}})
+        boosted_intent = boost_system_prompt(CLASSIFY_INTENT_SYSTEM_PROMPT, extra_context=raw_text or "",
+                                              task_type="ANALYSIS", model_name=self.model)
         intent_payload = {
             "model": self.model,
             "temperature": 0.1,
             "response_format": {"type": "json_object"},
             "messages": [
-                {"role": "system", "content": CLASSIFY_INTENT_SYSTEM_PROMPT},
+                {"role": "system", "content": boosted_intent},
                 {"role": "user", "content": content},
             ],
         }
@@ -166,12 +169,15 @@ class OpenAIClient:
             {"type": "text", "text": f"Chart context: {context}. Identify stop loss and take profit levels from the chart."},
             {"type": "image_url", "image_url": {"url": image_data_url(Path(image_path))}},
         ]
+        boosted_chart = boost_system_prompt(EXTRACT_CHART_LEVELS_SYSTEM_PROMPT,
+                                             extra_context=context, task_type="ANALYSIS",
+                                             model_name=self.model)
         payload = {
             "model": self.model,
             "temperature": 0.1,
             "response_format": {"type": "json_object"},
             "messages": [
-                {"role": "system", "content": EXTRACT_CHART_LEVELS_SYSTEM_PROMPT},
+                {"role": "system", "content": boosted_chart},
                 {"role": "user", "content": content},
             ],
         }
@@ -204,12 +210,14 @@ class OpenAIClient:
                     img_paths.append(p)
         for img in img_paths[:4]:
             content.append({"type": "image_url", "image_url": {"url": image_data_url(Path(img))}})
+        boosted_system = boost_system_prompt(PARSE_SIGNAL_SYSTEM_PROMPT, extra_context=raw_text or "",
+                                              model_name=self.model)
         return {
             "model": self.model,
             "temperature": 0.1,
             "response_format": {"type": "json_object"},
             "messages": [
-                {"role": "system", "content": PARSE_SIGNAL_SYSTEM_PROMPT},
+                {"role": "system", "content": boosted_system},
                 {"role": "user", "content": content if has_vision else raw_text},
             ],
         }

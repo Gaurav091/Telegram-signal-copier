@@ -26,7 +26,12 @@ UninstallDisplayIcon={app}\{#MyAppExeName}
 Source: "..\dist\TelegramSignalCopier\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
 Source: "..\.env.example"; DestDir: "{userappdata}\TelegramSignalCopier"; DestName: ".env.example"; Flags: onlyifdoesntexist
 
+[Tasks]
+Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{cm:AdditionalIcons}"; Flags: unchecked
+
 [Icons]
+Name: "{group}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"; WorkingDir: "{userappdata}\TelegramSignalCopier"
+Name: "{autodesktop}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"; Tasks: desktopicon; WorkingDir: "{userappdata}\TelegramSignalCopier"
 Name: "{group}\Setup Wizard"; Filename: "{app}\{#MyAppExeName}"; Parameters: "setup"; WorkingDir: "{userappdata}\TelegramSignalCopier"; Comment: "First-run configuration wizard"
 Name: "{group}\Start Listener"; Filename: "{app}\{#MyAppExeName}"; Parameters: "listen"; WorkingDir: "{userappdata}\TelegramSignalCopier"
 Name: "{group}\Telegram Login"; Filename: "{app}\{#MyAppExeName}"; Parameters: "login"; WorkingDir: "{userappdata}\TelegramSignalCopier"

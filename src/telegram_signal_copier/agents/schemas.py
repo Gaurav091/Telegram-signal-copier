@@ -95,7 +95,7 @@ class ExtractedSignal:
         return cls(
             symbol_raw=data.get("symbol_raw") or data.get("symbol"),
             side=data.get("side"),
-            order_type=data.get("order_type") or "MARKET",
+            order_type=data.get("order_type", "MARKET") or "MARKET",
             entry_price=_maybe_float(data.get("entry_price")),
             stop_loss=_maybe_float(data.get("stop_loss")),
             take_profits=[float(v) for v in tps if v not in (None, "")],

@@ -10,10 +10,11 @@ def norm(s):
     return unicodedata.normalize("NFKD", s or "").casefold().strip()
 
 async def main():
+    from typing import Any
     from telethon import TelegramClient
     from telegram_signal_copier.config import AppConfig
     cfg = AppConfig.from_env(Path(__file__).resolve().parents[1])
-    client = TelegramClient(cfg.telegram_session_name, int(cfg.telegram_api_id), cfg.telegram_api_hash)
+    client: Any = TelegramClient(cfg.telegram_session_name, int(cfg.telegram_api_id or 0), cfg.telegram_api_hash or "")
     await client.connect()
     OUT.write_text("Scanning...\n", encoding="utf-8")
     found, count = [], 0

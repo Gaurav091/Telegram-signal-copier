@@ -48,6 +48,7 @@ def fail(msg: str) -> None:
 from telegram_signal_copier.models import ExecutionResult
 from telegram_signal_copier.config import AppConfig
 from telegram_signal_copier.agents.graph import build_graph, run_on_message
+from telegram_signal_copier.agents.schemas import AgentState
 
 td_path = pathlib.Path(tempfile.mkdtemp())
 
@@ -87,7 +88,7 @@ graph = build_graph(config, mock_llm, mock_executor)
 failures: list[str] = []
 
 
-def run(label: str, raw_text: str, llm_json: dict, msg_id: str) -> "AgentState":  # noqa: F821
+def run(label: str, raw_text: str, llm_json: dict, msg_id: str) -> AgentState:
     mock_llm.invoke.return_value = MagicMock(content=json.dumps(llm_json))
     return run_on_message(graph, raw_text, source_group="TEST_CHAN", message_id=msg_id)
 

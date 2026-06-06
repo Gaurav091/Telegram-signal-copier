@@ -90,7 +90,7 @@ class AppConfig:
     ai_persistent_cache: bool = False
     ai_cache_path: str = ""
     # Per-source heuristic-only (comma-separated labels or identifiers)
-    telegram_heuristic_only: list[str] = None
+    telegram_heuristic_only: list[str] | None = None
     # MT5 bridge timeout
     mt5_bridge_timeout_seconds: float = 60.0
     # Optional broker symbol suffix to append when writing bridge commands (e.g. 'm')
@@ -110,10 +110,10 @@ class AppConfig:
     time_from: str = "00:00"
     time_to: str = "23:59"
     # Custom Keywords
-    custom_buy_keywords: list[str] = None
-    custom_sell_keywords: list[str] = None
+    custom_buy_keywords: list[str] | None = None
+    custom_sell_keywords: list[str] | None = None
     # runtime cache for dynamic symbols (not part of env)
-    _dynamic_symbols_cache: set[str] = None
+    _dynamic_symbols_cache: set[str] | None = None
 
     @classmethod
     def from_env(cls, project_root: Path | None = None) -> "AppConfig":
@@ -171,7 +171,7 @@ class AppConfig:
                             elif not isinstance(val, list):
                                 val = []
 
-                        if val is not None and val != "":
+                        if val is not None and val != "" and val != []:
                             kwargs[config_key] = val
             except Exception as exc:
                 logger.error("Failed to load settings.json into config: %s", exc)

@@ -17,6 +17,8 @@ from telegram_signal_copier.adapters.telegram_helpers import (
     _patched_platform_uname_for_telethon,
     _prepare_telethon_ssl_runtime,
 )
+from typing import Any
+
 from telegram_signal_copier.config import AppConfig
 from telegram_signal_copier.models import TelegramSignalMessage
 
@@ -53,7 +55,7 @@ class TelegramSignalListener:
 
         logger.info("[TG] constructing TelegramClient")
         with _patched_platform_uname_for_telethon():
-            client = TelegramClient(
+            client: Any = TelegramClient(
                 session,
                 int(self.config.telegram_api_id or "0"),
                 self.config.telegram_api_hash or "",
@@ -63,6 +65,31 @@ class TelegramSignalListener:
         logger.info("[TG] connecting listener client")
         await self._connect_listener_client(client)
         logger.info("[TG] listener client connected")
+        
+        # Cache joined dialogs for GUI search
+        try:
+            logger.info("[TG] caching user dialogs...")
+            cached_dialogs = []
+            async for dialog in client.iter_dialogs(limit=500):
+                entity = dialog.entity
+                if dialog.is_group or dialog.is_channel:
+                    cached_dialogs.append({
+                        "id": dialog.id,
+                        "title": dialog.name or "",
+                        "username": getattr(entity, "username", None) or "",
+                        "is_channel": bool(dialog.is_channel),
+                        "is_group": bool(dialog.is_group)
+                    })
+            import json
+            bridge_root = self.config.bridge_inbox_dir
+            if bridge_root.name.lower() == "inbox":
+                bridge_root = bridge_root.parent
+            dialogs_file = bridge_root / "telegram_dialogs.json"
+            dialogs_file.write_text(json.dumps(cached_dialogs, indent=2, ensure_ascii=False), encoding="utf-8")
+            logger.info("[TG] cached %d dialogs to %s", len(cached_dialogs), dialogs_file)
+        except Exception as exc:
+            logger.warning("[TG] failed to cache user dialogs: %s", exc)
+
         source_chats = await self._resolve_source_chats(client)
         logger.info("[TG] source chats resolved: %d", len(source_chats))
 
@@ -73,14 +100,14 @@ class TelegramSignalListener:
         event_builder = events.NewMessage(chats=source_chats)
 
         @client.on(event_builder)
-        async def handler(event: object) -> None:
+        async def handler(event: Any) -> None:
             message = await self._event_to_message(event)
             if buffer is not None:
                 await buffer.add(message, on_message)
             else:
                 await on_message(message)
 
-        await client.run_until_disconnected()
+        await client.run_until_disconnected()  # type: ignore[reportGeneralTypeIssues]
 
     async def login(self) -> None:
         if not self.config.telegram_login_ready:
@@ -89,30 +116,55 @@ class TelegramSignalListener:
         _prepare_telethon_ssl_runtime(self.config.project_root)
         from telethon import TelegramClient  # type: ignore[import-not-found]
 
+        session_file = self.config.project_root / f"{self.config.telegram_session_name}.session"
+        if session_file.exists() and self.config.telegram_phone_number:
+            try:
+                # Check if currently authorized as a bot
+                temp_client: Any = TelegramClient(
+                    str(session_file.with_suffix("")),
+                    int(self.config.telegram_api_id or "0"),
+                    self.config.telegram_api_hash or "",
+                )
+                await temp_client.connect()
+                is_auth = await temp_client.is_user_authorized()
+                me = await temp_client.get_me() if is_auth else None
+                is_bot = me.bot if me else False
+                await temp_client.disconnect()  # type: ignore[reportGeneralTypeIssues]
+                
+                if is_bot:
+                    logger.info("Current session is a Bot session, but a user phone number is configured. Deleting old bot session to force user login...")
+                    try:
+                        import os
+                        os.remove(session_file)
+                    except Exception as e:
+                        logger.warning("Failed to delete old bot session file: %s", e)
+            except Exception as exc:
+                logger.warning("Failed to check if session is bot: %s", exc)
+
         session_path = self.config.project_root / self.config.telegram_session_name
-        client = TelegramClient(
+        client: Any = TelegramClient(
             str(session_path),
             int(self.config.telegram_api_id or "0"),
             self.config.telegram_api_hash or "",
         )
         await self._start_client(client)
-        await client.disconnect()
+        await client.disconnect()  # type: ignore[reportGeneralTypeIssues]
 
-    async def _start_client(self, client: object) -> None:
+    async def _start_client(self, client: Any) -> None:
         if self.config.telegram_phone_number:
-            await client.start(phone=self.config.telegram_phone_number)  # type: ignore[attr-defined]
+            await client.start(phone=self.config.telegram_phone_number)
             return
         if self.config.telegram_bot_token:
-            await client.start(bot_token=self.config.telegram_bot_token)  # type: ignore[attr-defined]
+            await client.start(bot_token=self.config.telegram_bot_token)
             return
         raise RuntimeError("Telegram login requested without phone number or bot token")
 
-    async def _connect_listener_client(self, client: object) -> None:
-        await client.connect()  # type: ignore[attr-defined]
-        if await client.is_user_authorized():  # type: ignore[attr-defined]
+    async def _connect_listener_client(self, client: Any) -> None:
+        await client.connect()
+        if await client.is_user_authorized():
             return
         if self.config.telegram_bot_token:
-            await client.start(bot_token=self.config.telegram_bot_token)  # type: ignore[attr-defined]
+            await client.start(bot_token=self.config.telegram_bot_token)
             return
         raise RuntimeError(
             "Telegram listener session is not authorized. Run `python -m telegram_signal_copier login` first."
@@ -128,7 +180,7 @@ class TelegramSignalListener:
 
         return str(listener_session.with_suffix(""))
 
-    def _listener_session(self) -> object:
+    def _listener_session(self) -> Any:
         from telethon.sessions import SQLiteSession, StringSession  # type: ignore[import-not-found]
 
         session_name = self._listener_session_name()
@@ -147,7 +199,7 @@ class TelegramSignalListener:
             return True
         return primary_session.stat().st_mtime > listener_session.stat().st_mtime
 
-    async def _resolve_source_chats(self, client: object) -> list[object]:
+    async def _resolve_source_chats(self, client: Any) -> list[object]:
         resolved: list[object] = []
         skipped: list[str] = []
         for label, source in self.config.telegram_source_mappings:
@@ -177,7 +229,7 @@ class TelegramSignalListener:
             )
         return resolved
 
-    async def _resolve_source_chat(self, client: object, label: str, identifier: str) -> object:
+    async def _resolve_source_chat(self, client: Any, label: str, identifier: str) -> object:
         try:
             from telethon.errors import FloodWaitError  # type: ignore[import-not-found]
         except ImportError:
@@ -200,15 +252,14 @@ class TelegramSignalListener:
                 channel_id = int(f"-100{normalized_identifier}")
                 for attempt_id in (channel_id, raw_id):
                     try:
-                        return await client.get_entity(attempt_id)  # type: ignore[attr-defined]
+                        return await client.get_entity(attempt_id)
                     except FloodWaitError as exc:
                         raise _FloodWaitSkip(str(exc)) from exc
                     except Exception:
                         continue
             else:
-                # If negative ID (e.g. -100192837465), try it directly
                 try:
-                    return await client.get_entity(raw_id)  # type: ignore[attr-defined]
+                    return await client.get_entity(raw_id)
                 except FloodWaitError as exc:
                     raise _FloodWaitSkip(str(exc)) from exc
                 except Exception:
@@ -221,16 +272,15 @@ class TelegramSignalListener:
 
         # 2. If it's a name, search local joined dialogs first (works for private & public chats)
         try:
-            async for dialog in client.iter_dialogs():  # type: ignore[attr-defined]
+            async for dialog in client.iter_dialogs():
                 if dialog.name and dialog.name.strip().lower() == normalized_identifier.lower():
                     return dialog.entity
         except Exception as exc:
             logger.debug("Local dialog search failed for %s: %s", normalized_identifier, exc)
 
-        # 3. If it starts with @ or is a username, try get_entity directly
         if normalized_identifier.startswith("@"):
             try:
-                return await client.get_entity(normalized_identifier)  # type: ignore[attr-defined]
+                return await client.get_entity(normalized_identifier)
             except FloodWaitError as exc:
                 raise _FloodWaitSkip(str(exc)) from exc
             except Exception:
@@ -239,7 +289,7 @@ class TelegramSignalListener:
         # 4. Fallback: global search
         return await self._search_source_chat(client, label, normalized_identifier)
 
-    async def _search_source_chat(self, client: object, label: str, identifier: str) -> object:
+    async def _search_source_chat(self, client: Any, label: str, identifier: str) -> object:
         try:
             from telethon.errors import FloodWaitError  # type: ignore[import-not-found]
             from telethon.tl.functions.contacts import SearchRequest  # type: ignore[import-not-found]
@@ -248,7 +298,7 @@ class TelegramSignalListener:
             raise RuntimeError("telethon not available")
 
         try:
-            result = await client(SearchRequest(q=label, limit=20))  # type: ignore[attr-defined]
+            result = await client(SearchRequest(q=label, limit=20))
         except FloodWaitError as exc:
             raise _FloodWaitSkip(str(exc)) from exc
 
@@ -271,22 +321,22 @@ class TelegramSignalListener:
             "(ensure the account has joined the group)"
         )
 
-    async def _event_to_message(self, event: object) -> TelegramSignalMessage:
-        chat = await event.get_chat()  # type: ignore[attr-defined]
-        sender = await event.get_sender()  # type: ignore[attr-defined]
-        raw_text = getattr(event, "raw_text", "") or ""  # type: ignore[attr-defined]
+    async def _event_to_message(self, event: Any) -> TelegramSignalMessage:
+        chat = await event.get_chat()
+        sender = await event.get_sender()
+        raw_text = getattr(event, "raw_text", "") or ""
         image_path = await self._download_media(event)
         return TelegramSignalMessage(
             source_group=getattr(chat, "title", None) or getattr(chat, "username", "unknown-source"),
-            message_id=str(event.id),  # type: ignore[attr-defined]
+            message_id=str(event.id),
             raw_text=raw_text,
             image_path=image_path,
             sender=getattr(sender, "username", None) or getattr(sender, "first_name", None),
         )
 
-    async def _download_media(self, event: object) -> str | None:
-        if not getattr(event.message, "photo", None):  # type: ignore[attr-defined]
+    async def _download_media(self, event: Any) -> str | None:
+        if not getattr(event.message, "photo", None):
             return None
-        file_path = self._media_dir / f"{event.id}.jpg"  # type: ignore[attr-defined]
-        downloaded = await event.download_media(file=file_path)  # type: ignore[attr-defined]
+        file_path = self._media_dir / f"{event.id}.jpg"
+        downloaded = await event.download_media(file=file_path)
         return str(Path(downloaded)) if downloaded else None

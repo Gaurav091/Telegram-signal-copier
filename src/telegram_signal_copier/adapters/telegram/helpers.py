@@ -83,7 +83,7 @@ def _normalize_source_name(name: str) -> str:
 
 
 @contextmanager
-def _patched_platform_uname_for_telethon() -> object:
+def _patched_platform_uname_for_telethon() -> object:  # type: ignore[misc]
     if os.name != "nt":
         yield
         return

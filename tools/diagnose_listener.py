@@ -11,6 +11,7 @@ from telegram_signal_copier.config import AppConfig
 
 
 async def _probe():
+    from typing import Any
     from telethon import TelegramClient
     from telethon.sessions import SQLiteSession, StringSession
 
@@ -37,7 +38,7 @@ async def _probe():
 
     print('StringSession loaded ok, length', len(serialized))
 
-    client = TelegramClient(
+    client: Any = TelegramClient(
         StringSession(serialized),
         int(cfg.telegram_api_id or '0'),
         cfg.telegram_api_hash or '',
