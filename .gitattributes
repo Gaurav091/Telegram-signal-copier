@@ -1,0 +1,29 @@
+# Auto-detect text files and normalize line endings
+* text=auto
+
+# Explicitly declare text files
+*.py text diff=python
+*.pyi text
+*.md text
+*.yml text
+*.yaml text
+*.json text
+*.toml text
+*.cfg text
+*.ini text
+*.txt text
+*.cmd text eol=crlf
+*.ps1 text eol=crlf
+*.bat text eol=crlf
+*.iss text eol=crlf
+*.spec text
+
+# Binary files should stay as-is
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.ico binary
+*.exe binary
+*.dll binary
+*.so binary
+*.pyc binary
