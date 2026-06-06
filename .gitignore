@@ -16,3 +16,7 @@ runtime/
 logs/
 *.log
 *.egg-info/
+.opencode/
+scratch/
+*.pid
+nul
