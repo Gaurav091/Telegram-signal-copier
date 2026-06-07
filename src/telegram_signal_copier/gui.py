@@ -677,10 +677,10 @@ class SignalCopierDashboard:
         self.settings_manager.set("telegram_sources", updated)
         self.refresh_channels_list()
 
-    def on_search_channels(self, e: ft.ControlEvent) -> None:
+    def on_search_channels(self, e: Any = None) -> None:
         self.refresh_channels_list()
 
-    def on_add_channel_dialog(self, e: ft.ControlEvent) -> None:
+    def on_add_channel_dialog(self, e: Any = None) -> None:
         # Show input popup dialog with searching capability
         search_field = ft.TextField(
             label="Search joined Telegram groups/channels...",
@@ -867,7 +867,7 @@ class SignalCopierDashboard:
         self.page.show_dialog(ft.SnackBar(content=ft.Text(f"Added source: {title}")))
         self.page.pop_dialog()
 
-    def on_clear_trades(self, e: ft.ControlEvent) -> None:
+    def on_clear_trades(self, e: Any = None) -> None:
         """Clear the visual active trades list (deletes files from bridge folder)."""
         bridge_dir = self.config.bridge_inbox_dir
         if not bridge_dir.exists():
@@ -891,7 +891,7 @@ class SignalCopierDashboard:
         
         self.poll_bridge_trades()
 
-    def on_start_listener(self, e: ft.ControlEvent) -> None:
+    def on_start_listener(self, e: Any = None) -> None:
         """Start or Stop the copier background listener daemon process."""
         if self.is_listener_running:
             # Stop the process
@@ -933,7 +933,7 @@ class SignalCopierDashboard:
         
         self.page.update()
 
-    def on_save_quick_lot(self, e: ft.ControlEvent) -> None:
+    def on_save_quick_lot(self, e: Any = None) -> None:
         try:
             val = float(self.quick_lot_input.value)
             self.settings_manager.set("default_volume", val)
@@ -941,7 +941,7 @@ class SignalCopierDashboard:
         except ValueError:
             self.page.show_dialog(ft.SnackBar(content=ft.Text("Invalid lot size! must be a float number.")))
 
-    def on_quick_lot_mode_change(self, e: ft.ControlEvent) -> None:
+    def on_quick_lot_mode_change(self, e: Any = None) -> None:
         pass
 
     # --- Settings Dialog ---

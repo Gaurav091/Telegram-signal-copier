@@ -38,6 +38,7 @@ pythonpath = ["src"]
 testpaths = ["tests"]
 
 [tool.pyrefly]
+baseline = "baseline.json"
 project-includes = [
     "**/*.py*",
     "**/*.ipynb",
