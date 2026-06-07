@@ -105,5 +105,61 @@ class TestUnusedEventHandlerParams(unittest.TestCase):
         self.dashboard.on_clear_trades(None)
 
 
+class TestOnStartListener(unittest.TestCase):
+    """Tests for on_start_listener with mocked subprocess."""
+
+    def setUp(self) -> None:
+        self.dashboard = _make_dashboard()
+
+    @patch("telegram_signal_copier.gui.subprocess.Popen")
+    def test_start_listener_spawns_process(self, mock_popen: MagicMock) -> None:
+        """Starting the listener should spawn a subprocess."""
+        self.dashboard.on_start_listener(None)
+        mock_popen.assert_called_once()
+        self.assertTrue(self.dashboard.is_listener_running)
+        self.assertEqual(self.dashboard.start_stop_button.content, "STOP LISTENER")
+
+    @patch("telegram_signal_copier.gui.subprocess.Popen")
+    def test_start_listener_then_stop(self, mock_popen: MagicMock) -> None:
+        """Starting then stopping the listener should terminate the process."""
+        mock_proc = MagicMock()
+        mock_proc.poll.return_value = None
+        mock_popen.return_value = mock_proc
+
+        self.dashboard.on_start_listener(None)
+        self.assertTrue(self.dashboard.is_listener_running)
+
+        self.dashboard.on_start_listener(None)
+        self.assertFalse(self.dashboard.is_listener_running)
+        mock_proc.terminate.assert_called_once()
+
+    @patch("telegram_signal_copier.gui.subprocess.Popen", side_effect=OSError("no python"))
+    def test_start_listener_handles_os_error(self, mock_popen: MagicMock) -> None:
+        """Starting the listener with an OS error should not crash."""
+        self.dashboard.on_start_listener(None)
+        self.assertFalse(self.dashboard.is_listener_running)
+        self.dashboard.page.show_dialog.assert_called()
+
+
+class TestOnAddChannelDialog(unittest.TestCase):
+    """Tests for on_add_channel_dialog."""
+
+    def setUp(self) -> None:
+        self.dashboard = _make_dashboard()
+
+    def test_opens_dialog(self) -> None:
+        """on_add_channel_dialog should show a dialog."""
+        self.dashboard.on_add_channel_dialog(None)
+        self.dashboard.page.show_dialog.assert_called_once()
+        dialog = self.dashboard.page.show_dialog.call_args[0][0]
+        self.assertIsInstance(dialog, ft.AlertDialog)
+
+    def test_starts_async_load(self) -> None:
+        """on_add_channel_dialog should schedule async dialog loading."""
+        self.dashboard.page.run_task.reset_mock()
+        self.dashboard.on_add_channel_dialog(None)
+        self.dashboard.page.run_task.assert_called()
+
+
 if __name__ == "__main__":
     unittest.main()
