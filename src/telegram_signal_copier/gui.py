@@ -946,7 +946,7 @@ class SignalCopierDashboard:
 
     # --- Settings Dialog ---
 
-    def on_open_settings(self, e: ft.ControlEvent) -> None:
+    def on_open_settings(self, e: Any = None) -> None:
         # Create fields loaded with current settings.json state
         api_id_field = ft.TextField(label="Telegram API ID", value=str(self.settings_manager.get("telegram_api_id", "")))
         api_hash_field = ft.TextField(label="Telegram API Hash", value=self.settings_manager.get("telegram_api_hash", ""))
