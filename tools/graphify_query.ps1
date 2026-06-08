@@ -1,11 +1,17 @@
 param(
-    [Parameter(Mandatory = $true)]
-    [string]$Question,
+    [Parameter(Mandatory = $false)]
+    [string]$Question = "",
     [int]$Budget = 2000,
     [switch]$SkipUpdate
 )
 
 $ErrorActionPreference = "Stop"
+
+# If no question provided, use a default summary query
+if ([string]::IsNullOrWhiteSpace($Question)) {
+    $Question = "Explain the overall architecture and main components of this project"
+    Write-Host "No question provided. Using default: '$Question'" -ForegroundColor Yellow
+}
 
 $RepoRoot = Split-Path -Parent $PSScriptRoot
 Set-Location $RepoRoot
