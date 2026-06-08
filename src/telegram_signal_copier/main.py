@@ -170,7 +170,11 @@ def main() -> None:
     if args.command == "dashboard":
         import flet as ft
         from telegram_signal_copier.gui import main as gui_main
-        ft.run(gui_main, view=ft.AppView.FLET_APP)
+        # Use FLET_APP_WEB to open dashboard in browser (FLET_APP requires
+        # Microsoft Edge WebView2 which is not installed on this system)
+        port = 8550
+        print(f"Starting dashboard at http://localhost:{port}")
+        ft.run(gui_main, view=ft.AppView.FLET_APP_WEB, port=port)
         return
 
     config = AppConfig.from_env()
