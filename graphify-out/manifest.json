@@ -10,58 +10,53 @@
     "semantic_hash": ""
   },
   "D:\\Github repos\\Telegram signal Copier\\packaging\\build_windows_bundle.ps1": {
-    "mtime": 1779596287.3537648,
-    "ast_hash": "6bf52b91797f4c5c30eb0203bb0d2a36",
+    "mtime": 1780553872.6716042,
+    "ast_hash": "ed81fc7143708232ce10f7b48073c921",
     "semantic_hash": ""
   },
   "D:\\Github repos\\Telegram signal Copier\\src\\telegram_signal_copier\\config.py": {
-    "mtime": 1779460317.691693,
-    "ast_hash": "651c613e46425a3ef121c4d275af4a52",
+    "mtime": 1780768310.7814991,
+    "ast_hash": "287ce394de8b94aa6e2feebda455d806",
     "semantic_hash": ""
   },
   "D:\\Github repos\\Telegram signal Copier\\src\\telegram_signal_copier\\main.py": {
-    "mtime": 1779594986.2466795,
-    "ast_hash": "335e8e50b1d084a52baa0789e7556677",
+    "mtime": 1780895683.1625185,
+    "ast_hash": "387e9ff756868596d0401ef44ece8aa1",
     "semantic_hash": ""
   },
   "D:\\Github repos\\Telegram signal Copier\\src\\telegram_signal_copier\\mcp_server.py": {
-    "mtime": 1778141495.9742985,
-    "ast_hash": "7a746dda7b985fdd6da4f6b94043dd0e",
+    "mtime": 1780131015.5998974,
+    "ast_hash": "655400e397bbb9e98f5cd4becee1bde1",
     "semantic_hash": ""
   },
   "D:\\Github repos\\Telegram signal Copier\\src\\telegram_signal_copier\\__init__.py": {
-    "mtime": 1778139373.6947086,
-    "ast_hash": "1e9f4bbfec98ef77df8a4cc388a2d407",
+    "mtime": 1780131015.5630763,
+    "ast_hash": "eb0d4aef4ad4df77bf3c1919dd07f11a",
     "semantic_hash": ""
   },
   "D:\\Github repos\\Telegram signal Copier\\src\\telegram_signal_copier\\__main__.py": {
-    "mtime": 1778140061.365704,
-    "ast_hash": "2354fe6ae5a5eb252e62095197c31c72",
-    "semantic_hash": ""
-  },
-  "D:\\Github repos\\Telegram signal Copier\\src\\telegram_signal_copier\\adapters\\bridge.py": {
-    "mtime": 1779278686.1279147,
-    "ast_hash": "9d5f8b589879332d8a71cde4da325729",
+    "mtime": 1780416781.1194155,
+    "ast_hash": "c4bd19682023898b074b5f07321b7bd3",
     "semantic_hash": ""
   },
   "D:\\Github repos\\Telegram signal Copier\\src\\telegram_signal_copier\\adapters\\openai_client.py": {
-    "mtime": 1778837468.0131536,
-    "ast_hash": "ef4dfc638bc10b39b3873b7560c7030d",
+    "mtime": 1780131316.5190728,
+    "ast_hash": "5affc1bc812134ebd84484b4d13ace98",
     "semantic_hash": ""
   },
   "D:\\Github repos\\Telegram signal Copier\\src\\telegram_signal_copier\\adapters\\provider_adapters.py": {
-    "mtime": 1778776582.93937,
-    "ast_hash": "c727b0513f6fcc1dd5917cf9e3e03c6f",
+    "mtime": 1780131329.1655822,
+    "ast_hash": "5f375f966f4e0d69ea587821c98dad1b",
     "semantic_hash": ""
   },
   "D:\\Github repos\\Telegram signal Copier\\src\\telegram_signal_copier\\adapters\\telegram_client.py": {
-    "mtime": 1779598412.020062,
-    "ast_hash": "b3d89b530b0746dc613b3d0ea0775bc5",
+    "mtime": 1780131650.4777431,
+    "ast_hash": "ef437633c47b46851edfe9e824f4ad67",
     "semantic_hash": ""
   },
   "D:\\Github repos\\Telegram signal Copier\\src\\telegram_signal_copier\\agents\\developer_agent.py": {
-    "mtime": 1779206812.888363,
-    "ast_hash": "e6bdb5a886ac89849601740b2636926c",
+    "mtime": 1780132203.9801867,
+    "ast_hash": "f1065fea0ac60a22340abe3c67bfe6e0",
     "semantic_hash": ""
   },
   "D:\\Github repos\\Telegram signal Copier\\src\\telegram_signal_copier\\agents\\execution_agent.py": {
@@ -75,8 +70,8 @@
     "semantic_hash": ""
   },
   "D:\\Github repos\\Telegram signal Copier\\src\\telegram_signal_copier\\agents\\graph.py": {
-    "mtime": 1779206805.4321022,
-    "ast_hash": "2a6dc9160cf0eb75cdc8528270e99a5c",
+    "mtime": 1780065790.6639462,
+    "ast_hash": "6d2ceea62cd6d6102c9bf62c7b9268b5",
     "semantic_hash": ""
   },
   "D:\\Github repos\\Telegram signal Copier\\src\\telegram_signal_copier\\agents\\intent_filter.py": {
@@ -90,13 +85,13 @@
     "semantic_hash": ""
   },
   "D:\\Github repos\\Telegram signal Copier\\src\\telegram_signal_copier\\agents\\schemas.py": {
-    "mtime": 1779351446.7782052,
-    "ast_hash": "771c14f662ea7e36045de27254e7c46b",
+    "mtime": 1780768310.8012578,
+    "ast_hash": "b27c9bd7032da56982f250aa0e45f6d8",
     "semantic_hash": ""
   },
   "D:\\Github repos\\Telegram signal Copier\\src\\telegram_signal_copier\\agents\\validation_agent.py": {
-    "mtime": 1779206811.7001865,
-    "ast_hash": "7524934189fb4ed54e94385bb812cff3",
+    "mtime": 1780768521.7881024,
+    "ast_hash": "a5687bd889621ea7a22d60792a129fa5",
     "semantic_hash": ""
   },
   "D:\\Github repos\\Telegram signal Copier\\src\\telegram_signal_copier\\agents\\_llm_shim.py": {
@@ -105,23 +100,23 @@
     "semantic_hash": ""
   },
   "D:\\Github repos\\Telegram signal Copier\\src\\telegram_signal_copier\\agents\\__init__.py": {
-    "mtime": 1778684577.440399,
-    "ast_hash": "79ed71241c5c584941047f6cbe849b91",
+    "mtime": 1780131015.5805256,
+    "ast_hash": "6f2a284f05840078885ba2c0a6c37f3b",
     "semantic_hash": ""
   },
   "D:\\Github repos\\Telegram signal Copier\\src\\telegram_signal_copier\\models\\contracts.py": {
-    "mtime": 1779351445.1952786,
-    "ast_hash": "ea4ae4ac4869019256b37d2cc8b6f928",
+    "mtime": 1780131015.6022043,
+    "ast_hash": "b318cc3af4a54ea70f0adbac08e397db",
     "semantic_hash": ""
   },
   "D:\\Github repos\\Telegram signal Copier\\src\\telegram_signal_copier\\models\\__init__.py": {
-    "mtime": 1778139489.4073753,
-    "ast_hash": "c13c909789148ce5c0289b17f1b28cba",
+    "mtime": 1780131015.6012063,
+    "ast_hash": "11349f77a34d435df5018045701168c2",
     "semantic_hash": ""
   },
   "D:\\Github repos\\Telegram signal Copier\\src\\telegram_signal_copier\\services\\cluster_agent.py": {
-    "mtime": 1778744793.5699139,
-    "ast_hash": "9cb34b8576cb1170278ce4f91d98c652",
+    "mtime": 1780131459.1597185,
+    "ast_hash": "df8330a9c51205fb4355df481223a5c4",
     "semantic_hash": ""
   },
   "D:\\Github repos\\Telegram signal Copier\\src\\telegram_signal_copier\\services\\deduplication.py": {
@@ -130,8 +125,8 @@
     "semantic_hash": ""
   },
   "D:\\Github repos\\Telegram signal Copier\\src\\telegram_signal_copier\\services\\image_processor.py": {
-    "mtime": 1779595884.49228,
-    "ast_hash": "0fea66736b16706d324a2133e82f5571",
+    "mtime": 1780131015.6072097,
+    "ast_hash": "a09a60fd5403fc2879138247af3790c1",
     "semantic_hash": ""
   },
   "D:\\Github repos\\Telegram signal Copier\\src\\telegram_signal_copier\\services\\message_buffer.py": {
@@ -145,33 +140,33 @@
     "semantic_hash": ""
   },
   "D:\\Github repos\\Telegram signal Copier\\src\\telegram_signal_copier\\services\\pipeline.py": {
-    "mtime": 1779701236.4689844,
-    "ast_hash": "55c348915507534d2e6587a2de720ef3",
+    "mtime": 1780131452.7564275,
+    "ast_hash": "a49eec8014865a15417c1d29836e578a",
     "semantic_hash": ""
   },
   "D:\\Github repos\\Telegram signal Copier\\src\\telegram_signal_copier\\services\\pipeline_logger.py": {
-    "mtime": 1779178995.78811,
-    "ast_hash": "e446800ca3129ba02bbad225221fe0e9",
+    "mtime": 1780131454.8132913,
+    "ast_hash": "37a938804759ce4bd782f10e066ff2c1",
     "semantic_hash": ""
   },
   "D:\\Github repos\\Telegram signal Copier\\src\\telegram_signal_copier\\services\\risk_engine.py": {
-    "mtime": 1779429824.13443,
-    "ast_hash": "b17c1b198286d4b16fc9a0ad9b643537",
+    "mtime": 1780586368.8481834,
+    "ast_hash": "3b81d9b95c47a7f26239fe40f4d5d281",
     "semantic_hash": ""
   },
   "D:\\Github repos\\Telegram signal Copier\\src\\telegram_signal_copier\\services\\signal_parser.py": {
-    "mtime": 1779460865.3952928,
-    "ast_hash": "08ba7a769abbd09052ddb72be036fb00",
+    "mtime": 1780933573.8373342,
+    "ast_hash": "0a9eb391a91f562bfa027a240b8c36f9",
     "semantic_hash": ""
   },
   "D:\\Github repos\\Telegram signal Copier\\src\\telegram_signal_copier\\services\\telegram_session.py": {
-    "mtime": 1778141498.3564012,
-    "ast_hash": "c1ff05ffa312fa0c7c0fc418beb655c1",
+    "mtime": 1780767243.275723,
+    "ast_hash": "ba565f20049f69c7e425506ba36f5b6b",
     "semantic_hash": ""
   },
   "D:\\Github repos\\Telegram signal Copier\\src\\telegram_signal_copier\\services\\trade_tracker.py": {
-    "mtime": 1779178990.6338675,
-    "ast_hash": "008f7b5386802673c4065f81addcea20",
+    "mtime": 1780131015.6252067,
+    "ast_hash": "7fe08982f7f9176fa5185c0dab17f49a",
     "semantic_hash": ""
   },
   "D:\\Github repos\\Telegram signal Copier\\tests\\test_bridge_monitor.py": {
@@ -180,28 +175,28 @@
     "semantic_hash": ""
   },
   "D:\\Github repos\\Telegram signal Copier\\tests\\test_config.py": {
-    "mtime": 1779460319.543261,
-    "ast_hash": "0468711333cf12c8a6c451b871f1bb77",
+    "mtime": 1780565930.6687694,
+    "ast_hash": "f5601e95466475c4e8804ae170389da0",
     "semantic_hash": ""
   },
   "D:\\Github repos\\Telegram signal Copier\\tests\\test_openai_client.py": {
-    "mtime": 1778776582.9403672,
-    "ast_hash": "d903095ca6464c3c808cff1f4dc01789",
+    "mtime": 1780131768.5495636,
+    "ast_hash": "43b1f7bde35be3c709aaa236cfd6369f",
     "semantic_hash": ""
   },
   "D:\\Github repos\\Telegram signal Copier\\tests\\test_pipeline.py": {
-    "mtime": 1779701236.477987,
-    "ast_hash": "304d3b57970b10792d85f4c252f8255e",
+    "mtime": 1780586520.644557,
+    "ast_hash": "807599a079c1a07144644cf61bf49ad0",
     "semantic_hash": ""
   },
   "D:\\Github repos\\Telegram signal Copier\\tests\\test_signal_parser.py": {
-    "mtime": 1779460865.3952928,
-    "ast_hash": "607802e0383cebe2499430bfe9a50f88",
+    "mtime": 1780933573.841261,
+    "ast_hash": "883c498ef508904bf280be648f28c1b8",
     "semantic_hash": ""
   },
   "D:\\Github repos\\Telegram signal Copier\\tests\\test_telegram_client.py": {
-    "mtime": 1778778922.8136237,
-    "ast_hash": "f983ed7d28c4fb130f49e949bfe1d61f",
+    "mtime": 1780131779.5156813,
+    "ast_hash": "12720719040d654e1c2c532796d1cd7c",
     "semantic_hash": ""
   },
   "D:\\Github repos\\Telegram signal Copier\\tools\\bridge_autofix_daemon.py": {
@@ -235,18 +230,18 @@
     "semantic_hash": ""
   },
   "D:\\Github repos\\Telegram signal Copier\\tools\\diagnose_full_listener.py": {
-    "mtime": 1778757212.0457506,
-    "ast_hash": "c2b928789437debac4fe9b121b738840",
+    "mtime": 1780768121.3379643,
+    "ast_hash": "beabca3bcf0b04d552dd03d5a998f7dc",
     "semantic_hash": ""
   },
   "D:\\Github repos\\Telegram signal Copier\\tools\\diagnose_listener.py": {
-    "mtime": 1778757211.9778636,
-    "ast_hash": "76042350870684d0574ed57fa24a341f",
+    "mtime": 1780767829.0533807,
+    "ast_hash": "c274377177b7a8edba90746ce9a340c2",
     "semantic_hash": ""
   },
   "D:\\Github repos\\Telegram signal Copier\\tools\\diagnose_sources.py": {
-    "mtime": 1778757211.9928632,
-    "ast_hash": "938d51bf51c7bb3497c0093701723efc",
+    "mtime": 1780768121.3421202,
+    "ast_hash": "65b188a8de9acbcbee4331553307899e",
     "semantic_hash": ""
   },
   "D:\\Github repos\\Telegram signal Copier\\tools\\dry_run_test.py": {
@@ -340,7 +335,7 @@
     "semantic_hash": ""
   },
   "D:\\Github repos\\Telegram signal Copier\\tools\\restart_listener.py": {
-    "mtime": 1779703520.6973534,
+    "mtime": 1779703701.0747602,
     "ast_hash": "9e7140ab040f74c66e15d9766140d3ff",
     "semantic_hash": ""
   },
@@ -410,8 +405,8 @@
     "semantic_hash": ""
   },
   "D:\\Github repos\\Telegram signal Copier\\tools\\smart_supervisor.py": {
-    "mtime": 1779208196.016839,
-    "ast_hash": "ee4a006f56570c4bf9b0b96065fb3ccd",
+    "mtime": 1780767856.3965285,
+    "ast_hash": "77869b875fc7ae6fed27b68ea6557cb6",
     "semantic_hash": ""
   },
   "D:\\Github repos\\Telegram signal Copier\\tools\\ssl_env_check.py": {
@@ -435,8 +430,8 @@
     "semantic_hash": ""
   },
   "D:\\Github repos\\Telegram signal Copier\\tools\\test_agents.py": {
-    "mtime": 1778689061.2959375,
-    "ast_hash": "951c7ffb13a63695a889722a57862eda",
+    "mtime": 1780767839.7646565,
+    "ast_hash": "fdf6d5279d0a6f738d7a9f2f2dec32bc",
     "semantic_hash": ""
   },
   "D:\\Github repos\\Telegram signal Copier\\tools\\test_agents_images.py": {
@@ -525,23 +520,23 @@
     "semantic_hash": ""
   },
   "D:\\Github repos\\Telegram signal Copier\\tools\\_find_new_groups.py": {
-    "mtime": 1779194902.276142,
-    "ast_hash": "8dcbc0eded2d263feeca74d1dca14ece",
+    "mtime": 1780768121.2874787,
+    "ast_hash": "7e735c4ae42336bf5ee2c65aa619e40b",
     "semantic_hash": ""
   },
   "D:\\Github repos\\Telegram signal Copier\\tools\\_find_new_groups2.py": {
-    "mtime": 1779194904.7481844,
-    "ast_hash": "c34f6399e312b32dd23e06c5c30ea1f6",
+    "mtime": 1780768121.2904875,
+    "ast_hash": "60780c3cf9e96faf39b600ce5438894d",
     "semantic_hash": ""
   },
   "D:\\Github repos\\Telegram signal Copier\\tools\\_find_new_groups3.py": {
-    "mtime": 1779194904.8619971,
-    "ast_hash": "441f02a98ee46de8ce92ec84ef7e275f",
+    "mtime": 1780768121.3082674,
+    "ast_hash": "29228e7d194f8b3b0a3b75ada2e4179b",
     "semantic_hash": ""
   },
   "D:\\Github repos\\Telegram signal Copier\\tools\\_find_new_groups4.py": {
-    "mtime": 1779194904.8629925,
-    "ast_hash": "47186f519c8a0e719d3287cd148ede93",
+    "mtime": 1780768121.3117945,
+    "ast_hash": "29ab9e25c2a749cea2c475f417d6cbad",
     "semantic_hash": ""
   },
   "D:\\Github repos\\Telegram signal Copier\\tools\\_slug_test.py": {
@@ -555,13 +550,13 @@
     "semantic_hash": ""
   },
   "D:\\Github repos\\Telegram signal Copier\\context.md": {
-    "mtime": 1778224009.5493932,
-    "ast_hash": "f7ac2ba53803467f21091a9aa6162f33",
+    "mtime": 1780067795.5308733,
+    "ast_hash": "f451ed387c1ce05c4ad2c9e2f57e7794",
     "semantic_hash": ""
   },
   "D:\\Github repos\\Telegram signal Copier\\README.md": {
-    "mtime": 1779598415.1910355,
-    "ast_hash": "34ee7a7fbf819ac0e9552445ea582979",
+    "mtime": 1780067795.1592944,
+    "ast_hash": "1cd546e48e4216a35087b812e397173b",
     "semantic_hash": ""
   },
   "D:\\Github repos\\Telegram signal Copier\\requirements.txt": {
@@ -8325,18 +8320,18 @@
     "semantic_hash": ""
   },
   "D:\\Github repos\\Telegram signal Copier\\.vscode\\tasks.json": {
-    "mtime": 1779563222.2677221,
-    "ast_hash": "ee80ba66e1ace8826e7fb5ea3509da96",
+    "mtime": 1780893566.3774757,
+    "ast_hash": "b54e5b7d4c261018c5c0b6557dba9a60",
     "semantic_hash": ""
   },
   "D:\\Github repos\\Telegram signal Copier\\tools\\graphify_query.ps1": {
-    "mtime": 1779563179.4303722,
-    "ast_hash": "506b0ceda83061da856dfcfd91629c8e",
+    "mtime": 1780888205.8098066,
+    "ast_hash": "7aa3b8379034168b81831a3af76ae76c",
     "semantic_hash": ""
   },
   "D:\\Github repos\\Telegram signal Copier\\.github\\copilot-instructions.md": {
-    "mtime": 1779703530.0225759,
-    "ast_hash": "d3b127dad199a4849082b681b36691c4",
+    "mtime": 1780390708.91107,
+    "ast_hash": "0fd172bd1cd54d2a10410c97826bfa7f",
     "semantic_hash": ""
   },
   "D:\\Github repos\\Telegram signal Copier\\runtime\\media\\6957.jpg": {
@@ -8917,6 +8912,616 @@
   "D:\\Github repos\\Telegram signal Copier\\runtime\\media\\9642.jpg": {
     "mtime": 1779669915.33075,
     "ast_hash": "5020fdce05090c1d114f0c8c2b761d49",
+    "semantic_hash": ""
+  },
+  "D:\\Github repos\\Telegram signal Copier\\baseline.json": {
+    "mtime": 1780851128.5901673,
+    "ast_hash": "a63c04e7fbe1c3ed0f00de6625b8eb05",
+    "semantic_hash": ""
+  },
+  "D:\\Github repos\\Telegram signal Copier\\launch_dashboard.py": {
+    "mtime": 1780679568.8329253,
+    "ast_hash": "2df9f0490754e81a84ddf888053f1527",
+    "semantic_hash": ""
+  },
+  "D:\\Github repos\\Telegram signal Copier\\bridge\\telegram_dialogs.json": {
+    "mtime": 1780932153.7743814,
+    "ast_hash": "f39fa4bf66567ee2cd5569c03dc42eef",
+    "semantic_hash": ""
+  },
+  "D:\\Github repos\\Telegram signal Copier\\src\\telegram_signal_copier\\config_helpers.py": {
+    "mtime": 1780768521.7845414,
+    "ast_hash": "ffb4ba014ca00d99895f18706c3f7873",
+    "semantic_hash": ""
+  },
+  "D:\\Github repos\\Telegram signal Copier\\src\\telegram_signal_copier\\constants.py": {
+    "mtime": 1780930272.211193,
+    "ast_hash": "fc40222d635d0f75b30a5055004fa2c6",
+    "semantic_hash": ""
+  },
+  "D:\\Github repos\\Telegram signal Copier\\src\\telegram_signal_copier\\gui.py": {
+    "mtime": 1780893438.664332,
+    "ast_hash": "841809ee43a88f898e733ad307567873",
+    "semantic_hash": ""
+  },
+  "D:\\Github repos\\Telegram signal Copier\\src\\telegram_signal_copier\\listener_builder.py": {
+    "mtime": 1780132175.8420002,
+    "ast_hash": "a145c43a7e08891897ffa6a1ef556773",
+    "semantic_hash": ""
+  },
+  "D:\\Github repos\\Telegram signal Copier\\src\\telegram_signal_copier\\listener_lock.py": {
+    "mtime": 1780132177.891205,
+    "ast_hash": "e0d142e80631409c6c1c6248dfb821b4",
+    "semantic_hash": ""
+  },
+  "D:\\Github repos\\Telegram signal Copier\\src\\telegram_signal_copier\\listener_runner.py": {
+    "mtime": 1780132180.010101,
+    "ast_hash": "d114022cb6863c2bb347463b9310e829",
+    "semantic_hash": ""
+  },
+  "D:\\Github repos\\Telegram signal Copier\\src\\telegram_signal_copier\\listener_status.py": {
+    "mtime": 1780132182.1366723,
+    "ast_hash": "443b4d40f93247a3da8f9d11a959e215",
+    "semantic_hash": ""
+  },
+  "D:\\Github repos\\Telegram signal Copier\\src\\telegram_signal_copier\\setup_wizard.py": {
+    "mtime": 1780580514.571719,
+    "ast_hash": "79ae070c42b7b1b529ef7f82dc4792ba",
+    "semantic_hash": ""
+  },
+  "D:\\Github repos\\Telegram signal Copier\\src\\telegram_signal_copier\\adapters\\ai_cache.py": {
+    "mtime": 1780131320.6462257,
+    "ast_hash": "e3f3efac647161ecbbab4a3ef567ebd5",
+    "semantic_hash": ""
+  },
+  "D:\\Github repos\\Telegram signal Copier\\src\\telegram_signal_copier\\adapters\\bridge_helpers.py": {
+    "mtime": 1780131331.1680572,
+    "ast_hash": "c4c6056b4dce495849aa1b2109896016",
+    "semantic_hash": ""
+  },
+  "D:\\Github repos\\Telegram signal Copier\\src\\telegram_signal_copier\\adapters\\circuit_breaker.py": {
+    "mtime": 1780131322.754551,
+    "ast_hash": "a1a528a33b94dfbe714445407f6161c6",
+    "semantic_hash": ""
+  },
+  "D:\\Github repos\\Telegram signal Copier\\src\\telegram_signal_copier\\adapters\\openai_prompts.py": {
+    "mtime": 1780748986.2166483,
+    "ast_hash": "f7927f18dd395b3ba67b80889b6e5d53",
+    "semantic_hash": ""
+  },
+  "D:\\Github repos\\Telegram signal Copier\\src\\telegram_signal_copier\\adapters\\openai_utils.py": {
+    "mtime": 1780131327.0339336,
+    "ast_hash": "9622f68e75edc377ecfdb9a66b2ec5f3",
+    "semantic_hash": ""
+  },
+  "D:\\Github repos\\Telegram signal Copier\\src\\telegram_signal_copier\\adapters\\telegram_helpers.py": {
+    "mtime": 1780131333.242514,
+    "ast_hash": "bd18dcbd7e6b8370b41015d6f1850c1b",
+    "semantic_hash": ""
+  },
+  "D:\\Github repos\\Telegram signal Copier\\src\\telegram_signal_copier\\adapters\\ai\\cache.py": {
+    "mtime": 1780131015.5650783,
+    "ast_hash": "9c854049a6d950ad6702eb730449aa33",
+    "semantic_hash": ""
+  },
+  "D:\\Github repos\\Telegram signal Copier\\src\\telegram_signal_copier\\adapters\\ai\\circuit_breaker.py": {
+    "mtime": 1780131015.5660782,
+    "ast_hash": "4d384e3871c5155392f056da8e613f19",
+    "semantic_hash": ""
+  },
+  "D:\\Github repos\\Telegram signal Copier\\src\\telegram_signal_copier\\adapters\\ai\\client.py": {
+    "mtime": 1780750280.7646222,
+    "ast_hash": "0f85e9c431882450469d424bc042620e",
+    "semantic_hash": ""
+  },
+  "D:\\Github repos\\Telegram signal Copier\\src\\telegram_signal_copier\\adapters\\ai\\prompts.py": {
+    "mtime": 1780750247.6640894,
+    "ast_hash": "2cb626c641f6e415d2d23eedac534979",
+    "semantic_hash": ""
+  },
+  "D:\\Github repos\\Telegram signal Copier\\src\\telegram_signal_copier\\adapters\\ai\\providers.py": {
+    "mtime": 1780131015.5720758,
+    "ast_hash": "82415898440e655e7f77666dd6525ca8",
+    "semantic_hash": ""
+  },
+  "D:\\Github repos\\Telegram signal Copier\\src\\telegram_signal_copier\\adapters\\ai\\utils.py": {
+    "mtime": 1780131015.5730748,
+    "ast_hash": "5d3ceaadae01076a16a96c5fc945b179",
+    "semantic_hash": ""
+  },
+  "D:\\Github repos\\Telegram signal Copier\\src\\telegram_signal_copier\\adapters\\ai\\__init__.py": {
+    "mtime": 1780131296.7760763,
+    "ast_hash": "7854387279bbe8f5222889c2fc78ca59",
+    "semantic_hash": ""
+  },
+  "D:\\Github repos\\Telegram signal Copier\\src\\telegram_signal_copier\\adapters\\bridge\\executor.py": {
+    "mtime": 1780131015.57548,
+    "ast_hash": "9ab47735ce965e8c5361067474f27d8d",
+    "semantic_hash": ""
+  },
+  "D:\\Github repos\\Telegram signal Copier\\src\\telegram_signal_copier\\adapters\\bridge\\helpers.py": {
+    "mtime": 1780580693.2088149,
+    "ast_hash": "dc9225ecc4d2fe4eaefd222dbe9adf78",
+    "semantic_hash": ""
+  },
+  "D:\\Github repos\\Telegram signal Copier\\src\\telegram_signal_copier\\adapters\\bridge\\__init__.py": {
+    "mtime": 1780131211.399055,
+    "ast_hash": "b6ef432a6e14867af8ad62594ea07451",
+    "semantic_hash": ""
+  },
+  "D:\\Github repos\\Telegram signal Copier\\src\\telegram_signal_copier\\adapters\\telegram\\client.py": {
+    "mtime": 1780767720.6490028,
+    "ast_hash": "6a2d1c9c9a56c15c9e8da508e4db54e5",
+    "semantic_hash": ""
+  },
+  "D:\\Github repos\\Telegram signal Copier\\src\\telegram_signal_copier\\adapters\\telegram\\helpers.py": {
+    "mtime": 1780768310.7982585,
+    "ast_hash": "d1e0b594985135b57523965a7cf9ba23",
+    "semantic_hash": ""
+  },
+  "D:\\Github repos\\Telegram signal Copier\\src\\telegram_signal_copier\\adapters\\telegram\\__init__.py": {
+    "mtime": 1780131298.9898508,
+    "ast_hash": "8285b3b2348ff9208dd0f19145596ee8",
+    "semantic_hash": ""
+  },
+  "D:\\Github repos\\Telegram signal Copier\\src\\telegram_signal_copier\\agents\\developer_agent_analysis.py": {
+    "mtime": 1780132197.7651868,
+    "ast_hash": "8d7a32c6a7754b6c51b6703318330b7e",
+    "semantic_hash": ""
+  },
+  "D:\\Github repos\\Telegram signal Copier\\src\\telegram_signal_copier\\agents\\developer_agent_fp.py": {
+    "mtime": 1780132199.7906075,
+    "ast_hash": "fb837caf5b4f32c31ce7aea391b24c54",
+    "semantic_hash": ""
+  },
+  "D:\\Github repos\\Telegram signal Copier\\src\\telegram_signal_copier\\agents\\developer_agent_models.py": {
+    "mtime": 1780132195.7113874,
+    "ast_hash": "d27145110c53dd263179e04fc8ede5a9",
+    "semantic_hash": ""
+  },
+  "D:\\Github repos\\Telegram signal Copier\\src\\telegram_signal_copier\\agents\\developer_agent_patch.py": {
+    "mtime": 1780132201.8616178,
+    "ast_hash": "e9e3bf03fbc9fc4bf9da4fed73ae7804",
+    "semantic_hash": ""
+  },
+  "D:\\Github repos\\Telegram signal Copier\\src\\telegram_signal_copier\\agents\\graph_listener.py": {
+    "mtime": 1780767243.2961614,
+    "ast_hash": "eea31a9f25606b9271441cb2ef7b0a91",
+    "semantic_hash": ""
+  },
+  "D:\\Github repos\\Telegram signal Copier\\src\\telegram_signal_copier\\agents\\developer\\analysis.py": {
+    "mtime": 1780132251.6003525,
+    "ast_hash": "e0f989837ff7b0922f49a35c7545045e",
+    "semantic_hash": ""
+  },
+  "D:\\Github repos\\Telegram signal Copier\\src\\telegram_signal_copier\\agents\\developer\\fp.py": {
+    "mtime": 1780132267.3493505,
+    "ast_hash": "9228d66ebacf834f4c3a197eb5f69a80",
+    "semantic_hash": ""
+  },
+  "D:\\Github repos\\Telegram signal Copier\\src\\telegram_signal_copier\\agents\\developer\\models.py": {
+    "mtime": 1780131015.5855248,
+    "ast_hash": "a3bda98d58599720d7ea953df8089760",
+    "semantic_hash": ""
+  },
+  "D:\\Github repos\\Telegram signal Copier\\src\\telegram_signal_copier\\agents\\developer\\patch.py": {
+    "mtime": 1780132251.5865505,
+    "ast_hash": "7b50760f8c58767e4b4dcbdde73ec791",
+    "semantic_hash": ""
+  },
+  "D:\\Github repos\\Telegram signal Copier\\src\\telegram_signal_copier\\agents\\developer\\__init__.py": {
+    "mtime": 1780132284.8900712,
+    "ast_hash": "a56b5044f4c7ee08b15f18a8b5f8a9a9",
+    "semantic_hash": ""
+  },
+  "D:\\Github repos\\Telegram signal Copier\\src\\telegram_signal_copier\\listener\\builder.py": {
+    "mtime": 1780131015.5929017,
+    "ast_hash": "76ac95aac269496b4ff10021c6e343c3",
+    "semantic_hash": ""
+  },
+  "D:\\Github repos\\Telegram signal Copier\\src\\telegram_signal_copier\\listener\\lock.py": {
+    "mtime": 1780132242.421915,
+    "ast_hash": "5fb4fe4fa38e38d9ced5d4add3cd63ff",
+    "semantic_hash": ""
+  },
+  "D:\\Github repos\\Telegram signal Copier\\src\\telegram_signal_copier\\listener\\runner.py": {
+    "mtime": 1780568752.8462687,
+    "ast_hash": "ad784c3b70bc45c6435e185c29e4ef86",
+    "semantic_hash": ""
+  },
+  "D:\\Github repos\\Telegram signal Copier\\src\\telegram_signal_copier\\listener\\status.py": {
+    "mtime": 1780131015.5969007,
+    "ast_hash": "f7b6951d86b9cfcaeda3ccc11a653332",
+    "semantic_hash": ""
+  },
+  "D:\\Github repos\\Telegram signal Copier\\src\\telegram_signal_copier\\listener\\__init__.py": {
+    "mtime": 1780132165.2677069,
+    "ast_hash": "c254a2f4e3c40ee864f09d82f402053c",
+    "semantic_hash": ""
+  },
+  "D:\\Github repos\\Telegram signal Copier\\src\\telegram_signal_copier\\services\\cluster_parser.py": {
+    "mtime": 1780131461.28595,
+    "ast_hash": "98f4af47056e918f6931e24576b9784c",
+    "semantic_hash": ""
+  },
+  "D:\\Github repos\\Telegram signal Copier\\src\\telegram_signal_copier\\services\\intent_classifier.py": {
+    "mtime": 1780060870.6085048,
+    "ast_hash": "dca2487d9a53ca4920e591932ee661eb",
+    "semantic_hash": ""
+  },
+  "D:\\Github repos\\Telegram signal Copier\\src\\telegram_signal_copier\\services\\pipeline_intent.py": {
+    "mtime": 1780131456.9091957,
+    "ast_hash": "96fccfd0b7874bb0bc5680ec48b78355",
+    "semantic_hash": ""
+  },
+  "D:\\Github repos\\Telegram signal Copier\\src\\telegram_signal_copier\\services\\settings_manager.py": {
+    "mtime": 1780575725.993762,
+    "ast_hash": "306ac4edc2ed6769911bbf2a7e25f68e",
+    "semantic_hash": ""
+  },
+  "D:\\Github repos\\Telegram signal Copier\\src\\telegram_signal_copier\\services\\signal_ai_merge.py": {
+    "mtime": 1780131472.1524081,
+    "ast_hash": "0af3e82e2ead80b82f76d104a2e75283",
+    "semantic_hash": ""
+  },
+  "D:\\Github repos\\Telegram signal Copier\\src\\telegram_signal_copier\\services\\signal_crypto.py": {
+    "mtime": 1780131474.3709302,
+    "ast_hash": "358229b1456818c6d04c0dec3ea1e84c",
+    "semantic_hash": ""
+  },
+  "D:\\Github repos\\Telegram signal Copier\\src\\telegram_signal_copier\\services\\signal_heuristic.py": {
+    "mtime": 1780131467.8709428,
+    "ast_hash": "d19761dda775b262d9265577fe316073",
+    "semantic_hash": ""
+  },
+  "D:\\Github repos\\Telegram signal Copier\\src\\telegram_signal_copier\\services\\signal_heuristic_parse.py": {
+    "mtime": 1780131470.1007202,
+    "ast_hash": "50254df8bd43f3bce2cc7a9d7d198f46",
+    "semantic_hash": ""
+  },
+  "D:\\Github repos\\Telegram signal Copier\\src\\telegram_signal_copier\\services\\signal_normalizers.py": {
+    "mtime": 1780131463.6594007,
+    "ast_hash": "fb15d77feeffc8c43d6e89706b660ffb",
+    "semantic_hash": ""
+  },
+  "D:\\Github repos\\Telegram signal Copier\\src\\telegram_signal_copier\\services\\signal_patterns.py": {
+    "mtime": 1780131549.007555,
+    "ast_hash": "16ae335df7345aa7014043f706a85dfe",
+    "semantic_hash": ""
+  },
+  "D:\\Github repos\\Telegram signal Copier\\src\\telegram_signal_copier\\services\\clustering\\agent.py": {
+    "mtime": 1780131015.6032085,
+    "ast_hash": "792e1f41c50213eab59cdba09b5d85e9",
+    "semantic_hash": ""
+  },
+  "D:\\Github repos\\Telegram signal Copier\\src\\telegram_signal_copier\\services\\clustering\\parser.py": {
+    "mtime": 1780933573.8393538,
+    "ast_hash": "a551b93194a4c8a06b28e9498f5cfb7f",
+    "semantic_hash": ""
+  },
+  "D:\\Github repos\\Telegram signal Copier\\src\\telegram_signal_copier\\services\\clustering\\__init__.py": {
+    "mtime": 1780131418.5382414,
+    "ast_hash": "7b36669279e984f61a2ebd57f5db7bd3",
+    "semantic_hash": ""
+  },
+  "D:\\Github repos\\Telegram signal Copier\\src\\telegram_signal_copier\\services\\pipeline\\core.py": {
+    "mtime": 1780416791.2642229,
+    "ast_hash": "95a32eb40004f193c16016896e57061d",
+    "semantic_hash": ""
+  },
+  "D:\\Github repos\\Telegram signal Copier\\src\\telegram_signal_copier\\services\\pipeline\\intent.py": {
+    "mtime": 1780131015.6102107,
+    "ast_hash": "4bec0e478eda4b6af5899714bcdf14cc",
+    "semantic_hash": ""
+  },
+  "D:\\Github repos\\Telegram signal Copier\\src\\telegram_signal_copier\\services\\pipeline\\logger.py": {
+    "mtime": 1780131015.611215,
+    "ast_hash": "e446800ca3129ba02bbad225221fe0e9",
+    "semantic_hash": ""
+  },
+  "D:\\Github repos\\Telegram signal Copier\\src\\telegram_signal_copier\\services\\pipeline\\__init__.py": {
+    "mtime": 1780131416.4623015,
+    "ast_hash": "f5d4d200240bfc53198c3c7e9f50ac2c",
+    "semantic_hash": ""
+  },
+  "D:\\Github repos\\Telegram signal Copier\\src\\telegram_signal_copier\\services\\signals\\ai_merge.py": {
+    "mtime": 1780131015.6142137,
+    "ast_hash": "751700286b262508f98fca0c898c71fe",
+    "semantic_hash": ""
+  },
+  "D:\\Github repos\\Telegram signal Copier\\src\\telegram_signal_copier\\services\\signals\\crypto.py": {
+    "mtime": 1780131015.615215,
+    "ast_hash": "b099af3a5f21b87ab97fd6d2a83caf04",
+    "semantic_hash": ""
+  },
+  "D:\\Github repos\\Telegram signal Copier\\src\\telegram_signal_copier\\services\\signals\\heuristic.py": {
+    "mtime": 1780131609.5423424,
+    "ast_hash": "b0920057f91e60a1dc117609a5a7a5a0",
+    "semantic_hash": ""
+  },
+  "D:\\Github repos\\Telegram signal Copier\\src\\telegram_signal_copier\\services\\signals\\heuristic_parse.py": {
+    "mtime": 1780586430.4399753,
+    "ast_hash": "f5b78b716ed268cf952e4618ab86af25",
+    "semantic_hash": ""
+  },
+  "D:\\Github repos\\Telegram signal Copier\\src\\telegram_signal_copier\\services\\signals\\normalizers.py": {
+    "mtime": 1780131015.6182125,
+    "ast_hash": "e8f6acf23ce2703f2c4af859f67269b8",
+    "semantic_hash": ""
+  },
+  "D:\\Github repos\\Telegram signal Copier\\src\\telegram_signal_copier\\services\\signals\\parser.py": {
+    "mtime": 1780131015.620209,
+    "ast_hash": "0cc74e966ac7abe0a994b0eaedf4d77f",
+    "semantic_hash": ""
+  },
+  "D:\\Github repos\\Telegram signal Copier\\src\\telegram_signal_copier\\services\\signals\\patterns.py": {
+    "mtime": 1780131015.6212113,
+    "ast_hash": "54184a24bf8c4037213ae7aeb2b84eb6",
+    "semantic_hash": ""
+  },
+  "D:\\Github repos\\Telegram signal Copier\\src\\telegram_signal_copier\\services\\signals\\__init__.py": {
+    "mtime": 1780131420.4771757,
+    "ast_hash": "800819e5c8f5540325f1e6467cfb82a0",
+    "semantic_hash": ""
+  },
+  "D:\\Github repos\\Telegram signal Copier\\tests\\conftest.py": {
+    "mtime": 1780061104.8793907,
+    "ast_hash": "d9aa9a5aee92f39eb4f08cb4523f4e1e",
+    "semantic_hash": ""
+  },
+  "D:\\Github repos\\Telegram signal Copier\\tests\\test_bridge_executor.py": {
+    "mtime": 1780895683.1552334,
+    "ast_hash": "ad68c7247ea2624d232cdcb6fd91d852",
+    "semantic_hash": ""
+  },
+  "D:\\Github repos\\Telegram signal Copier\\tests\\test_gui_dialog.py": {
+    "mtime": 1780852645.5164397,
+    "ast_hash": "686b2524c5299707f603c2a58eec1c7d",
+    "semantic_hash": ""
+  },
+  "D:\\Github repos\\Telegram signal Copier\\tools\\ask.ps1": {
+    "mtime": 1780748830.573966,
+    "ast_hash": "35b8f31ace4bec1d4c7c10a9d9a38a3b",
+    "semantic_hash": ""
+  },
+  "D:\\Github repos\\Telegram signal Copier\\tools\\deepseek_booster.py": {
+    "mtime": 1780750447.4630847,
+    "ast_hash": "f019a0e20468c93c33461a291bd7b2ba",
+    "semantic_hash": ""
+  },
+  "D:\\Github repos\\Telegram signal Copier\\tools\\launch_dashboard.py": {
+    "mtime": 1780664356.5809865,
+    "ast_hash": "ff571b7d4c9049b41288749b2f7741b4",
+    "semantic_hash": ""
+  },
+  "D:\\Github repos\\Telegram signal Copier\\tools\\run_pyinstaller.py": {
+    "mtime": 1780416782.5015817,
+    "ast_hash": "54191e7a0cd05948c3cb63695064a99d",
+    "semantic_hash": ""
+  },
+  "D:\\Github repos\\Telegram signal Copier\\tools\\setup.ps1": {
+    "mtime": 1780750224.0150957,
+    "ast_hash": "97e1fa9c4cbee6dd89c3c6e76c7c949c",
+    "semantic_hash": ""
+  },
+  "D:\\Github repos\\Telegram signal Copier\\tools\\_find_conquer.py": {
+    "mtime": 1779713863.7489936,
+    "ast_hash": "335bace4f845888142288a807d187590",
+    "semantic_hash": ""
+  },
+  "D:\\Github repos\\Telegram signal Copier\\tools\\_find_conquer_id.py": {
+    "mtime": 1779716822.034922,
+    "ast_hash": "2a6b02ace0ac649345b6e6630a8e4c78",
+    "semantic_hash": ""
+  },
+  "D:\\Github repos\\Telegram signal Copier\\tools\\_find_fgmk.py": {
+    "mtime": 1780767829.003234,
+    "ast_hash": "1db3ba56d8fe33f4c801113eaf61350b",
+    "semantic_hash": ""
+  },
+  "D:\\Github repos\\Telegram signal Copier\\tools\\_mt5_group_profits.py": {
+    "mtime": 1779899940.1975143,
+    "ast_hash": "d1231f81e7219bff9712e45e19a6515a",
+    "semantic_hash": ""
+  },
+  "D:\\Github repos\\Telegram signal Copier\\tools\\_resolve_conquer.py": {
+    "mtime": 1780768121.316318,
+    "ast_hash": "afd225fc7917019690358b69b249297a",
+    "semantic_hash": ""
+  },
+  "D:\\Github repos\\Telegram signal Copier\\CONTRIBUTING.md": {
+    "mtime": 1780129380.1099913,
+    "ast_hash": "c188cec79e9a8135cc9f6676f718cc19",
+    "semantic_hash": ""
+  },
+  "D:\\Github repos\\Telegram signal Copier\\deployment_system_guide.md": {
+    "mtime": 1780564668.7321827,
+    "ast_hash": "86124ceaf1d15ab5ccd930d86664d5fc",
+    "semantic_hash": ""
+  },
+  "D:\\Github repos\\Telegram signal Copier\\vps_deployment_steps.md": {
+    "mtime": 1780586115.6954405,
+    "ast_hash": "6f6a8f2b12e1815362bef553c06d9d64",
+    "semantic_hash": ""
+  },
+  "D:\\Github repos\\Telegram signal Copier\\.github\\prompts\\refactor.prompt.md": {
+    "mtime": 1780060252.0781078,
+    "ast_hash": "a80083ffbc56eb629a8ff93f116cb34f",
+    "semantic_hash": ""
+  },
+  "D:\\Github repos\\Telegram signal Copier\\.github\\workflows\\ci.yml": {
+    "mtime": 1780852575.2569828,
+    "ast_hash": "8f5c276d4ea69b288b6b1190efbde6f4",
+    "semantic_hash": ""
+  },
+  "D:\\Github repos\\Telegram signal Copier\\bridge\\00faf282-ce68-47c5-846f-9fc38f5f0858.txt": {
+    "mtime": 1780895955.114355,
+    "ast_hash": "6218862568be4f35c68daf040a05100c",
+    "semantic_hash": ""
+  },
+  "D:\\Github repos\\Telegram signal Copier\\bridge\\04707af2-dfda-4567-ab4b-b6bd827b4ea6.txt": {
+    "mtime": 1780900901.1031384,
+    "ast_hash": "b1ade82b3852ec01f40b33d2a61d9192",
+    "semantic_hash": ""
+  },
+  "D:\\Github repos\\Telegram signal Copier\\bridge\\231a5cb4-708d-4e96-a578-4b6cb798796e.txt": {
+    "mtime": 1780912186.7117863,
+    "ast_hash": "2af8d46fbf1e3da4f36cb19033c768eb",
+    "semantic_hash": ""
+  },
+  "D:\\Github repos\\Telegram signal Copier\\bridge\\2737c2fd-d70b-4bec-824c-76e77c18decf.txt": {
+    "mtime": 1780906595.1215947,
+    "ast_hash": "7fc1b4f673c4f1d8c655d2942213a1a4",
+    "semantic_hash": ""
+  },
+  "D:\\Github repos\\Telegram signal Copier\\bridge\\2fec25b3-cbe5-4013-8409-18bf528b8585.txt": {
+    "mtime": 1780932446.7936711,
+    "ast_hash": "a175dd547017c73d07479bbbcc130698",
+    "semantic_hash": ""
+  },
+  "D:\\Github repos\\Telegram signal Copier\\bridge\\303ce791-2ccb-4a7b-9e95-f82224271ae0.txt": {
+    "mtime": 1780917853.1681552,
+    "ast_hash": "c872ce334dc7a2ef29201b9cdd532b4d",
+    "semantic_hash": ""
+  },
+  "D:\\Github repos\\Telegram signal Copier\\bridge\\3a1b2c69-dfc1-4b5c-8e00-51a7c8c33914.txt": {
+    "mtime": 1780902990.7457845,
+    "ast_hash": "80e5bbdde15c3d3270e4ebea3bcbfeef",
+    "semantic_hash": ""
+  },
+  "D:\\Github repos\\Telegram signal Copier\\bridge\\3d10a024-d393-4e53-b556-51b4f711cdf4.txt": {
+    "mtime": 1780914160.9460332,
+    "ast_hash": "b2a491e265e33fe06c36249b5e5b744e",
+    "semantic_hash": ""
+  },
+  "D:\\Github repos\\Telegram signal Copier\\bridge\\44ee647e-c1c8-4d62-bbe5-034fd4ef15b0.txt": {
+    "mtime": 1780901526.5674863,
+    "ast_hash": "89d94a5a62a66ddd3cea3a6859bdbd79",
+    "semantic_hash": ""
+  },
+  "D:\\Github repos\\Telegram signal Copier\\bridge\\6383e037-f9a7-4683-bc9b-f1c1936f6ee3.txt": {
+    "mtime": 1780893950.4707696,
+    "ast_hash": "599b5bd1dc8f313ae8ab2d8ac9eaad34",
+    "semantic_hash": ""
+  },
+  "D:\\Github repos\\Telegram signal Copier\\bridge\\6667f8ea-8349-4d35-a79b-6f6c4550bf6c.txt": {
+    "mtime": 1780917185.457232,
+    "ast_hash": "18befaddf092d3405efce254212a308a",
+    "semantic_hash": ""
+  },
+  "D:\\Github repos\\Telegram signal Copier\\bridge\\6b2af507-09be-405c-8b3e-112753aa59d5.txt": {
+    "mtime": 1780883705.7299893,
+    "ast_hash": "e785e625e7ab28877c13c2469047cc24",
+    "semantic_hash": ""
+  },
+  "D:\\Github repos\\Telegram signal Copier\\bridge\\6c22745c-a22e-4e14-81a7-3719d5220ac4.txt": {
+    "mtime": 1780900176.0926073,
+    "ast_hash": "b722860c27ed93cb7559033a58b501b9",
+    "semantic_hash": ""
+  },
+  "D:\\Github repos\\Telegram signal Copier\\bridge\\7743c76e-eee0-4b35-a624-0c1fc7afc8d2.txt": {
+    "mtime": 1780911654.0075092,
+    "ast_hash": "ca73e95c3d735f54d41d50ad82aa486d",
+    "semantic_hash": ""
+  },
+  "D:\\Github repos\\Telegram signal Copier\\bridge\\777a82c2-ec81-45a3-90e8-50f799586549.txt": {
+    "mtime": 1780922215.0092027,
+    "ast_hash": "6e4c215b0803ecfda2f3f935773898b4",
+    "semantic_hash": ""
+  },
+  "D:\\Github repos\\Telegram signal Copier\\bridge\\939e288a-b5dd-4c44-9369-c1b758423414.txt": {
+    "mtime": 1780911516.1575868,
+    "ast_hash": "2efbabfcde6c2c38540913055d6b938d",
+    "semantic_hash": ""
+  },
+  "D:\\Github repos\\Telegram signal Copier\\bridge\\a2f6c6ae-7095-4ada-b3ed-4d36b5b26293.txt": {
+    "mtime": 1780896338.0452263,
+    "ast_hash": "c5098c925ed126b3307605199cde51bb",
+    "semantic_hash": ""
+  },
+  "D:\\Github repos\\Telegram signal Copier\\bridge\\a49a7d91-453a-46f7-a495-2c019f634359.txt": {
+    "mtime": 1780883982.2664168,
+    "ast_hash": "11391c0549645aba2f84c79aa67b36c9",
+    "semantic_hash": ""
+  },
+  "D:\\Github repos\\Telegram signal Copier\\bridge\\a8f4d7f5-4529-4d49-b47c-2a935758f502.txt": {
+    "mtime": 1780898523.8526788,
+    "ast_hash": "3254c347e8d49a1f8888b119f21a1e2c",
+    "semantic_hash": ""
+  },
+  "D:\\Github repos\\Telegram signal Copier\\bridge\\acb4a0f6-7581-48d4-b0ac-9689062314be.txt": {
+    "mtime": 1780892518.7143414,
+    "ast_hash": "52375afee57a421f43d3de1c41ce5ed9",
+    "semantic_hash": ""
+  },
+  "D:\\Github repos\\Telegram signal Copier\\bridge\\ae41b294-130a-4afd-9079-516c78b47900.txt": {
+    "mtime": 1780922862.3681853,
+    "ast_hash": "5beb7282cd2cd9011360ee1d7a6e1519",
+    "semantic_hash": ""
+  },
+  "D:\\Github repos\\Telegram signal Copier\\bridge\\c7ad5b1a-b168-4495-b9f4-2dc0accbe68c.txt": {
+    "mtime": 1780912432.158866,
+    "ast_hash": "d0d7ec89469cebde238dba137107b341",
+    "semantic_hash": ""
+  },
+  "D:\\Github repos\\Telegram signal Copier\\bridge\\cddd7bef-1871-4e91-bd2b-377a086cd4ed.txt": {
+    "mtime": 1780918894.8869028,
+    "ast_hash": "338ea11f3fb79c0b5009894ba64b70aa",
+    "semantic_hash": ""
+  },
+  "D:\\Github repos\\Telegram signal Copier\\bridge\\command_queue.txt": {
+    "mtime": 1780932446.799085,
+    "ast_hash": "16c44ad81819518f71e3220cf61c2edd",
+    "semantic_hash": ""
+  },
+  "D:\\Github repos\\Telegram signal Copier\\bridge\\d7ac0980-e739-4157-b807-f1f8405a37d6.txt": {
+    "mtime": 1780884065.8088715,
+    "ast_hash": "0dc4ccce6262d256b58429f88642d7f5",
+    "semantic_hash": ""
+  },
+  "D:\\Github repos\\Telegram signal Copier\\bridge\\d997eca6-ef8b-4b45-9f1f-895713b3a6c0.txt": {
+    "mtime": 1780898858.5448155,
+    "ast_hash": "94f07f00befa0f39d5c73b362c8a6e6e",
+    "semantic_hash": ""
+  },
+  "D:\\Github repos\\Telegram signal Copier\\bridge\\e0163c09-3125-4cc6-abd5-682e58ac0ac4.txt": {
+    "mtime": 1780917136.3550017,
+    "ast_hash": "03001aac494633e8ee1b30d85d91d39c",
+    "semantic_hash": ""
+  },
+  "D:\\Github repos\\Telegram signal Copier\\bridge\\e2a51f66-179f-40ec-b68e-a522f10eeb82.txt": {
+    "mtime": 1780901144.0524406,
+    "ast_hash": "874d1e57ef5f98431582572e614b9432",
+    "semantic_hash": ""
+  },
+  "D:\\Github repos\\Telegram signal Copier\\bridge\\ed91eb85-bd38-4d6d-8e7c-34baadcf8363.txt": {
+    "mtime": 1780896403.7731607,
+    "ast_hash": "003164f7c22f7691c81abcc5e6c9239a",
+    "semantic_hash": ""
+  },
+  "D:\\Github repos\\Telegram signal Copier\\bridge\\f2828a5f-bbec-43fb-a74a-5848d0d7a1ae.txt": {
+    "mtime": 1780927912.6935325,
+    "ast_hash": "df3ec44f6a313c26677e75e87d720a87",
+    "semantic_hash": ""
+  },
+  "D:\\Github repos\\Telegram signal Copier\\bridge\\startup_health.txt": {
+    "mtime": 1780932148.468217,
+    "ast_hash": "dd0a0c72b6eb09d80ff90c62c7d317e1",
+    "semantic_hash": ""
+  },
+  "D:\\Github repos\\Telegram signal Copier\\bridge\\telegram_sources.txt": {
+    "mtime": 1780932144.1884246,
+    "ast_hash": "5ed7494e8f64f4e6e4493d9ab4102a68",
+    "semantic_hash": ""
+  },
+  "D:\\Github repos\\Telegram signal Copier\\bridge\\telegram_status.txt": {
+    "mtime": 1780935409.5441146,
+    "ast_hash": "3518c01ad46bb853c04e642083d7700e",
+    "semantic_hash": ""
+  },
+  "D:\\Github repos\\Telegram signal Copier\\typings\\README.md": {
+    "mtime": 1780768321.048707,
+    "ast_hash": "de8b42ef1e0575ec522e6344b9f8c93f",
     "semantic_hash": ""
   }
 }
