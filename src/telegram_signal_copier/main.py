@@ -1,4 +1,4 @@
-"""Telegram Signal Copier — entry point.
+﻿"""Telegram Signal Copier — entry point.
 
 Heavy implementation is split across focused submodules:
   listener_lock.py    — lock/PID file helpers
@@ -154,7 +154,6 @@ def build_arg_parser() -> argparse.ArgumentParser:
     subparsers.add_parser("login", help="Log in to Telegram and create a session file")
     subparsers.add_parser("listen", help="Listen to configured Telegram sources")
     subparsers.add_parser("setup", help="Launch the first-run setup wizard")
-    subparsers.add_parser("dashboard", help="Launch the desktop Flet GUI dashboard")
     return parser
 
 
@@ -165,16 +164,6 @@ def main() -> None:
     if args.command == "setup":
         from telegram_signal_copier.setup_wizard import run_wizard
         run_wizard()
-        return
-
-    if args.command == "dashboard":
-        import flet as ft
-        from telegram_signal_copier.gui import main as gui_main
-        # Use FLET_APP_WEB to open dashboard in browser (FLET_APP requires
-        # Microsoft Edge WebView2 which is not installed on this system)
-        port = 8550
-        print(f"Starting dashboard at http://localhost:{port}")
-        ft.run(gui_main, view=ft.AppView.FLET_APP_WEB, port=port)
         return
 
     config = AppConfig.from_env()

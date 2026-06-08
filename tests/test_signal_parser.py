@@ -39,15 +39,15 @@ class SignalParserTests(unittest.TestCase):
                 TelegramSignalMessage(
                     source_group="VIP Gold",
                     message_id="1",
-                    raw_text="BUY GOLD NOW @ 2320 SL 2315 TP1 2330 TP2 2338",
+                    raw_text="BUY GOLD NOW @ 4320 SL 4315 TP1 4330 TP2 4338",
                 )
             )
 
             self.assertEqual(result.signal.symbol, "XAUUSD")
             self.assertEqual(result.signal.side, "BUY")
-            self.assertEqual(result.signal.entry_price, 2320.0)
-            self.assertEqual(result.signal.stop_loss, 2315.0)
-            self.assertEqual(result.signal.take_profits, [2330.0, 2338.0])
+            self.assertEqual(result.signal.entry_price, 4320.0)
+            self.assertEqual(result.signal.stop_loss, 4315.0)
+            self.assertEqual(result.signal.take_profits, [4330.0, 4338.0])
             self.assertGreaterEqual(result.signal.confidence, 0.85)
 
     def test_heuristic_parser_accepts_slash_style_sl_tp_labels(self) -> None:

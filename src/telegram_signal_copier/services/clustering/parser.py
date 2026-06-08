@@ -7,6 +7,8 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass, field
 
+from telegram_signal_copier.constants import SYMBOL_PRICE_RANGES
+
 
 # ──────────────────────────────────────────────────────────────────────────────
 # Regex patterns
@@ -17,9 +19,9 @@ _PRICE_RANGE_RE = re.compile(
     r"\b(\d{3,7}(?:\.\d{1,5})?)\s*[-/]\s*(\d{3,7}(?:\.\d{1,5})?)\b"
 )
 
-# "below 4707" / "above 4707" / "below 4707-4709"
+# "below 4707" / "above 4707" / "near 4707-4709" / "around 4707"
 _BELOW_ABOVE_RE = re.compile(
-    r"\b(below|above|sell\s+below|buy\s+above|under|over)\s+"
+    r"\b(below|above|near|around|sell\s+below|buy\s+above|under|over)\s+"
     r"(\d{3,7}(?:\.\d{1,5})?)"
     r"(?:\s*[-/]\s*(\d{3,7}(?:\.\d{1,5})?))?",
     re.IGNORECASE,
@@ -126,6 +128,13 @@ def _detect_symbol(text: str) -> str | None:
                 "XAGUSD", "US30", "NAS100", "USOIL", "SPX500"):
         if sym in upper:
             return sym
+    # Fallback: match tokens with letters+digits or currency suffixes,
+    # but NEVER match pure-number tokens (prices like "4292")
+    match = re.search(r"\b([A-Z][A-Z0-9]{2,9}(?:\d+|USD|EUR|JPY|GBP|AUD|CAD|NZD|CHF|XAU|XAG))\b", upper)
+    if match:
+        candidate = match.group(1)
+        if not candidate.isdigit():
+            return candidate
     return None
 
 
@@ -164,6 +173,14 @@ def parse_cluster(texts: list[str], allowed_symbols: list[str] | None = None) ->
     # ── Side + order type ───────────────────────────────────────────────────
     sig.side, sig.order_type = _detect_side_and_order_type(all_text)
 
+    # Use wide sanity-check range for extraction (strict validation happens later)
+    _sym_range = SYMBOL_PRICE_RANGES.get(sig.symbol or "", (0.0, 999999.0))
+    _price_lo = max(0.0, _sym_range[0] * 0.3)
+    _price_hi = _sym_range[1] * 2.0
+
+    def _in_range(val: float) -> bool:
+        return _price_lo <= val <= _price_hi
+
     # ── Entry range / price ─────────────────────────────────────────────────
     for text in texts:
         m = _BELOW_ABOVE_RE.search(text)
@@ -171,18 +188,29 @@ def parse_cluster(texts: list[str], allowed_symbols: list[str] | None = None) ->
             qualifier = m.group(1).lower()
             low_val = float(m.group(2))
             high_val = float(m.group(3)) if m.group(3) else low_val
+            # Only accept entry range within expected price range
+            if not (_in_range(low_val) and (not m.group(3) or _in_range(high_val))):
+                continue
             sig.entry_range_low = min(low_val, high_val)
             sig.entry_range_high = max(low_val, high_val)
-            if sig.side == "SELL" or "below" in qualifier:
+            if sig.side == "SELL" or qualifier in ("below", "under"):
                 sig.entry_price = sig.entry_range_high
                 sig.order_type = "SELL_LIMIT"
                 if not sig.side:
                     sig.side = "SELL"
-            elif sig.side == "BUY" or "above" in qualifier:
+            elif sig.side == "BUY" or qualifier in ("above", "over"):
                 sig.entry_price = sig.entry_range_low
                 sig.order_type = "BUY_LIMIT"
                 if not sig.side:
                     sig.side = "BUY"
+            elif qualifier in ("near", "around"):
+                # "near"/"around" inherit order type from detected side
+                if sig.side == "SELL":
+                    sig.entry_price = sig.entry_range_high
+                    sig.order_type = "SELL_LIMIT"
+                else:
+                    sig.entry_price = sig.entry_range_low
+                    sig.order_type = "BUY_LIMIT"
             sig.notes.append(
                 f"Entry range [{sig.entry_range_low}–{sig.entry_range_high}] "
                 f"→ entry_price={sig.entry_price} ({sig.order_type})"
@@ -194,6 +222,9 @@ def parse_cluster(texts: list[str], allowed_symbols: list[str] | None = None) ->
             m = _PRICE_RANGE_RE.search(text)
             if m:
                 a, b = float(m.group(1)), float(m.group(2))
+                # Only accept entry range within expected price range
+                if not (_in_range(a) and _in_range(b)):
+                    continue
                 sig.entry_range_low = min(a, b)
                 sig.entry_range_high = max(a, b)
                 if sig.side == "SELL":
@@ -205,7 +236,7 @@ def parse_cluster(texts: list[str], allowed_symbols: list[str] | None = None) ->
     for text in texts:
         m = _TARGET_RE.search(text)
         if m:
-            tp_list = _parse_price_list(m.group(1))
+            tp_list = [v for v in _parse_price_list(m.group(1)) if _in_range(v)]
             if tp_list:
                 sig.take_profits = tp_list
                 sig.notes.append(f"TPs extracted from cluster follow-up: {tp_list}")
@@ -215,9 +246,11 @@ def parse_cluster(texts: list[str], allowed_symbols: list[str] | None = None) ->
     for text in texts:
         m = _SL_FOLLOW_RE.search(text)
         if m:
-            sig.stop_loss = float(m.group(1))
-            sig.notes.append(f"SL extracted from cluster: {sig.stop_loss}")
-            break
+            sl_candidate = float(m.group(1))
+            if _in_range(sl_candidate):
+                sig.stop_loss = sl_candidate
+                sig.notes.append(f"SL extracted from cluster: {sig.stop_loss}")
+                break
 
     # ── Confidence ────────────────────────────────────────────────────────────
     fields = [sig.symbol, sig.side, sig.entry_price, sig.stop_loss,

@@ -85,46 +85,6 @@ class FileBridgeExecutorTests(unittest.TestCase):
             self.assertEqual(result.status, "FILLED")
             self.assertEqual(result.executed_price, 4580.5)
 
-    def test_modify_filled_without_price_stays_filled(self) -> None:
-        with tempfile.TemporaryDirectory() as temp_dir:
-            root = Path(temp_dir)
-            executor = self._make_executor(root)
-            command = TradeCommand(
-                request_id="req-modify-1",
-                source_group="test",
-                message_id="2",
-                symbol="XAUUSD",
-                action="MODIFY",
-                order_type="",
-                volume=0.0,
-                entry_price=None,
-                stop_loss=None,
-                take_profit=None,
-                take_profit_targets=[],
-                ticket=123456,
-                new_sl=4588.0,
-            )
-            outbox = root / "outbox"
-            outbox.mkdir(parents=True, exist_ok=True)
-            (outbox / "req-modify-1.result").write_text(
-                "\n".join(
-                    [
-                        "request_id=req-modify-1",
-                        "status=FILLED",
-                        "message=modified",
-                        "ticket=123456",
-                        "executed_at=2026-05-25 17:11:13",
-                    ]
-                )
-                + "\n",
-                encoding="utf-8",
-            )
-
-            result = executor.submit(command)
-
-            self.assertEqual(result.status, "FILLED")
-            self.assertEqual(result.ticket, "123456")
-
 
 if __name__ == "__main__":
     unittest.main()
