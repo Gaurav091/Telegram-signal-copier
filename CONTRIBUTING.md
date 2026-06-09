@@ -40,15 +40,19 @@ No exceptions. Small files are easy to read, diff, and test in isolation.
 | Config helpers | root | `config_helpers.py` | — |
 | Listener subsystem | root | `listener_<noun>.py` | `listener_runner.py` |
 | Data pipeline | `services/` | `<noun>.py` or `<noun>_<aspect>.py` | `signal_heuristic.py` |
-| Signal parsing | `services/` | `signal_<aspect>.py` | `signal_normalizers.py` |
+| Signal parsing | `services/signals/` | `<aspect>.py` | `heuristic.py`, `ai_merge.py` |
+| GUI panels | `gui/` | `<panel>_panel.py` or `<concern>.py` | `trades_panel.py`, `theme.py` |
+| Setup wizard | `setup/` | `wizard_<aspect>.py` | `wizard_pages_core.py`, `wizard_shell.py` |
 | External I/O | `adapters/` | `<target>.py` or `<target>_<aspect>.py` | `openai_prompts.py` |
 | Agent nodes | `agents/` | `<role>_agent.py` or `<role>_agent_<aspect>.py` | `developer_agent_patch.py` |
 | Shared types | `models/` | `<noun>.py` | `contracts.py` |
 
 Rules:
 - All lowercase, underscores only — no hyphens, no camelCase filenames.
-- Name describes what the module **does**, not what it **is** (e.g. `signal_normalizers` not `utils`).
-- Never create a generic `utils.py` or `helpers.py` at the root level.
+- Name describes what the module **does**, not what it **is** (e.g. `heuristic` not `parser_utils`).
+- Never create a generic `utils.py` or `helpers.py` at any level.
+- When a directory grows past 5 modules, consider grouping into a subpackage with `__init__.py` re-exports.
+- Subpackage `__init__.py` must re-export all public names for backward compatibility.
 
 ---
 
@@ -311,13 +315,36 @@ When a file exceeds 300 lines:
 
 | What you're extracting | Suffix convention |
 |---|---|
-| Regex / compiled patterns | `_patterns.py` |
-| Pure normalizer functions | `_normalizers.py` |
-| A sub-class of parsing logic | `_parse.py` or `_<aspect>.py` |
+| Regex / compiled patterns | `patterns.py` (in subpackage) or `_patterns.py` |
+| Pure normalizer functions | `normalizers.py` (in subpackage) or `_normalizers.py` |
+| Heuristic / rule-based logic | `heuristic.py` |
+| AI merge / payload processing | `ai_merge.py` |
+| UI panel (Flet/tkinter) | `<name>_panel.py` |
+| Dialog / modal UI | `dialogs.py` |
+| Theme / styling constants | `theme.py` |
+| Wizard page classes | `wizard_pages.py` or `wizard_pages_<group>.py` |
+| Wizard shell / navigation | `wizard_shell.py` |
+| Launcher / entry window | `launcher.py` |
+| Config/env helpers | `wizard_helpers.py` or `config_helpers.py` |
 | Prompt / template strings | `_prompts.py` |
-| Static utility functions | `_helpers.py` |
 | Data models / dataclasses | `_models.py` |
 | Analysis / classification logic | `_analysis.py` |
+
+### Creating a subpackage
+
+When splitting creates 3+ related files, create a subpackage:
+
+1. Create directory: `services/signals/`, `gui/`, `setup/`
+2. Create `__init__.py` that re-exports all public names
+3. Replace original monolith with thin facade that imports from subpackage
+4. All external imports continue working unchanged
+
+Example facade (`gui.py` after extraction):
+```python
+"""Backward-compatible facade — delegates to gui/ subpackage."""
+from __future__ import annotations
+from telegram_signal_copier.gui.dashboard import SignalCopierDashboard as SignalCopierDashboard  # noqa: F401
+```
 
 ---
 
@@ -361,4 +388,6 @@ Scope = the module or subsystem being changed (e.g. `pipeline`, `bridge`, `confi
 | Hard-coded paths | Breaks on other machines | Use `config.project_root / "subpath"` |
 | `aiohttp` or `urllib.request` for HTTP | Hangs on SSL on this machine | `requests` with `timeout=10, verify=False` |
 | File over 300 lines | Hard to review and test | Split before adding more code |
+| Monolith class > 300 lines | God object anti-pattern | Extract methods into focused modules/classes |
+| Stale extracted modules | Drift from main code | Update extracted modules when fixing bugs in monolith |
 | Storing secrets in source | Security risk | `.env` file only, never committed |
