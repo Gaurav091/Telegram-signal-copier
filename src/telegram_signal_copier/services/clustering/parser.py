@@ -27,16 +27,34 @@ _BELOW_ABOVE_RE = re.compile(
     re.IGNORECASE,
 )
 
-# Target / TP follow-up: "Target 4702-4695-4685" or "TP: 4702 4695 4685"
+# Target / TP follow-up: "Target 4702-4695-4685" or "TP: 4702 4695 4685" or "TG 4702"
 _TARGET_RE = re.compile(
-    r"(?:target|tp\s*\d*|take\s*profit\s*\d*)[:\s\-]+"
+    r"(?:[\u26a1\ufe0f\u2705\ud83c\udfaf\ud83d\udcb0]*\s*)?"
+    r"(?:target|tp\s*\d*|take\s*profit\s*\d*|tg\s*\d*)[:\s\-\u2026]+"
     r"((?:\d{3,7}(?:\.\d{1,5})?(?:\s*[-,/]\s*)?)+)",
     re.IGNORECASE,
 )
 
 # SL / Stop follow-up: "SL 4720" or "Stop 4720" or "Stop Loss 4720"
 _SL_FOLLOW_RE = re.compile(
-    r"(?:sl|stop\s*loss?|stoploss?)[:\s=]+(\d{3,7}(?:\.\d{1,5})?)",
+    r"(?:[\u274c\u26a0\ufe0f\ud83d\udeab\u274e]*\s*)?"
+    r"(?:sl|stop\s*loss?|stoploss?|\bstop\b)"
+    r"[\s:=\-\u2026.]*\s*(\d{3,7}(?:\.\d{1,5})?)",
+    re.IGNORECASE,
+)
+
+# Trade management messages — NOT new signals
+_TRADE_MGMT_RE = re.compile(
+    r"\b(?:move\s+sl|hit\s+tp|close\s+(?:position|trade|bad)|breakeven|bep|"
+    r"trail\s+stop|partial\s+close|tp\d*\s+hit|sl\s+to\s+(?:entry|be))\b",
+    re.IGNORECASE,
+)
+
+# Promo/spam indicators
+_PROMO_RE = re.compile(
+    r"\b(?:join\s+(?:my|our|the)?\s*(?:vip|group|channel)|free\s+trail|"
+    r"hurry\s+up|add\s+\d+\s+members|dm\s+(?:me|for)|subscribe|"
+    r"paid\s+(?:group|signals|vip)|link\s+(?:will|won't)\s+work)\b",
     re.IGNORECASE,
 )
 
@@ -160,6 +178,14 @@ def parse_cluster(texts: list[str], allowed_symbols: list[str] | None = None) ->
     """
     sig = ClusterSignal()
     all_text = "\n".join(texts)
+
+    # ── Early exit: trade management or promo/spam ────────────────────────
+    if _TRADE_MGMT_RE.search(all_text):
+        sig.notes.append("Trade management message — not a new signal")
+        return sig
+    if _PROMO_RE.search(all_text):
+        sig.notes.append("Promo/spam message — not a trade signal")
+        return sig
     combined_upper = all_text.upper()
 
     # ── Symbol ──────────────────────────────────────────────────────────────

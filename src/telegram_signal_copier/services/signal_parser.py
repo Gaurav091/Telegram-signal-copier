@@ -12,11 +12,15 @@ from telegram_signal_copier.models import ParsedSignal, TelegramSignalMessage
 
 PRICE_PATTERN = re.compile(r"\b\d{1,6}(?:\.\d{1,5})?\b")
 SL_PATTERN = re.compile(
-    r"(?:\bSL\b|\bS\s*[\\/]\s*L\b|STOP\s*LOSS)\s*[:=@-]?\s*(\d{1,6}(?:\.\d{1,5})?)",
+    r"(?:[\u274c\u26a0\ufe0f\ud83d\udeab\u274e]*\s*)?"
+    r"(?:\bSL\b|\bS\s*[\\/.]\s*L\b|STOP\s*LOSS|STOPLOSS|\bSTOP\b)"
+    r"[\s:=@\-\u2026.]*\s*(\d{1,6}(?:\.\d{1,5})?)",
     re.IGNORECASE,
 )
 TP_PATTERN = re.compile(
-    r"(?:\bTP\d*\b|\bT\s*[\\/]\s*P\d*\b|TAKE\s*PROFIT\s*\d*)\s*[:=@-]?\s*(\d{1,6}(?:\.\d{1,5})?)",
+    r"(?:[\u26a1\ufe0f\u2705\ud83c\udfaf\ud83d\udcb0]*\s*)?"
+    r"(?:\bTP\d*\b|\bT\s*[\\/.]\s*P\d*\b|TAKE\s*PROFIT\s*\d*|\bTG\d*\b)"
+    r"[\s:=@\-\u2026.]*\s*(\d{1,6}(?:\.\d{1,5})?)",
     re.IGNORECASE,
 )
 ENTRY_PATTERN = re.compile(r"(?:ENTRY|AT|BUY|SELL)\s*[:=@-]?\s*(\d{1,6}(?:\.\d{1,5})?)", re.IGNORECASE)
@@ -32,6 +36,23 @@ _OCR_SPACE_NUMBER_RE = re.compile(r"(\d{1,4})\s+(\d{3}(?:[.,]\d+)?)(?=\D|$)")
 
 # Caption keywords that signal a new trade from ALGO TRADING forex-style groups
 _NEW_TRADE_CAPTIONS = re.compile(r"^\s*(new|both\s*new)\s*$", re.IGNORECASE)
+
+# Trade management messages — NOT new signals (move SL, hit TP, close position)
+_TRADE_MANAGEMENT_RE = re.compile(
+    r"\b(?:move\s+sl|hit\s+tp|close\s+(?:position|trade|bad)|breakeven|bep|"
+    r"trail\s+stop|partial\s+close|take\s+profit\s+hit|tp\d*\s+hit|"
+    r"sl\s+to\s+(?:entry|be|breakeven)|secure\s+profit)\b",
+    re.IGNORECASE,
+)
+
+# Promo/spam indicators — messages advertising VIP/groups rather than signals
+_PROMO_SPAM_RE = re.compile(
+    r"\b(?:join\s+(?:my|our|the)?\s*(?:vip|group|channel)|free\s+trail|"
+    r"hurry\s+up|add\s+\d+\s+members|dm\s+(?:me|for)|contact\s+(?:me|us)|"
+    r"subscribe|paid\s+(?:group|signals|vip)|link\s+(?:will|won't)\s+work|"
+    r"limited\s+(?:spots|time|offer))\b",
+    re.IGNORECASE,
+)
 
 # Multi-target pattern: "Target- 4514, 4520, 4530" or "TP: 4514 4520 4530"
 _TARGET_MULTI_RE = re.compile(
@@ -445,6 +466,33 @@ class SignalParser:
                 return screenshot
 
         upper_text = combined_text.upper()
+
+        # ── Early exit: trade management messages (not new signals) ─────────
+        if _TRADE_MANAGEMENT_RE.search(combined_text):
+            return ParsedSignal(
+                source_group=message.source_group,
+                message_id=message.message_id,
+                symbol=None, side=None, order_type="MARKET",
+                entry_price=None, stop_loss=None, take_profits=[],
+                confidence=0.0, raw_text=combined_text,
+                image_used=bool(message.image_path),
+                parser_name="heuristic",
+                notes=["Trade management message — not a new signal"],
+            )
+
+        # ── Early exit: promo/spam messages ─────────────────────────────────
+        if _PROMO_SPAM_RE.search(combined_text):
+            return ParsedSignal(
+                source_group=message.source_group,
+                message_id=message.message_id,
+                symbol=None, side=None, order_type="MARKET",
+                entry_price=None, stop_loss=None, take_profits=[],
+                confidence=0.0, raw_text=combined_text,
+                image_used=bool(message.image_path),
+                parser_name="heuristic",
+                notes=["Promo/spam message — not a trade signal"],
+            )
+
         symbol = self._detect_symbol(upper_text)
         # Detect side from standard keywords first, then custom keywords
         _raw_side = "BUY" if "BUY" in upper_text or "LONG" in upper_text else "SELL" if "SELL" in upper_text or "SHORT" in upper_text else None
@@ -518,7 +566,19 @@ class SignalParser:
             """Sanity-check: reject obviously wrong values (e.g. pip counts, member counts)."""
             return _price_lo <= val <= _price_hi
 
-        # Accept 'SL 4550' and 'TP 4536' on separate lines
+        # ── Multi-target extraction FIRST (captures all TPs from Target/TG lines) ──
+        tm = _TARGET_MULTI_RE.search(combined_text)
+        if tm:
+            raw_nums = re.findall(r"\d{3,7}(?:\.\d{1,5})?", tm.group(1))
+            for rn in raw_nums:
+                try:
+                    tv = float(rn)
+                    if _in_range(tv) and tv not in take_profits:
+                        take_profits.append(tv)
+                except Exception:
+                    pass
+
+        # Accept 'SL 4550' and individual 'TP 4536' on separate lines
         for line in combined_text.splitlines():
             line_u = line.upper()
             if not stop_loss:
@@ -531,6 +591,7 @@ class SignalParser:
                             stop_loss = sl_candidate
                     except Exception:
                         pass
+            # Extract individual TPs (supplements multi-target or handles standalone TP lines)
             tps = TP_PATTERN.findall(line_u)
             for tp in tps:
                 try:
@@ -540,19 +601,6 @@ class SignalParser:
                         take_profits.append(tp_val)
                 except Exception:
                     pass
-
-        # Try multi-target pattern: "Target- 4514, 4520, 4530"
-        if not take_profits:
-            tm = _TARGET_MULTI_RE.search(combined_text)
-            if tm:
-                raw_nums = re.findall(r"\d{3,7}(?:\.\d{1,5})?", tm.group(1))
-                for rn in raw_nums:
-                    try:
-                        tv = float(rn)
-                        if _in_range(tv) and tv not in take_profits:
-                            take_profits.append(tv)
-                    except Exception:
-                        pass
 
         # If still missing TPs, fallback to price pattern (with range filter)
         if not take_profits:
