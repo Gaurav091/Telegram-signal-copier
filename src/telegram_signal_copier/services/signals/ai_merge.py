@@ -1,31 +1,25 @@
 """AI payload processing and signal merging for SignalParser.
 
-Extracted from signal_parser.py for maintainability.
+Handles:
+- AI payload → ParsedSignal conversion
+- Range-aware AI/heuristic merge (_pick, entry digit reconstruction)
+- TP direction consistency and MT5 screenshot authority
+- Chart level supplementation for missing SL/TP
 """
 from __future__ import annotations
 
-import logging
 from typing import Any
 
 from telegram_signal_copier.adapters.openai_client import OpenAIClient
 from telegram_signal_copier.config import AppConfig
-from telegram_signal_copier.constants import CRYPTO_ENTRY_MIN
+from telegram_signal_copier.constants import SYMBOL_PRICE_RANGES
 from telegram_signal_copier.models import ParsedSignal, TelegramSignalMessage
-from telegram_signal_copier.services.signal_crypto import (
-    recover_crypto_entry_from_text,
-    repair_crypto_entry_price,
-)
-from telegram_signal_copier.services.signal_normalizers import (
+from telegram_signal_copier.services.signals.normalizers import (
     maybe_float,
     normalize_side,
     normalize_symbol,
     strip_broker_suffix,
 )
-
-logger = logging.getLogger(__name__)
-
-# Backward-compatible alias
-_CRYPTO_ENTRY_MIN = CRYPTO_ENTRY_MIN
 
 
 def from_ai_payload(
@@ -41,45 +35,17 @@ def from_ai_payload(
     notes = payload.get("notes") or []
     if isinstance(notes, str):
         notes = [notes]
-    symbol = normalize_symbol(payload.get("symbol"))
-    side = normalize_side(payload.get("side"))
-    entry_price = maybe_float(payload.get("entry_price"))
-    stop_loss = maybe_float(payload.get("stop_loss"))
-    recovered_entry = recover_crypto_entry_from_text(
-        symbol=symbol,
-        side=side,
-        text=combined_text,
-        stop_loss=stop_loss,
-        take_profits=take_profits,
-    )
-    if recovered_entry is not None:
-        min_expected = _CRYPTO_ENTRY_MIN.get((symbol or "").upper())
-        if (
-            entry_price is None
-            or (min_expected is not None and entry_price < min_expected)
-            or abs(recovered_entry - entry_price) > 1000
-        ):
-            notes.append(f"Recovered entry from OCR text: {entry_price} -> {recovered_entry}")
-            entry_price = recovered_entry
-    entry_price = repair_crypto_entry_price(
-        symbol=symbol,
-        side=side,
-        entry_price=entry_price,
-        stop_loss=stop_loss,
-        take_profits=take_profits,
-        notes=notes,
-    )
     confidence = maybe_float(payload.get("confidence"))
     return ParsedSignal(
         source_group=message.source_group,
         message_id=message.message_id,
-        symbol=symbol,
-        side=side,
+        symbol=normalize_symbol(payload.get("symbol")),
+        side=normalize_side(payload.get("side")),
         order_type=str(payload.get("order_type") or "MARKET").upper(),
-        entry_price=entry_price,
+        entry_price=maybe_float(payload.get("entry_price")),
         entry_range_low=maybe_float(payload.get("entry_range_low")),
         entry_range_high=maybe_float(payload.get("entry_range_high")),
-        stop_loss=stop_loss,
+        stop_loss=maybe_float(payload.get("stop_loss")),
         take_profits=take_profits,
         confidence=max(0.0, min(1.0, confidence if confidence is not None else 0.0)),
         raw_text=combined_text,
@@ -95,12 +61,12 @@ def merge_signals(
     ai_signal: ParsedSignal,
     heuristic_signal: ParsedSignal,
 ) -> ParsedSignal:
-    """Merge AI-parsed and heuristic-parsed signals, preferring AI values."""
-    allowed_bases = {strip_broker_suffix(symbol) for symbol in (config.merged_allowed_symbols or [])}
+    """Merge AI and heuristic signals with range-aware value selection."""
+    allowed_bases = {strip_broker_suffix(s) for s in (config.merged_allowed_symbols or [])}
     symbol = ai_signal.symbol or heuristic_signal.symbol
     symbol_base = strip_broker_suffix(symbol)
     heuristic_base = strip_broker_suffix(heuristic_signal.symbol)
-    if symbol and allowed_bases and (symbol_base not in allowed_bases) and heuristic_signal.symbol and heuristic_base in allowed_bases:
+    if symbol and allowed_bases and symbol_base not in allowed_bases and heuristic_signal.symbol and heuristic_base in allowed_bases:
         symbol = heuristic_signal.symbol
 
     confidence = ai_signal.confidence if ai_signal.confidence > 0 else heuristic_signal.confidence
@@ -111,52 +77,108 @@ def merge_signals(
     if ai_signal.confidence <= 0 and heuristic_signal.confidence > 0:
         notes.append("AI confidence missing, reused heuristic confidence")
 
-    if heuristic_signal.parser_name == "mt5_screenshot":
-        overridden_fields: list[str] = []
-        if heuristic_signal.entry_price is not None and ai_signal.entry_price != heuristic_signal.entry_price:
-            overridden_fields.append("entry")
-        if heuristic_signal.stop_loss is not None and ai_signal.stop_loss != heuristic_signal.stop_loss:
-            overridden_fields.append("stop_loss")
-        if heuristic_signal.take_profits and ai_signal.take_profits != heuristic_signal.take_profits:
-            overridden_fields.append("take_profits")
-        if overridden_fields:
-            notes.append("MT5 screenshot parser overrode AI-extracted " + ", ".join(overridden_fields))
+    _sym_for_range = symbol or ai_signal.symbol or heuristic_signal.symbol
+    _plo, _phi = SYMBOL_PRICE_RANGES.get(_sym_for_range or "", (0.0, 999999.0))
 
-        return ParsedSignal(
-            source_group=ai_signal.source_group,
-            message_id=ai_signal.message_id,
-            symbol=heuristic_signal.symbol or symbol,
-            side=heuristic_signal.side or ai_signal.side,
-            order_type=heuristic_signal.order_type or ai_signal.order_type,
-            entry_price=heuristic_signal.entry_price if heuristic_signal.entry_price is not None else ai_signal.entry_price,
-            entry_range_low=heuristic_signal.entry_range_low if heuristic_signal.entry_range_low is not None else ai_signal.entry_range_low,
-            entry_range_high=heuristic_signal.entry_range_high if heuristic_signal.entry_range_high is not None else ai_signal.entry_range_high,
-            stop_loss=heuristic_signal.stop_loss if heuristic_signal.stop_loss is not None else ai_signal.stop_loss,
-            take_profits=heuristic_signal.take_profits or ai_signal.take_profits,
-            confidence=max(ai_signal.confidence, heuristic_signal.confidence),
-            raw_text=ai_signal.raw_text,
-            image_used=ai_signal.image_used or heuristic_signal.image_used,
-            requires_review=ai_signal.requires_review or heuristic_signal.requires_review,
-            parser_name="openai+mt5_screenshot",
-            notes=notes,
-        )
+    def _pick(preferred: float | None, fallback: float | None) -> float | None:
+        if preferred is None:
+            return fallback
+        if fallback is not None and not (_plo <= preferred <= _phi) and (_plo <= fallback <= _phi):
+            return fallback
+        return preferred
+
+    _entry = _pick(ai_signal.entry_price, heuristic_signal.entry_price)
+    _sl = _pick(ai_signal.stop_loss, heuristic_signal.stop_loss)
+    _side_merged = ai_signal.side or heuristic_signal.side
+
+    # TP selection: prefer heuristic when AI TPs are suspect
+    _ai_tps = ai_signal.take_profits or []
+    _h_tps = heuristic_signal.take_profits or []
+    if _ai_tps and _h_tps:
+        _ai_valid = all(_plo <= t <= _phi for t in _ai_tps)
+        _h_valid = all(_plo <= t <= _phi for t in _h_tps)
+
+        def _tps_consistent(tps: list[float], side: str | None, entry: float | None, sl: float | None) -> bool:
+            if not tps or side is None:
+                return True
+            ref = entry or sl
+            if ref is None:
+                return True
+            if side == "SELL" and any(t >= ref for t in tps):
+                return False
+            if side == "BUY" and any(t <= ref for t in tps):
+                return False
+            return True
+
+        _ai_ok = _tps_consistent(_ai_tps, _side_merged, _entry, _sl)
+        _h_ok = _tps_consistent(_h_tps, _side_merged, _entry, _sl)
+        _h_is_mt5 = heuristic_signal.parser_name == "mt5_screenshot"
+
+        if _h_is_mt5 and _h_valid:
+            _tps = _h_tps
+            notes.append("MT5 screenshot parser overrode AI-extracted TPs (authoritative source)")
+        elif (not _ai_valid or not _ai_ok) and (_h_valid and _h_ok):
+            _tps = _h_tps
+            notes.append("Used heuristic TPs (AI TPs inconsistent with signal direction/range)")
+        else:
+            _tps = _ai_tps
+    else:
+        _tps = _ai_tps or _h_tps
+
+    # Entry digit reconstruction when AI dropped leading digits
+    if (
+        _entry is not None and _sym_for_range
+        and not (_plo <= _entry <= _phi)
+        and (_sl is not None or _tps)
+    ):
+        ref_prices = [p for p in ([_sl] + _tps) if p is not None and _plo <= p <= _phi]
+        if ref_prices:
+            ref = sum(ref_prices) / len(ref_prices)
+            best_candidate: float | None = None
+            best_dist = float("inf")
+            _entry_str = str(_entry)
+            for d1 in range(1, 10):
+                v1 = float(f"{d1}{_entry_str}")
+                if _plo <= v1 <= _phi:
+                    d = abs(v1 - ref)
+                    if d < best_dist:
+                        best_dist, best_candidate = d, v1
+                for d2 in range(0, 10):
+                    v2 = float(f"{d1}{d2}{_entry_str}")
+                    if _plo <= v2 <= _phi:
+                        d = abs(v2 - ref)
+                        if d < best_dist:
+                            best_dist, best_candidate = d, v2
+            candidate = best_candidate if best_candidate is not None else _entry
+            if _plo <= candidate <= _phi:
+                direction_ok = True
+                if _side_merged == "BUY" and _sl is not None and candidate < _sl:
+                    direction_ok = False
+                if _side_merged == "SELL" and _sl is not None and candidate > _sl:
+                    direction_ok = False
+                if direction_ok:
+                    notes.append(f"Adjusted entry {_entry}→{candidate} (leading digits recovered from SL/TP context)")
+                    _entry = candidate
+
+    h_parser = heuristic_signal.parser_name
+    parser_name = f"openai+{h_parser}" if h_parser != "heuristic" else "openai+heuristic"
 
     return ParsedSignal(
         source_group=ai_signal.source_group,
         message_id=ai_signal.message_id,
         symbol=symbol,
-        side=ai_signal.side or heuristic_signal.side,
+        side=_side_merged,
         order_type=ai_signal.order_type or heuristic_signal.order_type,
-        entry_price=ai_signal.entry_price if ai_signal.entry_price is not None else heuristic_signal.entry_price,
-        entry_range_low=ai_signal.entry_range_low if ai_signal.entry_range_low is not None else heuristic_signal.entry_range_low,
-        entry_range_high=ai_signal.entry_range_high if ai_signal.entry_range_high is not None else heuristic_signal.entry_range_high,
-        stop_loss=ai_signal.stop_loss if ai_signal.stop_loss is not None else heuristic_signal.stop_loss,
-        take_profits=ai_signal.take_profits or heuristic_signal.take_profits,
+        entry_price=_entry,
+        entry_range_low=_pick(ai_signal.entry_range_low, heuristic_signal.entry_range_low),
+        entry_range_high=_pick(ai_signal.entry_range_high, heuristic_signal.entry_range_high),
+        stop_loss=_sl,
+        take_profits=_tps,
         confidence=confidence,
         raw_text=ai_signal.raw_text,
         image_used=ai_signal.image_used or heuristic_signal.image_used,
         requires_review=ai_signal.requires_review,
-        parser_name="openai+heuristic",
+        parser_name=parser_name,
         notes=notes,
     )
 

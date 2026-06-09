@@ -1,11 +1,10 @@
-﻿"""Signal parser — coordinates heuristic and AI-based signal extraction.
+﻿"""Signal parser facade — coordinates heuristic and AI-based signal extraction.
 
-Heavy lifting is split across:
-  signal_patterns.py    — regex patterns and constants
-  signal_normalizers.py — static normalizer utilities
-  signal_crypto.py      — crypto entry price recovery
-  signal_heuristic.py   — rule-based (heuristic) parsing
-  signal_ai_merge.py    — AI payload processing and signal merging
+Delegates to:
+  signals.heuristic  — rule-based parsing, MT5 screenshots, early exits
+  signals.ai_merge   — AI payload conversion, range-aware merge, chart fill
+  signals.normalizers — symbol/side/OCR normalization utilities
+  signals.patterns    — regex patterns and constants
 """
 from __future__ import annotations
 
@@ -14,15 +13,14 @@ from typing import Any
 
 from telegram_signal_copier.adapters.openai_client import OpenAIClient
 from telegram_signal_copier.config import AppConfig
-from telegram_signal_copier.constants import CRYPTO_ENTRY_MIN
 from telegram_signal_copier.models import ParsedSignal, TelegramSignalMessage
-from telegram_signal_copier.services.signal_ai_merge import (
+from telegram_signal_copier.services.signals.ai_merge import (
     fill_missing_levels_from_chart,
     from_ai_payload,
     merge_signals,
 )
-from telegram_signal_copier.services.signal_heuristic import heuristic_parse
-from telegram_signal_copier.services.signal_normalizers import (
+from telegram_signal_copier.services.signals.heuristic import heuristic_parse
+from telegram_signal_copier.services.signals.normalizers import (
     normalize_ocr_spaced_numbers,
     normalize_side,
     normalize_symbol,
@@ -31,23 +29,6 @@ from telegram_signal_copier.services.signal_normalizers import (
     first_float,
     detect_order_type,
 )
-from telegram_signal_copier.services.signal_patterns import (
-    AT_SYMBOL_PATTERN,
-    CLUSTER_BLOCK_RE,
-    CLUSTER_KV_RE,
-    ENTRY_PATTERN,
-    MT5_SCREENSHOT_HEADER_RE as _MT5_SCREENSHOT_HEADER_RE,
-    NEW_TRADE_CAPTIONS as _NEW_TRADE_CAPTIONS,
-    OCR_SPACE_NUMBER_RE as _OCR_SPACE_NUMBER_RE,
-    PRICE_PATTERN,
-    SL_PATTERN,
-    SUPERSCRIPT_DIGIT_MAP as _SUPERSCRIPT_DIGIT_MAP,
-    TARGET_LINE_PATTERN,
-    TP_PATTERN,
-)
-
-# Backward-compatible private alias
-_CRYPTO_ENTRY_MIN = CRYPTO_ENTRY_MIN
 
 
 @dataclass(slots=True)
