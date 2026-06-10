@@ -89,35 +89,204 @@ def _parse_mt5_screenshot(
     entry_price: float | None = None
     stop_loss: float | None = None
     take_profits: list[float] = []
-    for line in clean.splitlines():
-        if entry_price is None:
-            em = re.search(r"(?:ENTRY|PRICE)[:\s=]*@?\s*(\d{3,7}(?:\.\d{1,5})?)", line, re.IGNORECASE)
-            if em:
-                try:
-                    entry_price = float(em.group(1))
-                except Exception:
-                    pass
-        if entry_price is None and not re.search(r"(?:S/L|T/P|SL|TP|STOP|PROFIT)", line, re.IGNORECASE):
-            pm = re.search(r"(\d{3,7}(?:\.\d{1,5})?)\s*[-–>]+\s*(\d{3,7}(?:\.\d{1,5})?)", line)
-            if pm:
-                try:
-                    entry_price = float(pm.group(1))
-                except Exception:
-                    pass
-        if not stop_loss:
-            m = SL_PATTERN.search(line)
-            if m:
-                try:
-                    stop_loss = float(m.group(1))
-                except Exception:
-                    pass
-        for tp in TP_PATTERN.findall(line):
+    
+    # First pass: look for explicit S/L and T/P labels (MT5 screenshot format)
+    for idx, line in enumerate(clean.splitlines()):
+        line_upper = line.upper().strip()
+        
+        # Match "S/L:" or "SL:" followed by price (may be on next line)
+        if re.search(r"S[/\\]?L[:\s]*$", line_upper):
+            # Price might be on next line
+            if idx + 1 < len(clean.splitlines()):
+                next_line = clean.splitlines()[idx + 1].strip()
+                price_match = re.search(r"^(\d{3,7}(?:\.\d{1,5})?)", next_line)
+                if price_match:
+                    try:
+                        stop_loss = float(price_match.group(1))
+                    except ValueError:
+                        pass
+            continue
+        
+        # Match explicit S/L label with price on same line
+        sl_match = re.search(r"(?:S[/\\]?L|STOP\s*LOSS)[:\s]*(\d{3,7}(?:\.\d{1,5})?)", line_upper)
+        if sl_match:
             try:
-                tp_val = float(tp)
+                stop_loss = float(sl_match.group(1))
+            except ValueError:
+                pass
+        
+        # Match "T/P:" or "TP:" followed by price (may be on next line)
+        if re.search(r"T[/\\]?P[:\s]*$", line_upper):
+            if idx + 1 < len(clean.splitlines()):
+                next_line = clean.splitlines()[idx + 1].strip()
+                price_match = re.search(r"^(\d{3,7}(?:\.\d{1,5})?)", next_line)
+                if price_match:
+                    try:
+                        tp_val = float(price_match.group(1))
+                        if tp_val >= 100 and tp_val not in take_profits:
+                            take_profits.append(tp_val)
+                    except ValueError:
+                        pass
+            continue
+        
+        
+        # Match explicit S/L label with price on same line
+        sl_match = re.search(r"(?:S[/\\]?L|STOP\s*LOSS)[:\s]*(\d{3,7}(?:\.\d{1,5})?)", line_upper)
+        if sl_match:
+            try:
+                stop_loss = float(sl_match.group(1))
+            except ValueError:
+                pass
+        
+        # Match "T/P:" or "TP:" followed by price (may be on next line)
+        if re.search(r"T[/\\]?P[:\s]*$", line_upper):
+            if idx + 1 < len(clean.splitlines()):
+                next_line = clean.splitlines()[idx + 1].strip()
+                price_match = re.search(r"^(\d{3,7}(?:\.\d{1,5})?)", next_line)
+                if price_match:
+                    try:
+                        tp_val = float(price_match.group(1))
+                        if tp_val >= 100 and tp_val not in take_profits:
+                            take_profits.append(tp_val)
+                    except ValueError:
+                        pass
+            continue
+        
+        
+        # Match explicit S/L label with price on same line
+        sl_match = re.search(r"(?:S[/\\]?L|STOP\s*LOSS)[:\s]*(\d{3,7}(?:\.\d{1,5})?)", line_upper)
+        if sl_match:
+            try:
+                stop_loss = float(sl_match.group(1))
+            except ValueError:
+                pass
+        
+        # Match "T/P:" or "TP:" followed by price (may be on next line)
+        if re.search(r"T[/\\]?P[:\s]*$", line_upper):
+            if idx + 1 < len(clean.splitlines()):
+                next_line = clean.splitlines()[idx + 1].strip()
+                price_match = re.search(r"^(\d{3,7}(?:\.\d{1,5})?)", next_line)
+                if price_match:
+                    try:
+                        tp_val = float(price_match.group(1))
+                        if tp_val >= 100 and tp_val not in take_profits:
+                            take_profits.append(tp_val)
+                    except ValueError:
+                        pass
+            continue
+        
+        
+        # Match explicit S/L label with price on same line
+        sl_match = re.search(r"(?:S[/\\]?L|STOP\s*LOSS)[:\s]*(\d{3,7}(?:\.\d{1,5})?)", line_upper)
+        if sl_match:
+            try:
+                stop_loss = float(sl_match.group(1))
+            except ValueError:
+                pass
+        
+        # Match "T/P:" or "TP:" followed by price (may be on next line)
+        if re.search(r"T[/\\]?P[:\s]*$", line_upper):
+            if idx + 1 < len(clean.splitlines()):
+                next_line = clean.splitlines()[idx + 1].strip()
+                price_match = re.search(r"^(\d{3,7}(?:\.\d{1,5})?)", next_line)
+                if price_match:
+                    try:
+                        tp_val = float(price_match.group(1))
+                        if tp_val >= 100 and tp_val not in take_profits:
+                            take_profits.append(tp_val)
+                    except ValueError:
+                        pass
+            continue
+        
+        
+        # Match explicit S/L label with price on same line
+        sl_match = re.search(r"(?:S[/\\]?L|STOP\s*LOSS)[:\s]*(\d{3,7}(?:\.\d{1,5})?)", line_upper)
+        if sl_match:
+            try:
+                stop_loss = float(sl_match.group(1))
+            except ValueError:
+                pass
+        
+        # Match "T/P:" or "TP:" followed by price (may be on next line)
+        if re.search(r"T[/\\]?P[:\s]*$", line_upper):
+            if idx + 1 < len(clean.splitlines()):
+                next_line = clean.splitlines()[idx + 1].strip()
+                price_match = re.search(r"^(\d{3,7}(?:\.\d{1,5})?)", next_line)
+                if price_match:
+                    try:
+                        tp_val = float(price_match.group(1))
+                        if tp_val >= 100 and tp_val not in take_profits:
+                            take_profits.append(tp_val)
+                    except ValueError:
+                        pass
+            continue
+        
+        tp_match = re.search(r"(?:T[/\\]?P|TAKE\s*PROFIT)[:\s]*(\d{3,7}(?:\.\d{1,5})?)", line_upper)
+        if tp_match:
+            try:
+                tp_val = float(tp_match.group(1))
                 if tp_val >= 100 and tp_val not in take_profits:
                     take_profits.append(tp_val)
-            except Exception:
+            except ValueError:
                 pass
+        
+        # Entry price detection — look for price range pattern FIRST, then explicit labels
+        if entry_price is None:
+            # Check for price range pattern: "4499.54 - 4499.47" (normalized MT5 OCR format)
+            # or "4 499.54 - 4 499.47" (raw OCR format before normalization)
+            range_match = re.search(r"(\d{3,7}(?:\.\d{1,5})?)\s*[-–]\s*(\d{3,7}(?:\.\d{1,5})?)", line)
+            if range_match:
+                try:
+                    p1 = float(range_match.group(1))
+                    p2 = float(range_match.group(2))
+                    # For SELL orders, entry is typically the higher price; for BUY, lower
+                    # Default to higher price (conservative for SELL which is common in screenshots)
+                    if p1 >= 100 and p2 >= 100:  # Filter out small numbers like lot sizes
+                        entry_price = max(p1, p2)
+                except Exception:
+                    pass
+            # Then check for explicit ENTRY/PRICE labels (not OPEN, as it matches dates)
+            if entry_price is None:
+                em = re.search(r"(?:ENTRY|PRICE)[:\s=]*@?\s*(\d{3,7}(?:\.\d{1,5})?)", line_upper)
+                if em:
+                    try:
+                        val = float(em.group(1))
+                        if val >= 100:  # Filter out dates like 2026.05
+                            entry_price = val
+                    except Exception:
+                        pass
+    
+    # Second pass: use existing pattern-based extraction as fallback
+    if stop_loss is None or not take_profits:
+        for line in clean.splitlines():
+            if entry_price is None:
+                em = re.search(r"(?:ENTRY|PRICE)[:\s=]*@?\s*(\d{3,7}(?:\.\d{1,5})?)", line, re.IGNORECASE)
+                if em:
+                    try:
+                        entry_price = float(em.group(1))
+                    except Exception:
+                        pass
+            if entry_price is None and not re.search(r"(?:S/L|T/P|SL|TP|STOP|PROFIT)", line, re.IGNORECASE):
+                pm = re.search(r"(\d{3,7}(?:\.\d{1,5})?)\s*[-–>]+\s*(\d{3,7}(?:\.\d{1,5})?)", line)
+                if pm:
+                    try:
+                        entry_price = float(pm.group(1))
+                    except Exception:
+                        pass
+            if not stop_loss:
+                m = SL_PATTERN.search(line)
+                if m:
+                    try:
+                        stop_loss = float(m.group(1))
+                    except Exception:
+                        pass
+            for tp in TP_PATTERN.findall(line):
+                try:
+                    tp_val = float(tp)
+                    if tp_val >= 100 and tp_val not in take_profits:
+                        take_profits.append(tp_val)
+                except Exception:
+                    pass
 
     if not (symbol and side and (entry_price or stop_loss or take_profits)):
         return None
