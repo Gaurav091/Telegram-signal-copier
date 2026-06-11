@@ -18,6 +18,7 @@ from telegram_signal_copier.services.intent_classifier import (
     INFO_SKIP_THRESHOLD,
     UPDATE_SKIP_THRESHOLD,
 )
+from telegram_signal_copier.services.mt5_execution_verifier import verify_execution_result
 from telegram_signal_copier.services.pipeline_intent import classify_message_intent
 from telegram_signal_copier.services.pipeline_logger import PipelineLogger
 from telegram_signal_copier.services.risk_engine import RiskEngine, ValidationDecision

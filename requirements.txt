@@ -2,6 +2,5 @@ telethon>=1.25
 Pillow>=9.0
 pytesseract>=0.3
 requests>=2.28
-# langchain/langgraph/pydantic/openai are now OPTIONAL.
-# Install them with:  pip install -e ".[agents]"
-# The core pipeline uses only stdlib (urllib, json, dataclasses, hashlib).
+# Optional MT5 account/deal verification. Install with: uv pip install MetaTrader5
+# MetaTrader5>=5.0.45

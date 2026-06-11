@@ -101,7 +101,10 @@ class AppConfig:
     mt5_login: str = ""
     mt5_password: str = ""
     mt5_server: str = ""
-    # Auto-add new symbols discovered in incoming signals
+    # Verify MT5 execution result against live account history when credentials are configured.
+    mt5_verify_execution: bool = True
+    mt5_verify_timeout_seconds: float = 15.0
+    # Path to persist dynamic symbols (one per line). If empty, defaults to bridge folder/dynamic_symbols.txt
     auto_add_new_symbols: bool = False
     # Path to persist dynamic symbols (one per line). If empty, defaults to bridge folder/dynamic_symbols.txt
     dynamic_symbols_file: str = ""
@@ -139,6 +142,8 @@ class AppConfig:
                     "openai_model": "openai_model",
                     "openai_base_url": "openai_base_url",
                     "mt5_symbol_suffix": "mt5_symbol_suffix",
+                    "mt5_verify_execution": "mt5_verify_execution",
+                    "mt5_verify_timeout_seconds": "mt5_verify_timeout_seconds",
                     "default_volume": "default_volume",
                     "minimum_confidence": "minimum_confidence",
                     "approval_required_below": "approval_required_below",
@@ -159,7 +164,7 @@ class AppConfig:
                                 val = float(val)
                             except (ValueError, TypeError):
                                 continue
-                        elif config_key in {"dry_run", "enable_time_filter"}:
+                        elif config_key in {"dry_run", "enable_time_filter", "mt5_verify_execution"}:
                             val = bool(val)
                         elif config_key == "allowed_symbols" and isinstance(val, str):
                             val = [s.strip() for s in val.split(",") if s.strip()]
