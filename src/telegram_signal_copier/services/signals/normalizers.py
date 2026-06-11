@@ -77,11 +77,14 @@ def strip_broker_suffix(symbol: str | None) -> str | None:
     return s
 
 
-def detect_symbol_in_text(upper_text: str, allowed_symbols: list[str]) -> str | None:
+def detect_symbol_in_text(upper_text: str, allowed_symbols: list[str], strict: bool = False) -> str | None:
     """Detect a trading symbol in upper-cased text.
 
     Checks common aliases first, then configured allowed symbols,
     then falls back to a regex for tokens that look like instrument codes.
+    
+    Args:
+        strict: If True, skip fallback regex (use for OCR text to prevent garbage matches).
     """
     aliases = {
         "GOLD": "XAUUSD",
@@ -103,9 +106,12 @@ def detect_symbol_in_text(upper_text: str, allowed_symbols: list[str]) -> str | 
             return symbol
     for symbol in allowed_symbols:
         normalized = str(symbol).upper()
-        if normalized in upper_text:
+        # Use word boundary to prevent substring matches on OCR garbage
+        if re.search(rf"\b{re.escape(normalized)}\b", upper_text):
             return normalized
-        if (normalized + 'M') in upper_text or (normalized + '.M') in upper_text:
+        if re.search(rf"\b{re.escape(normalized)}M\b", upper_text) or re.search(rf"\b{re.escape(normalized)}\.M\b", upper_text):
             return normalized
+    if strict:
+        return None
     match = re.search(r"\b([A-Z0-9]{3,10}(?:\d+|USD|EUR|JPY|GBP|AUD|CAD|NZD|CHF|XAU|XAG))\b", upper_text)
     return match.group(1) if match else None

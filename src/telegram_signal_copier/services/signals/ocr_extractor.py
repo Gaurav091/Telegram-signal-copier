@@ -121,8 +121,29 @@ def parse_ocr_signal(
     """Parse trading signal from OCR-extracted text."""
     combined_text = ocr_text.upper()
     
-    # Detect symbol
-    symbol = detect_symbol_in_text(combined_text, config.merged_allowed_symbols)
+    # Detect symbol — ONLY accept if it matches allowed whitelist (strict mode for OCR)
+    symbol = detect_symbol_in_text(combined_text, config.merged_allowed_symbols, strict=True)
+    
+    # If no valid symbol found in whitelist, reject entire extraction
+    # (prevents garbage like "804150" from being accepted)
+    if not symbol:
+        return ParsedSignal(
+            source_group=message.source_group,
+            message_id=message.message_id,
+            symbol=None,
+            side=None,
+            order_type="MARKET",
+            entry_price=None,
+            entry_range_low=None,
+            entry_range_high=None,
+            stop_loss=None,
+            take_profits=[],
+            confidence=0.0,
+            raw_text=ocr_text,
+            image_used=True,
+            parser_name="ocr_extractor",
+            notes=["OCR extracted no valid symbol from whitelist — rejecting"],
+        )
     
     # Detect side
     side = None

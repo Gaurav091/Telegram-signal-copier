@@ -115,6 +115,20 @@ void OnDeinit(const int reason)
    Comment("");
 }
 
+void OnTick()
+{
+   // Fallback: if timer fails, still process on every tick
+   static datetime last_process = 0;
+   if(TimeCurrent() - last_process >= 1)
+   {
+      ProcessBridgeCommands();
+      ManageMultiTargetPositions();
+      UpdateChartStatus();
+      WriteEAStatus();
+      last_process = TimeCurrent();
+   }
+}
+
 void OnTimer()
 {
    ProcessBridgeCommands();
@@ -1470,7 +1484,10 @@ void WriteResult(
    string path = BridgeFolderName + "/outbox/" + request_id + ".result";
    int file_handle = FileOpen(path, FILE_WRITE | FILE_TXT | FILE_ANSI | FILE_COMMON);
    if(file_handle == INVALID_HANDLE)
+   {
+      Print("WriteResult: FAILED to open ", path, ", error=", GetLastError());
       return;
+   }
 
    FileWriteString(file_handle, "request_id=" + request_id + "\n");
    FileWriteString(file_handle, "status=" + status + "\n");
@@ -1489,7 +1506,10 @@ void WriteEAStatus()
    string path = BridgeFolderName + "/ea_status.txt";
    int file_handle = FileOpen(path, FILE_WRITE | FILE_TXT | FILE_ANSI | FILE_COMMON);
    if(file_handle == INVALID_HANDLE)
+   {
+      Print("WriteEAStatus: FAILED to open file, error=", GetLastError());
       return;
+   }
 
    // Write UTC epoch so Python (which uses time.time() = UTC) can compare correctly.
    // TimeLocal() is offset by machine timezone and would confuse Python-side monitors.

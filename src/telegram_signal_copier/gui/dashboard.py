@@ -37,6 +37,46 @@ class SignalCopierDashboard:
         self.settings_manager = SettingsManager(self.project_root)
         self.config = AppConfig.from_env(self.project_root)
 
+        # Auto-detect MT5 terminal path (find where TelegramSignalCopierEA.ex5 lives)
+        import os
+        from pathlib import Path
+        
+        # Find the terminal that contains our EA
+        mt5_data_root = Path(os.environ.get('APPDATA')) / 'MetaQuotes' / 'Terminal'
+        detected_path = None
+        
+        if mt5_data_root.exists():
+            for terminal_folder in mt5_data_root.iterdir():
+                if terminal_folder.is_dir() and terminal_folder.name not in ['Common', 'Community', 'Help']:
+                    experts_dir = terminal_folder / 'MQL5' / 'Experts'
+                    if experts_dir.exists():
+                        # Check if our EA is here
+                        ea_file = experts_dir / 'TelegramSignalCopierEA.ex5'
+                        if ea_file.exists():
+                            detected_path = str(terminal_folder)
+                            logger.info(f"Found EA in terminal: {detected_path}")
+                            break
+        
+        # Fallback: use any terminal with Experts folder
+        if not detected_path and mt5_data_root.exists():
+            for terminal_folder in mt5_data_root.iterdir():
+                if terminal_folder.is_dir() and terminal_folder.name not in ['Common', 'Community', 'Help']:
+                    experts_dir = terminal_folder / 'MQL5' / 'Experts'
+                    if experts_dir.exists():
+                        detected_path = str(terminal_folder)
+                        logger.info(f"Using fallback terminal: {detected_path}")
+                        break
+        
+        if detected_path:
+            os.environ["MT5_DATA_PATH"] = detected_path
+            if hasattr(self.config, 'mt5_data_path'):
+                self.config.mt5_data_path = detected_path
+            elif hasattr(self.config, 'mt5_terminal_path'):
+                self.config.mt5_terminal_path = detected_path
+            logger.info(f"Set MT5 data path to: {detected_path}")
+        else:
+            logger.warning("Could not auto-detect MT5 terminal path")
+
         # Background process tracker
         self.listener_process: subprocess.Popen | None = None
         self.is_listener_running = False
@@ -217,14 +257,33 @@ class SignalCopierDashboard:
                     except Exception:
                         pass
                 self.listener_process = None
+            # Close log file handle
+            log_fh = getattr(self, "_listener_log_fh", None)
+            if log_fh and not log_fh.closed:
+                try:
+                    log_fh.close()
+                except Exception:
+                    pass
+                self._listener_log_fh = None
             self.is_listener_running = False
             self.start_stop_button.content = "START LISTENER"
             self.start_stop_button.style = ft.ButtonStyle(color=SECONDARY)
         else:
+            # Clean up stale lock/pid files from crashed instances
+            runtime_dir = self.project_root / "runtime"
+            for stale in ("listener.lock", "listener.pid"):
+                try:
+                    (runtime_dir / stale).unlink(missing_ok=True)
+                except Exception:
+                    pass
             py_exe = sys.executable
             args = [py_exe, "listen"] if getattr(sys, "frozen", False) else [py_exe, "-m", "telegram_signal_copier.main", "listen"]
+            log_path = self.project_root / "logs" / "gui_listener.log"
             try:
-                self.listener_process = subprocess.Popen(args, cwd=str(self.project_root), stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+                log_path.parent.mkdir(parents=True, exist_ok=True)
+                log_fh = open(log_path, "w", encoding="utf-8")
+                self.listener_process = subprocess.Popen(args, cwd=str(self.project_root), stdout=log_fh, stderr=subprocess.STDOUT)
+                self._listener_log_fh = log_fh
                 self.is_listener_running = True
                 self.start_stop_button.content = "STOP LISTENER"
                 self.start_stop_button.style = ft.ButtonStyle(color=ERROR)

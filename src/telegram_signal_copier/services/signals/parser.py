@@ -58,57 +58,6 @@ class SignalParser:
     ) -> ParseResult:
         combined_text = "\n".join(part for part in [message.raw_text, image_text] if part).strip()
         combined_text = normalize_ocr_spaced_numbers(combined_text)
-        
-        # SPECIAL HANDLING: For ALGO TRADING forex., force local OCR extraction first
-        if message.source_group == "ALGO TRADING forex." and message.image_path:
-            try:
-                ocr_signal = extract_signal_from_image(self.config, message)
-                if ocr_signal.confidence > 0.3 and ocr_signal.symbol and ocr_signal.side:
-                    # Bypass AI completely for this group
-                    ocr_signal.notes.append("FORCED OCR for ALGO TRADING forex. (AI bypassed)")
-                    # Lower confidence requirement for this group only
-                    if ocr_signal.confidence < 0.45:
-                        ocr_signal.confidence = 0.5
-                    return ParseResult(signal=ocr_signal, used_ai=False)
-            except Exception as exc:
-                heuristic = heuristic_parse(self.config, message, combined_text)
-                heuristic.notes.append(f"ALGO group OCR failed: {exc}")
-                return ParseResult(signal=heuristic, used_ai=False)
-
-        
-        # SPECIAL HANDLING: For ALGO TRADING forex., force local OCR extraction first
-        if message.source_group == "ALGO TRADING forex." and message.image_path:
-            try:
-                ocr_signal = extract_signal_from_image(self.config, message)
-                if ocr_signal.confidence > 0.3 and ocr_signal.symbol and ocr_signal.side:
-                    # Bypass AI completely for this group
-                    ocr_signal.notes.append("FORCED OCR for ALGO TRADING forex. (AI bypassed)")
-                    # Lower confidence requirement for this group only
-                    if ocr_signal.confidence < 0.45:
-                        ocr_signal.confidence = 0.5
-                    return ParseResult(signal=ocr_signal, used_ai=False)
-            except Exception as exc:
-                heuristic = heuristic_parse(self.config, message, combined_text)
-                heuristic.notes.append(f"ALGO group OCR failed: {exc}")
-                return ParseResult(signal=heuristic, used_ai=False)
-
-        
-        # SPECIAL HANDLING: For ALGO TRADING forex., force local OCR extraction first
-        if message.source_group == "ALGO TRADING forex." and message.image_path:
-            try:
-                ocr_signal = extract_signal_from_image(self.config, message)
-                if ocr_signal.confidence > 0.3 and ocr_signal.symbol and ocr_signal.side:
-                    # Bypass AI completely for this group
-                    ocr_signal.notes.append("FORCED OCR for ALGO TRADING forex. (AI bypassed)")
-                    # Lower confidence requirement for this group only
-                    if ocr_signal.confidence < 0.45:
-                        ocr_signal.confidence = 0.5
-                    return ParseResult(signal=ocr_signal, used_ai=False)
-            except Exception as exc:
-                heuristic = heuristic_parse(self.config, message, combined_text)
-                heuristic.notes.append(f"ALGO group OCR failed: {exc}")
-                return ParseResult(signal=heuristic, used_ai=False)
-
         heuristic = heuristic_parse(self.config, message, combined_text)
 
         # If AI payload provided, use it
