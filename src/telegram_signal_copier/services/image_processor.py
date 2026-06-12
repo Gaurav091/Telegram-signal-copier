@@ -8,6 +8,7 @@ import logging
 import os
 
 from telegram_signal_copier.adapters.openai_client import OpenAIClient
+from telegram_signal_copier.services.signals.ocr_runtime import bundled_tesseract_path, configure_pytesseract, tesseract_path
 
 _NUMERIC_SL = re.compile(r"(?:\bSL\b|\bS\s*/\s*L\b|STOP\s*LOSS)\s*[:=@-]?\s*\d{3,}", re.IGNORECASE)
 _NUMERIC_TP = re.compile(r"(?:\bTP\d*\b|\bT\s*/\s*P\d*\b|TAKE\s*PROFIT)\s*[:=@-]?\s*\d{3,}", re.IGNORECASE)
@@ -40,26 +41,18 @@ class ImageProcessor:
             self._PILImage = Image
             self._PILImageOps = ImageOps
             self._PILImageFilter = ImageFilter
-            # If tesseract binary not on PATH, try common Windows install locations
-            try:
-                # quick probe
-                self._pytesseract.get_tesseract_version()
-            except Exception:
-                # try typical install locations on Windows
-                for candidate in (
-                    r"C:\Program Files\Tesseract-OCR\tesseract.exe",
-                    r"C:\Program Files (x86)\Tesseract-OCR\tesseract.exe",
-                ):
-                    try:
-                        if os.path.exists(candidate):
-                            self._pytesseract.pytesseract.tesseract_cmd = candidate
-                            # re-probe
-                            self._pytesseract.get_tesseract_version()
-                            logging.getLogger(__name__).info("Found tesseract binary at %s", candidate)
-                            break
-                    except Exception:
-                        # ignore and try next candidate
-                        pass
+            # Prefer bundled Tesseract in frozen EXE builds, then standard Windows install, then PATH.
+            configured_path = configure_pytesseract(self._pytesseract)
+            if configured_path is None:
+                try:
+                    self._pytesseract.get_tesseract_version()
+                except Exception:
+                    self._ocr_available = False
+            else:
+                try:
+                    self._pytesseract.get_tesseract_version()
+                except Exception:
+                    self._ocr_available = False
         except Exception:
             self._ocr_available = False
             self._pytesseract = None

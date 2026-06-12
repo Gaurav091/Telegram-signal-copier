@@ -23,17 +23,10 @@ try:
 except ImportError:
     HAS_OPENCV = False
 
-try:
-    import pytesseract
-    # Point to Windows installation if not in PATH
-    pytesseract.pytesseract.tesseract_cmd = r'C:\Program Files\Tesseract-OCR\tesseract.exe'
-    HAS_TESSERACT = True
-except ImportError:
-    HAS_TESSERACT = False
-
 from telegram_signal_copier.config import AppConfig
 from telegram_signal_copier.constants import SYMBOL_PRICE_RANGES
 from telegram_signal_copier.models import ParsedSignal, TelegramSignalMessage
+from telegram_signal_copier.services.signals.ocr_runtime import bundled_tesseract_path, configure_pytesseract, tesseract_path
 from telegram_signal_copier.services.signals.patterns import (
     ENTRY_PATTERN,
     PRICE_PATTERN,
@@ -44,6 +37,13 @@ from telegram_signal_copier.services.signals.normalizers import (
     detect_symbol_in_text,
     normalize_side,
 )
+
+try:
+    import pytesseract
+    configured_tesseract = configure_pytesseract(pytesseract)
+    HAS_TESSERACT = configured_tesseract is not None
+except ImportError:
+    HAS_TESSERACT = False
 
 
 def preprocess_image(image_path: str) -> Any | None:
