@@ -137,6 +137,12 @@ The spec file collects:
 2. The MT5 Expert Advisor (`TelegramSignalCopierEA.mq5`) so it is bundled and extracted into the program directory. The user can locate it there and copy it into their MT5 installation folder.
 3. Portable Tesseract dependencies (if OCR capability is used for image signals).
 
+### EA changes vs Python EXE changes
+
+The MT5 EA is separate from the Python application bundle. If you change only `mt5/Experts/TelegramSignalCopierEA.mq5`, you do **not** need to rebuild the Python EXE. Recompile the EA in MetaEditor and attach/restart it on the chart.
+
+Rebuild the Python EXE only when you change Python code, dependencies, bundled data, OCR runtime files, or the PyInstaller spec.
+
 ### Portable Tesseract DLL Dependencies (For Clean RDP/VPS Deployments)
 
 Clean Windows machines or VPS/RDP hosts lack standard developer runtimes. To ensure the bundled OCR engine works, the `tesseract.exe` and `libtesseract-5.dll` binaries require several library dependencies. 
@@ -147,6 +153,29 @@ Copy-Item "C:\Program Files\Tesseract-OCR\*.dll" -Destination "packaging\tessera
 ```
 
 The spec file is configured to recursively find all `.dll` files in the `tesseract-portable` folder and bundle them under the `tesseract/` output folder automatically.
+
+### EA Floating Profit Close-All
+
+The EA can automatically close all matching open positions when total floating profit reaches a configured USD threshold. This is useful for locking profit without adding a new Python listener command.
+
+Recommended EA inputs:
+
+```text
+EnableFloatingProfitCloseAll = true
+FloatingProfitCloseAllUsd = 100.0
+FloatingProfitCloseAllOnlyManagedMagic = true
+FloatingProfitCloseAllCooldownSeconds = 60
+```
+
+The EA sums:
+
+```text
+POSITION_PROFIT + POSITION_SWAP
+```
+
+When the total reaches `FloatingProfitCloseAllUsd`, it closes matching positions. With `FloatingProfitCloseAllOnlyManagedMagic = true`, only positions opened by this EA (`MagicNumber`) are closed.
+
+This feature is entirely inside the MT5 EA. No Python EXE rebuild is needed for this change. Recompile the EA and attach/restart it on the chart.
 
 ### PyInstaller Configuration File (`packaging/TelegramSignalCopier.spec`)
 Keep the spec configuration robust by specifying the layout, hidden imports, and data inclusion. Here is the reference setup:

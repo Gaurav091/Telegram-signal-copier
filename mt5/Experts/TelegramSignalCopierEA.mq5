@@ -15,6 +15,10 @@ input bool EnableMultiTargetAutomation = true;
 input double Tp1ClosePercent = 50.0;
 input double Tp2SafetyLockPercent = 25.0;
 input int ManagedTradeStateTtlSeconds = 86400;
+input bool EnableFloatingProfitCloseAll = false;
+input double FloatingProfitCloseAllUsd = 100.0;
+input bool FloatingProfitCloseAllOnlyManagedMagic = true;
+input int FloatingProfitCloseAllCooldownSeconds = 60;
 
 struct TradeCommand
 {
@@ -123,6 +127,7 @@ void OnTick()
    {
       ProcessBridgeCommands();
       ManageMultiTargetPositions();
+      ManageFloatingProfitCloseAll();
       UpdateChartStatus();
       WriteEAStatus();
       last_process = TimeCurrent();
@@ -133,6 +138,8 @@ void OnTimer()
 {
    ProcessBridgeCommands();
    ManageMultiTargetPositions();
+   ManageFloatingProfitCloseAll();
+   ManageFloatingProfitCloseAll();
    UpdateChartStatus();
    WriteEAStatus();
 }
@@ -1328,6 +1335,74 @@ void ManageMultiTargetPositions()
 
    if(changed)
       SaveManagedTradeStates();
+}
+
+void ManageFloatingProfitCloseAll()
+{
+   if(!EnableFloatingProfitCloseAll)
+      return;
+   if(FloatingProfitCloseAllUsd <= 0.0)
+      return;
+
+   static datetime s_last_close_all = 0;
+   if(FloatingProfitCloseAllCooldownSeconds > 0 && TimeCurrent() - s_last_close_all < FloatingProfitCloseAllCooldownSeconds)
+      return;
+
+   double total_profit = 0.0;
+   ulong tickets[];
+   ArrayResize(tickets, 0);
+
+   for(int index = PositionsTotal() - 1; index >= 0; index--)
+   {
+      ulong position_ticket = PositionGetTicket(index);
+      if(position_ticket <= 0)
+         continue;
+
+      long pos_magic = PositionGetInteger(POSITION_MAGIC);
+      if(FloatingProfitCloseAllOnlyManagedMagic && pos_magic != MagicNumber)
+         continue;
+
+      if(!PositionSelectByTicket(position_ticket))
+         continue;
+
+      double profit = PositionGetDouble(POSITION_PROFIT) + PositionGetDouble(POSITION_SWAP);
+      total_profit += profit;
+
+      int ticket_index = ArraySize(tickets);
+      ArrayResize(tickets, ticket_index + 1);
+      tickets[ticket_index] = position_ticket;
+   }
+
+   if(total_profit < FloatingProfitCloseAllUsd)
+      return;
+
+   PrintFormat(
+      "TelegramSignalCopierEA floating profit close-all triggered: total_profit=%.2f threshold=%.2f positions=%d",
+      total_profit,
+      FloatingProfitCloseAllUsd,
+      ArraySize(tickets)
+   );
+
+   int closed_count = 0;
+   for(int i = 0; i < ArraySize(tickets); i++)
+   {
+      if(trade.PositionClose(tickets[i]))
+         closed_count++;
+      else
+         PrintFormat(
+            "TelegramSignalCopierEA floating profit close-all failed ticket=%s message=%s",
+            FormatTicket(tickets[i]),
+            trade.ResultRetcodeDescription()
+         );
+   }
+
+   s_last_close_all = TimeCurrent();
+   PrintFormat(
+      "TelegramSignalCopierEA floating profit close-all completed: closed=%d/%d total_profit=%.2f",
+      closed_count,
+      ArraySize(tickets),
+      total_profit
+   );
 }
 
 bool IsCommandStale(const TradeCommand &command)

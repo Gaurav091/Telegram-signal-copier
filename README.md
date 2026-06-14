@@ -12,11 +12,12 @@ A production-ready trading automation system that monitors Telegram signal group
 4. [Windows EXE / Installer Build](#windows-exe--installer-build)
 5. [Configuration (.env)](#configuration-env)
 6. [MT5 Expert Advisor Setup](#mt5-expert-advisor-setup)
-7. [Running the Listener](#running-the-listener)
-8. [How Signals Are Processed](#how-signals-are-processed)
-9. [Supported Signal Formats](#supported-signal-formats)
-10. [Troubleshooting](#troubleshooting)
-11. [Key Files Reference](#key-files-reference)
+7. [EA Floating Profit Close-All](#ea-floating-profit-close-all)
+8. [Running the Listener](#running-the-listener)
+9. [How Signals Are Processed](#how-signals-are-processed)
+10. [Supported Signal Formats](#supported-signal-formats)
+11. [Troubleshooting](#troubleshooting)
+12. [Key Files Reference](#key-files-reference)
 
 ---
 
@@ -294,6 +295,46 @@ Heartbeat: 2026-05-19 ...
 
 ---
 
+## EA Floating Profit Close-All
+
+The EA includes an optional risk-control feature that closes all matching open positions when total floating profit reaches a configured USD threshold.
+
+### Inputs
+
+| Parameter | Default | Description |
+|---|---:|---|
+| `EnableFloatingProfitCloseAll` | `false` | Enable/disable the floating-profit close-all safety feature |
+| `FloatingProfitCloseAllUsd` | `100.0` | Profit threshold in account currency, e.g. `100` USD |
+| `FloatingProfitCloseAllOnlyManagedMagic` | `true` | Only close positions opened by this EA (`MagicNumber`) |
+| `FloatingProfitCloseAllCooldownSeconds` | `60` | Minimum cooldown between close-all triggers |
+
+### Recommended settings
+
+For automatic close-all at `$100` floating profit, set:
+
+```text
+EnableFloatingProfitCloseAll = true
+FloatingProfitCloseAllUsd = 100.0
+FloatingProfitCloseAllOnlyManagedMagic = true
+FloatingProfitCloseAllCooldownSeconds = 60
+```
+
+The EA calculates:
+
+```text
+total floating profit = POSITION_PROFIT + POSITION_SWAP
+```
+
+When the total reaches the threshold, it closes matching open positions and writes the event to the MT5 journal.
+
+### Important
+
+This feature runs inside the MT5 EA only. It does **not** require Python listener changes, bridge command changes, or a new Python EXE build.
+
+After changing the EA source, recompile the EA in MetaEditor and attach/restart it on the chart.
+
+---
+
 ## Running the Listener
 
 ```bash
@@ -442,6 +483,16 @@ Symbol aliases recognised: `GOLD → XAUUSD`, `XAU → XAUUSD`, `EU → EURUSD`,
 - The `MagicNumber` input (default `20260001`) tags positions — well-coded EAs will skip them
 - For EAs that ignore magic numbers: remove them from the same chart as `TelegramSignalCopierEA`
 
+### Floating profit close-all not triggering
+- Check EA inputs: `EnableFloatingProfitCloseAll` must be `true`
+- Confirm `FloatingProfitCloseAllOnlyManagedMagic` matches your positions:
+  - `true` closes only EA-managed positions with `MagicNumber=20260001`
+  - `false` closes all open positions on the account
+- Check MT5 Experts log for:
+  - `TelegramSignalCopierEA floating profit close-all triggered`
+  - `TelegramSignalCopierEA floating profit close-all completed`
+- Recompile the EA after changing `mt5/Experts/TelegramSignalCopierEA.mq5`
+
 ### Telegram OTP / session expired
 - Delete the `.session` file in `runtime/sessions/` and restart to re-authenticate
 
@@ -465,7 +516,7 @@ winget install --id ShiningLight.OpenSSL.Light --exact --accept-package-agreemen
 
 | File | Purpose |
 |---|---|
-| `mt5/Experts/TelegramSignalCopierEA.mq5` | MT5 Expert Advisor source (compile in MetaEditor) |
+| `mt5/Experts/TelegramSignalCopierEA.mq5` | MT5 Expert Advisor source; includes bridge execution, multi-target automation, and floating-profit close-all safety |
 | `src/telegram_signal_copier/main.py` | Listener entry point — arg parsing, logging setup, health check |
 | `src/telegram_signal_copier/config.py` | `AppConfig` dataclass, `.env` variable definitions and defaults |
 | `src/telegram_signal_copier/config_helpers.py` | dotenv loading, AI provider builder, env-parsing helpers |
