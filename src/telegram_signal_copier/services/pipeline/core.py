@@ -9,6 +9,12 @@ from typing import Optional
 from telegram_signal_copier.adapters.bridge import FileBridgeExecutor
 from telegram_signal_copier.config import AppConfig
 from telegram_signal_copier.models import ExecutionResult, ParsedSignal, TelegramSignalMessage, TradeCommand
+from telegram_signal_copier.services.algo_trade_management import (
+    classify_algo_image_caption,
+    execute_algo_partial_close,
+    is_algo_partial_close_caption,
+    is_algo_trade_source,
+)
 from telegram_signal_copier.services.image_processor import ImageProcessor, ImageProcessingResult
 from telegram_signal_copier.services.intent_classifier import (
     IntentClassifier,
@@ -176,6 +182,72 @@ class CopierPipeline:
                     or bool(heuristic.take_profits)
                 )
             )
+
+        if has_image and is_algo_trade_source(message.source_group):
+            caption_intent = classify_algo_image_caption(message.raw_text or "")
+            if caption_intent == "PARTIAL_CLOSE":
+                logger.info(
+                    "[ALGO] Partial-close caption detected source=%s msg_id=%s caption=%r",
+                    message.source_group,
+                    message.message_id,
+                    message.raw_text,
+                )
+                image_result = self.image_processor.extract_signal_context(
+                    primary_image,
+                    existing_text=combined_text,
+                    all_image_paths=extra_images,
+                )
+                decision = ValidationDecision(status="APPROVED", reasons=["Algo partial-close management caption"])
+                execution_result = execute_algo_partial_close(
+                    self.config,
+                    self.executor,
+                    message,
+                    image_text=image_result.extracted_text,
+                )
+                if self._pipeline_logger is not None:
+                    self._pipeline_logger.log(
+                        group_id=message.message_id or "",
+                        channel_id=0,
+                        message_count=message.grouped_count or 1,
+                        image_count=len(message.effective_image_paths()),
+                        intent="TRADE_UPDATE",
+                        intent_confidence=1.0,
+                        intent_reasoning="Algo partial-close caption",
+                        extraction=heuristic,
+                        validation=heuristic if execution_result.status == "FILLED" else None,
+                        rejection_reasons=[],
+                        action_taken=execution_result.status,
+                        execution_status=execution_result.status,
+                        order_ticket=getattr(execution_result, "ticket", None),
+                        execution_error=(
+                            execution_result.message
+                            if execution_result.status not in {"FILLED", "SUBMITTED", "PENDING", "DRY_RUN", "REVIEW"}
+                            else None
+                        ),
+                        source_group=message.source_group or "",
+                        message_id=str(message.message_id or ""),
+                        raw_text_snippet=(message.combined_text() or "")[:200],
+                    )
+                return PipelineOutcome(parse_result=ParseResult(signal=heuristic, used_ai=False), decision=decision, execution_result=execution_result)
+            if caption_intent == "NON_SIGNAL_UPDATE":
+                logger.info(
+                    "[ALGO] Non-signal update image ignored source=%s msg_id=%s caption=%r",
+                    message.source_group,
+                    message.message_id,
+                    message.raw_text,
+                )
+                dummy = ParsedSignal(
+                    source_group=message.source_group,
+                    message_id=message.message_id,
+                    symbol=None,
+                    side=None,
+                    notes=["Algo non-signal update image ignored; only New/Btc New/Both New opens trades"],
+                )
+                return PipelineOutcome(
+                    parse_result=ParseResult(signal=dummy, used_ai=False),
+                    decision=ValidationDecision(status="SKIPPED", reasons=["Algo non-signal update image"]),
+                    execution_result=None,
+                )
 
         if heuristic_complete and not primary_image:
             # Pure-text signal fully parsed — no AI needed

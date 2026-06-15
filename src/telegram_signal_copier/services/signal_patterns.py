@@ -1,5 +1,6 @@
 """Backward-compatibility shim — regex patterns moved to services.signals.patterns."""
 from telegram_signal_copier.services.signals.patterns import (  # noqa: F401
+    ALGO_TRADE_UPDATE_CAPTIONS as ALGO_TRADE_UPDATE_CAPTIONS,
     AT_SYMBOL_PATTERN as AT_SYMBOL_PATTERN,
     CLUSTER_BLOCK_RE as CLUSTER_BLOCK_RE,
     CLUSTER_KV_RE as CLUSTER_KV_RE,
@@ -12,6 +13,8 @@ from telegram_signal_copier.services.signals.patterns import (  # noqa: F401
     SUPERSCRIPT_DIGIT_MAP as SUPERSCRIPT_DIGIT_MAP,
     TARGET_LINE_PATTERN as TARGET_LINE_PATTERN,
     TP_PATTERN as TP_PATTERN,
+    TRADE_MANAGEMENT_RE as TRADE_MANAGEMENT_RE,
+    PROMO_SPAM_RE as PROMO_SPAM_RE,
     _MT5_SCREENSHOT_HEADER_RE as _MT5_SCREENSHOT_HEADER_RE,
     _OCR_SPACE_NUMBER_RE as _OCR_SPACE_NUMBER_RE,
     _NEW_TRADE_CAPTIONS as _NEW_TRADE_CAPTIONS,

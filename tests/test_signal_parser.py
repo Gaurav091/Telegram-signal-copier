@@ -4,6 +4,11 @@ from pathlib import Path
 
 from telegram_signal_copier.config import AppConfig
 from telegram_signal_copier.models import TelegramSignalMessage
+from telegram_signal_copier.services.algo_trade_management import (
+    classify_algo_image_caption,
+    parse_algo_partial_close_caption,
+    select_positions_for_partial_close,
+)
 from telegram_signal_copier.services.risk_engine import RiskEngine
 from telegram_signal_copier.services.signal_parser import SignalParser
 
@@ -341,6 +346,67 @@ class SignalParserTests(unittest.TestCase):
                 )
             )
             self.assertEqual(result_sell.signal.side, "SELL")
+
+    def test_algo_caption_variants_are_partial_close_not_new_trade(self) -> None:
+        captions = [
+            "Partial profit book both",
+            "Partial in gold",
+            "partial book 193 usd",
+            "partial in btc",
+            "Partial loss book",
+            "Partial loss",
+            "Partial book 200 dollars",
+            "artial book in btc and gold",
+            "133 usd partial book",
+            "Partial book all",
+            "Partial book. Gold is too volatile today",
+            "Partial loss btc book",
+            "457 profit booked",
+            "Always partial book profits/loss .",
+            "Partial book 150 dollars",
+        ]
+        for caption in captions:
+            with self.subTest(caption=caption):
+                self.assertEqual(classify_algo_image_caption(caption), "PARTIAL_CLOSE")
+
+    def test_algo_partial_close_plan_parses_symbols_and_profit_loss(self) -> None:
+        plan = parse_algo_partial_close_caption("Partial profit book both")
+        self.assertEqual(plan.symbols, {"XAUUSD", "BTCUSD"})
+        self.assertTrue(plan.profit_only)
+
+        loss_plan = parse_algo_partial_close_caption("Partial loss btc book")
+        self.assertEqual(loss_plan.symbols, {"BTCUSD"})
+        self.assertTrue(loss_plan.loss_only)
+
+        gold_plan = parse_algo_partial_close_caption("Partial in gold")
+        self.assertEqual(gold_plan.symbols, {"XAUUSD"})
+
+    def test_algo_partial_close_selection_filters_profit_loss_and_symbols(self) -> None:
+        from telegram_signal_copier.services.algo_trade_management import AlgoPosition
+
+        positions = [
+            AlgoPosition("XAUUSDm", 1, 20260001, "TG|ALGO-TRADING-FOR|1", 0.01, 100.0),
+            AlgoPosition("BTCUSD", 2, 20260001, "TG|ALGO-TRADING-FOR|2", 0.01, -50.0),
+        ]
+        profit_gold = select_positions_for_partial_close(
+            "Partial profit book gold",
+            positions,
+            image_text="XAUUSD, buy 0.01",
+        )
+        self.assertEqual([position.ticket for position in profit_gold], [1])
+
+        loss_btc = select_positions_for_partial_close(
+            "Partial loss btc book",
+            positions,
+            image_text="BTCUSD, buy 0.01",
+        )
+        self.assertEqual([position.ticket for position in loss_btc], [2])
+
+    def test_algo_titleless_image_is_non_signal_update(self) -> None:
+        self.assertEqual(classify_algo_image_caption(""), "NON_SIGNAL_UPDATE")
+        self.assertEqual(classify_algo_image_caption("New"), "NEW_TRADE")
+        self.assertEqual(classify_algo_image_caption("Both New"), "NEW_TRADE")
+        self.assertEqual(classify_algo_image_caption("Btc new"), "NEW_TRADE")
 
 
 if __name__ == "__main__":

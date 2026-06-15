@@ -34,8 +34,24 @@ OCR_SPACE_NUMBER_RE = re.compile(r"(\d{1,4})\s+(\d{3}(?:[.,]\d+)?)(?=\D|$)")
 # Map Unicode superscript digits (Tp¹, Tp², …) to ASCII equivalents
 _SUPERSCRIPT_DIGIT_MAP = str.maketrans("¹²³⁴⁵⁶⁷⁸⁹⁰", "1234567890")
 
-# Caption keywords that signal a new trade from ALGO TRADING forex-style groups
-NEW_TRADE_CAPTIONS = re.compile(r"^\s*(new|both\s*new)\s*$", re.IGNORECASE)
+# Caption keywords that signal a new trade from ALGO TRADING forex-style groups.
+# Only these captions are allowed to turn an MT5 position screenshot into a new entry.
+NEW_TRADE_CAPTIONS = re.compile(r"^\s*(?:new|both\s*new|btc\s*new)\s*$", re.IGNORECASE)
+
+# Algo Trading Forex update captions: manage existing trades, not new entries.
+# These prevent title-less MT5 position-card images from being treated as new trades.
+# They intentionally allow loose provider wording such as "artial book", "profit booked",
+# USD amounts, and trailing explanatory text after "Partial book.".
+ALGO_TRADE_UPDATE_CAPTIONS = re.compile(
+    r"^\s*(?:partial\s+in|partial\s+book(?:ed|ing)?(?:\s+[\w/.-]*)?|"
+    r"partial\s+(?:in|into)?\s*(?:gold|xau(?:usd)?|btc(?:usd)?|both|all)?|"
+    r"partial\s+(?:profit|loss)(?:\s+(?:book|booked))?(?:\s+(?:in|into)?\s*(?:gold|xau(?:usd)?|btc(?:usd)?|both|all))?|"
+    r"\d{2,5}\s*(?:usd|dollars)?\s*profit\s+booked|"
+    r"\d{2,5}\s*(?:usd|dollars?)\s+(?:partial\s+)?book(?:ed|ing)?|"
+    r"always\s+partial\s+book\s+(?:profits?|loss(?:es)?)(?:\s*/\s*(?:profits?|loss(?:es)?))?\.?|"
+    r"artial\s+book(?:ed|ing)?(?:\s+[\w/.-]*)?)\b.*$",
+    re.IGNORECASE,
+)
 
 # Trade management messages — NOT new signals (move SL, hit TP, close position)
 TRADE_MANAGEMENT_RE = re.compile(

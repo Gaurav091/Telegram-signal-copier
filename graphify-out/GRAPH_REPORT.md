@@ -1,16 +1,16 @@
-# Graph Report - Telegram signal Copier  (2026-06-08)
+# Graph Report - Telegram signal Copier  (2026-06-10)
 
 ## Corpus Check
-- 204 files · ~104,454 words
+- 229 files · ~106,881 words
 - Verdict: corpus is large enough that graph structure adds value.
 
 ## Summary
-- 1803 nodes · 2911 edges · 201 communities (135 shown, 66 thin omitted)
-- Extraction: 76% EXTRACTED · 24% INFERRED · 0% AMBIGUOUS · INFERRED: 699 edges (avg confidence: 0.74)
+- 2006 nodes · 3227 edges · 241 communities (169 shown, 72 thin omitted)
+- Extraction: 76% EXTRACTED · 24% INFERRED · 0% AMBIGUOUS · INFERRED: 785 edges (avg confidence: 0.74)
 - Token cost: 0 input · 0 output
 
 ## Graph Freshness
-- Built from commit: `9ab7f17e`
+- Built from commit: `e00b5319`
 - Run `git rev-parse HEAD` and compare to check if the graph is stale.
 - Run `graphify update .` after code changes (no API cost).
 
@@ -182,11 +182,49 @@
 - [[_COMMUNITY_Community 195|Community 195]]
 - [[_COMMUNITY_Community 196|Community 196]]
 - [[_COMMUNITY_Community 197|Community 197]]
+- [[_COMMUNITY_Community 201|Community 201]]
+- [[_COMMUNITY_Community 202|Community 202]]
+- [[_COMMUNITY_Community 203|Community 203]]
+- [[_COMMUNITY_Community 204|Community 204]]
+- [[_COMMUNITY_Community 205|Community 205]]
+- [[_COMMUNITY_Community 206|Community 206]]
+- [[_COMMUNITY_Community 207|Community 207]]
+- [[_COMMUNITY_Community 208|Community 208]]
+- [[_COMMUNITY_Community 209|Community 209]]
+- [[_COMMUNITY_Community 210|Community 210]]
+- [[_COMMUNITY_Community 211|Community 211]]
+- [[_COMMUNITY_Community 212|Community 212]]
+- [[_COMMUNITY_Community 213|Community 213]]
+- [[_COMMUNITY_Community 214|Community 214]]
+- [[_COMMUNITY_Community 215|Community 215]]
+- [[_COMMUNITY_Community 216|Community 216]]
+- [[_COMMUNITY_Community 217|Community 217]]
+- [[_COMMUNITY_Community 218|Community 218]]
+- [[_COMMUNITY_Community 219|Community 219]]
+- [[_COMMUNITY_Community 220|Community 220]]
+- [[_COMMUNITY_Community 221|Community 221]]
+- [[_COMMUNITY_Community 222|Community 222]]
+- [[_COMMUNITY_Community 223|Community 223]]
+- [[_COMMUNITY_Community 224|Community 224]]
+- [[_COMMUNITY_Community 225|Community 225]]
+- [[_COMMUNITY_Community 226|Community 226]]
+- [[_COMMUNITY_Community 227|Community 227]]
+- [[_COMMUNITY_Community 228|Community 228]]
+- [[_COMMUNITY_Community 229|Community 229]]
+- [[_COMMUNITY_Community 230|Community 230]]
+- [[_COMMUNITY_Community 231|Community 231]]
+- [[_COMMUNITY_Community 232|Community 232]]
+- [[_COMMUNITY_Community 233|Community 233]]
+- [[_COMMUNITY_Community 234|Community 234]]
+- [[_COMMUNITY_Community 235|Community 235]]
+- [[_COMMUNITY_Community 236|Community 236]]
+- [[_COMMUNITY_Community 237|Community 237]]
+- [[_COMMUNITY_Community 238|Community 238]]
 
 ## God Nodes (most connected - your core abstractions)
 1. `PATH` - 63 edges
-2. `AppConfig` - 58 edges
-3. `TelegramSignalMessage` - 40 edges
+2. `AppConfig` - 62 edges
+3. `TelegramSignalMessage` - 42 edges
 4. `SignalParser` - 40 edges
 5. `RiskEngine` - 37 edges
 6. `OpenAIClient` - 37 edges
@@ -200,18 +238,18 @@
   src/telegram_signal_copier/config.py → .vscode/settings.json
 - `mt5_terminals()` --calls--> `PATH`  [INFERRED]
   tools/scan_mt5_logs.py → .vscode/settings.json
-- `main()` --calls--> `PATH`  [INFERRED]
-  tools/simulate_mt5_result.py → .vscode/settings.json
-- `main()` --calls--> `PATH`  [INFERRED]
-  tools/simulate_results_now.py → .vscode/settings.json
 - `main()` --calls--> `type`  [INFERRED]
   tools/dry_run_test.py → .vscode/mcp.json
+- `AppConfigTests` --uses--> `AppConfig`  [INFERRED]
+  tests/test_config.py → src/telegram_signal_copier/config.py
+- `_UnusedImageProcessor` --uses--> `AppConfig`  [INFERRED]
+  tests/test_pipeline.py → src/telegram_signal_copier/config.py
 
-## Communities (201 total, 66 thin omitted)
+## Communities (241 total, 72 thin omitted)
 
 ### Community 0 - "Community 0"
-Cohesion: 0.23
-Nodes (9): CopierPipeline, CopierPipeline, RiskEngine, build_config(), PipelineTests, _StaticIntentClient, _UnusedImageProcessor, _UnusedSignalParser (+1 more)
+Cohesion: 0.18
+Nodes (9): CopierPipeline, CopierPipeline, RiskEngine, _IntentOnlySignalParser, _StaticIntentClient, _UnusedImageProcessor, _UnusedSignalParser, main() (+1 more)
 
 ### Community 1 - "Community 1"
 Cohesion: 0.10
@@ -235,7 +273,7 @@ Nodes (59): _acquire_listener_lock(), _clear_listener_pid(), _listener_lock_path
 
 ### Community 6 - "Community 6"
 Cohesion: 0.20
-Nodes (5): _image_data_url(), _json_from_text(), Backward-compatibility shim — OpenAIClient moved to adapters.ai.client., Classify message intent before deciding how to process it.          Returns a, Parse a trading signal from text and/or chart image(s).
+Nodes (11): CerebrasAdapter, CloudflareAdapter, get_adapter(), GroqAdapter, _normalize_message_content(), NvidiaAdapter, OpenAIAdapter, ProviderAdapter (+3 more)
 
 ### Community 7 - "Community 7"
 Cohesion: 0.15
@@ -246,8 +284,8 @@ Cohesion: 0.11
 Nodes (22): AI Providers and OCR Setup, Architecture Overview, Build Plan, code:text (Telegram Groups / Channels), code:block16 (# Standard text signal), code:bash (# 1. Clone the repository), Configuration Needed, Core Goal (+14 more)
 
 ### Community 9 - "Community 9"
-Cohesion: 0.06
-Nodes (42): Telethon-based Telegram listener for the agent graph.  Extracted from graph.py, Async Telethon listener that feeds incoming messages into the graph., start_listener(), Async Telethon listener that feeds incoming messages into the graph., start_listener(), _build_llm(), main(), Entry-point: run the LangGraph multi-agent Telegram trade copier.  Usage ---- (+34 more)
+Cohesion: 0.07
+Nodes (34): ai_providers(), _bool_env(), ConfigurationError, _csv_env(), _default_bridge_root(), _default_project_root(), _dotenv_candidates(), dynamic_symbols_path() (+26 more)
 
 ### Community 10 - "Community 10"
 Cohesion: 0.10
@@ -270,8 +308,8 @@ Cohesion: 0.22
 Nodes (10): _age_from_epoch(), _latest_listener_log(), main(), _now_epoch(), _now_utc_str(), _parse_log_ts(), _read_kv(), Snapshot (+2 more)
 
 ### Community 15 - "Community 15"
-Cohesion: 0.06
-Nodes (32): CerebrasAdapter, CloudflareAdapter, get_adapter(), GroqAdapter, _normalize_message_content(), NvidiaAdapter, OpenAIAdapter, ProviderAdapter (+24 more)
+Cohesion: 0.18
+Nodes (11): CerebrasAdapter, CloudflareAdapter, get_adapter(), GroqAdapter, _normalize_message_content(), NvidiaAdapter, OpenAIAdapter, ProviderAdapter (+3 more)
 
 ### Community 16 - "Community 16"
 Cohesion: 0.11
@@ -282,16 +320,16 @@ Cohesion: 0.12
 Nodes (17): 10. Signal Examples and Expected Behavior, code:block16 (Input text: "EURUSD BUY NOW), code:block17 (Input: <image showing XAUUSD H4 chart with upward arrow from), code:block18 (Input text: "🎉🎉 TP1 HIT on EURUSD BUY! Move SL to breakeven ), code:block19 (MSG 1 (T+0s):  "Watching GBPJPY closely"), code:block20 (Input: <MT5 terminal screenshot showing:), code:block21 (Input text: "DXY is showing weakness on the weekly, I expect), code:block22 (MSG arrives: "Taking profit here") (+9 more)
 
 ### Community 18 - "Community 18"
-Cohesion: 0.14
-Nodes (8): str, AppConfigTests, build_config(), _probe(), Run exact same flow as the real listener and log all exceptions., main(), Search for 'Forex Gold Market Killer' channel by global Telegram search., main()
+Cohesion: 0.11
+Nodes (9): str, AppConfigTests, build_config(), _probe(), Run exact same flow as the real listener and log all exceptions., main(), Search for 'Forex Gold Market Killer' channel by global Telegram search., _taskkill_pid() (+1 more)
 
 ### Community 19 - "Community 19"
-Cohesion: 0.05
-Nodes (40): build_graph(), _Pipeline, Agent pipeline — stdlib-only replacement for langgraph.StateGraph.  Graph topo, Build and return the agent pipeline., Synchronously invoke the graph for a single message., Sequential pipeline that routes via ``state.next_node``.      Replaces ``langg, Run the pipeline synchronously and return the final state., run_on_message() (+32 more)
+Cohesion: 0.20
+Nodes (10): ExtractedSignal, from_dict(), _maybe_float(), model_validate(), OrderType, Agent schemas — pure stdlib dataclasses, no external dependencies.  Replaces t, Raw signal as extracted by the LLM from unstructured text.      All fields are, RejectionReason (+2 more)
 
 ### Community 20 - "Community 20"
-Cohesion: 0.14
-Nodes (17): OpenAIClient, AI orchestration client with provider adapters, caching, rate-limiting, and circ, Patch, A proposed code change., OpenAIClient, OpenAI-compatible AI client with multi-key round-robin, caching, and circuit-bre, AI orchestration client with provider adapters, caching, rate-limiting, and circ, Patch (+9 more)
+Cohesion: 0.11
+Nodes (17): _image_data_url(), _json_from_text(), OpenAIClient, Backward-compatibility shim — OpenAIClient moved to adapters.ai.client., Classify message intent before deciding how to process it.          Returns a, AI orchestration client with provider adapters, caching, rate-limiting, and circ, Parse a trading signal from text and/or chart image(s)., Patch (+9 more)
 
 ### Community 21 - "Community 21"
 Cohesion: 0.18
@@ -310,24 +348,24 @@ Cohesion: 0.28
 Nodes (8): _clear_stale_cmds(), LogMonitorAgent, main(), All log files to monitor., Return only lines whose timestamp falls within the last window_seconds., _recent_lines(), _restart_listener(), _tail()
 
 ### Community 25 - "Community 25"
-Cohesion: 0.06
-Nodes (44): fill_missing_levels_from_chart(), from_ai_payload(), merge_signals(), AI payload processing and signal merging for SignalParser.  Extracted from sig, Fill missing SL/TP by querying the AI to analyze a chart image., Build a ParsedSignal from an AI JSON payload., Merge AI-parsed and heuristic-parsed signals, preferring AI values., Crypto entry price recovery and repair utilities.  Extracted from signal_parse (+36 more)
+Cohesion: 0.20
+Nodes (14): extract_mt5_screenshot_entry_candidates(), _first_float(), heuristic_parse(), _maybe_float(), _parse_mt5_screenshot(), Heuristic signal parsing — rule-based extraction without AI.  Handles: - MT5, Parse an MT5 open-position screenshot., Rule-based signal extraction from text. (+6 more)
 
 ### Community 26 - "Community 26"
-Cohesion: 0.20
-Nodes (8): Stdlib-only LLM shim — drop-in replacement for langchain_openai.ChatOpenAI.  W, Minimal response wrapper exposing ``.content`` (mirrors langchain AIMessage)., Normalise a message to an OpenAI ``{"role": ..., "content": ...}`` dict., Stdlib replacement for ``langchain_openai.ChatOpenAI``.      Delegates all HTT, Call the LLM and return a response with a ``.content`` attribute.          Par, _Response, SimpleLLM, _to_openai_msg()
+Cohesion: 0.16
+Nodes (10): Stdlib-only LLM shim — drop-in replacement for langchain_openai.ChatOpenAI.  W, Minimal response wrapper exposing ``.content`` (mirrors langchain AIMessage)., Normalise a message to an OpenAI ``{"role": ..., "content": ...}`` dict., Stdlib replacement for ``langchain_openai.ChatOpenAI``.      Delegates all HTT, Call the LLM and return a response with a ``.content`` attribute.          Par, _Response, SimpleLLM, _to_openai_msg() (+2 more)
 
 ### Community 27 - "Community 27"
 Cohesion: 0.21
 Nodes (7): get(), init(), Raw Telegram message logger.  Writes every message received from a configured, Return the singleton (None if not yet initialised)., Thread-safe daily-rotating JSONL logger for raw Telegram messages., Initialise the module-level singleton and return it., RawMessageLogger
 
 ### Community 28 - "Community 28"
-Cohesion: 0.07
-Nodes (24): PipelineLogger, Structured JSONL pipeline logging (AGENT_SPEC section 13).  Every analysis dec, Return an open file handle, rotating if the UTC date changed., Convert Pydantic models or dataclasses to plain dicts for JSON., Thread-safe JSONL pipeline event logger with daily file rotation., _serialize(), PipelineLogger, Backward-compatibility shim — PipelineLogger moved to services.pipeline.logger. (+16 more)
+Cohesion: 0.10
+Nodes (18): PipelineLogger, Structured JSONL pipeline logging (AGENT_SPEC section 13).  Every analysis dec, Return an open file handle, rotating if the UTC date changed., Convert Pydantic models or dataclasses to plain dicts for JSON., Thread-safe JSONL pipeline event logger with daily file rotation., _serialize(), build_enriched_prompt(), detect_task_type() (+10 more)
 
 ### Community 29 - "Community 29"
-Cohesion: 0.15
-Nodes (7): _append_queue_entry(), Send a MODIFY command to the MT5 EA.          ``new_sl`` may be a price (float, Send a CLOSE_PARTIAL command.  ``close_percent`` must be 0 < x ≤ 100., Send a CLOSE_FULL command to close the entire position., _should_retry_symbol_selection(), _strip_symbol_suffix(), _write_command_file()
+Cohesion: 0.22
+Nodes (5): _append_queue_entry(), Send a CLOSE_FULL command to close the entire position., _should_retry_symbol_selection(), _strip_symbol_suffix(), _write_command_file()
 
 ### Community 30 - "Community 30"
 Cohesion: 0.22
@@ -355,11 +393,11 @@ Nodes (9): `api_or_dashboard`, `image_processor`, `mt5_ea`, `mt5_executor`, Reco
 
 ### Community 37 - "Community 37"
 Cohesion: 0.06
-Nodes (30): 10. Testing Requirements, 11. Splitting an Existing File, 12. Commit Messages, 13. What NOT to Do, 1. File Size Limit, 2. Module Naming, 3. File Structure Template, 4. Import Rules (+22 more)
+Nodes (32): 10. Testing Requirements, 11. Splitting an Existing File, 12. Commit Messages, 13. What NOT to Do, 1. File Size Limit, 2. Module Naming, 3. File Structure Template, 4. Import Rules (+24 more)
 
 ### Community 38 - "Community 38"
-Cohesion: 0.14
-Nodes (11): Send a MODIFY command to the MT5 EA.          ``new_sl`` may be a price (float, Send a CLOSE_PARTIAL command.  ``close_percent`` must be 0 < x ≤ 100., Send a CLOSE_FULL command to close the entire position., _comment_source_slug(), from_bridge_lines(), from_signal(), _iso_to_epoch_text(), _normalize_text() (+3 more)
+Cohesion: 0.12
+Nodes (13): Send a MODIFY command to the MT5 EA.          ``new_sl`` may be a price (float, Send a CLOSE_PARTIAL command.  ``close_percent`` must be 0 < x ≤ 100., _comment_source_slug(), from_bridge_lines(), from_signal(), _iso_to_epoch_text(), _normalize_text(), _now_iso() (+5 more)
 
 ### Community 39 - "Community 39"
 Cohesion: 0.39
@@ -374,8 +412,8 @@ Cohesion: 0.29
 Nodes (7): 5.1 API Key Pool Configuration, 5.2 Environment Configuration for Multiple Keys, 5.3 Loading API Keys from Environment, 5. Multi-API Key Orchestrator, code:python (# src/telegram_signal_copier/adapters/ai_pool.py), code:ini (# .env — configure as many keys as needed), code:python (# src/telegram_signal_copier/config.py  (addition))
 
 ### Community 42 - "Community 42"
-Cohesion: 0.11
-Nodes (9): main(), Flet-based Desktop GUI Dashboard for Telegram Signal Copier.  Provides real-time, Start or Stop the copier background listener daemon process., Reload channels configuration to GUI sidebar., Start async thread to continuously refresh statuses and bridge data., Check status of Telethon session and MT5 bridge folders., Called when a channel's enable switch is toggled., Remove a channel from settings.json and update UI. (+1 more)
+Cohesion: 0.16
+Nodes (5): main(), Backward-compatible facade — delegates to gui/ subpackage.  All imports from thi, Start async thread to continuously refresh statuses and bridge data., Check status of Telethon session and MT5 bridge folders., SignalCopierDashboard
 
 ### Community 43 - "Community 43"
 Cohesion: 0.14
@@ -394,8 +432,8 @@ Cohesion: 0.29
 Nodes (7): code:block10 (Telegram Signal Copier EA), code:powershell (# Copy source to MT5 Experts folder and compile), MT5 Expert Advisor Setup, Step 1 — Compile the EA, Step 2 — Attach to a chart, Step 3 — EA input parameters, Step 4 — Verify the bridge is working
 
 ### Community 47 - "Community 47"
-Cohesion: 0.16
-Nodes (11): ParsedSignal, _detect_order_type(), _first_float(), _maybe_float(), _normalize_side(), _normalize_symbol(), _parse_cluster_context(), Parse an MT5 open-position screenshot (e.g. 'XAUUSD, sell 0.01 ...\nS/L: ...\nT/ (+3 more)
+Cohesion: 0.13
+Nodes (12): ParsedSignal, _detect_order_type(), _first_float(), _maybe_float(), _normalize_side(), _normalize_symbol(), _parse_cluster_context(), Backward-compatible facade — delegates to signals/ subpackage.  All imports fr (+4 more)
 
 ### Community 48 - "Community 48"
 Cohesion: 0.40
@@ -438,8 +476,8 @@ Cohesion: 0.67
 Nodes (3): main(), norm(), Find IDs of newly-joined Telegram groups using StringSession (no file lock).
 
 ### Community 59 - "Community 59"
-Cohesion: 0.11
-Nodes (16): MessageClusterAgent, MessageClusterAgent — Context-aware multi-message signal assembler.  Parsing l, Inject cluster-derived levels into raw_text as a structured header., Sits between the ``MessageBuffer`` flush and the ``CopierPipeline``.      When, _SourceCluster, auto_derive_sl(), ClusterSignal, _detect_side_and_order_type() (+8 more)
+Cohesion: 0.09
+Nodes (20): MessageClusterAgent, MessageClusterAgent — Context-aware multi-message signal assembler.  Parsing l, Inject cluster-derived levels into raw_text as a structured header., Sits between the ``MessageBuffer`` flush and the ``CopierPipeline``.      When, _SourceCluster, auto_derive_sl(), ClusterSignal, _detect_side_and_order_type() (+12 more)
 
 ### Community 61 - "Community 61"
 Cohesion: 0.50
@@ -474,20 +512,24 @@ Cohesion: 0.12
 Nodes (22): fix_false_positives(), Generate and apply code fixes for confirmed false-positive reports., FailureReport, Summary of a recurring pipeline failure pattern., apply_patch(), _build_prompt(), _call_llm(), generate_patch() (+14 more)
 
 ### Community 70 - "Community 70"
-Cohesion: 0.23
-Nodes (7): FileBridgeExecutor, FileBridgeExecutor, main(), parse_args(), main(), Create a test TradeCommand and write it to the MT5 bridge inbox., run_test()
+Cohesion: 0.21
+Nodes (7): FileBridgeExecutor, SignalParser, build_config(), PipelineTests, main(), main(), PATH
+
+### Community 77 - "Community 77"
+Cohesion: 0.17
+Nodes (11): build_graph(), Agent pipeline — stdlib-only replacement for langgraph.StateGraph.  Graph topo, Build and return the agent pipeline., Synchronously invoke the graph for a single message., Async Telethon listener that feeds incoming messages into the graph., run_on_message(), start_listener(), AgentState (+3 more)
 
 ### Community 78 - "Community 78"
-Cohesion: 0.14
-Nodes (13): Backward-compatibility shim — bridge helpers moved to adapters.bridge.helpers., FileBridge executor — writes .cmd files and reads .result confirmations from the, _should_retry_symbol_selection(), bridge_append_queue_entry(), bridge_normalize_execution_result(), bridge_payload_text(), bridge_should_retry_symbol_selection(), bridge_strip_symbol_suffix() (+5 more)
+Cohesion: 0.13
+Nodes (16): Backward-compatibility shim — bridge helpers moved to adapters.bridge.helpers., FileBridgeExecutor, FileBridge executor — writes .cmd files and reads .result confirmations from the, Send a MODIFY command to the MT5 EA.          ``new_sl`` may be a price (float, Send a CLOSE_PARTIAL command.  ``close_percent`` must be 0 < x ≤ 100., Send a CLOSE_FULL command to close the entire position., _should_retry_symbol_selection(), bridge_append_queue_entry() (+8 more)
 
 ### Community 79 - "Community 79"
 Cohesion: 0.15
 Nodes (8): Backward-compatibility shim — TelegramSignalListener moved to adapters.telegram., Exception, _FloodWaitSkip, Telegram signal listener — connects to Telegram and dispatches messages.  Conn, Raised when a Telegram FloodWaitError is hit during source resolution.     Caug, _should_refresh_session(), TelegramSignalListener, _prepare_telethon_ssl_runtime()
 
 ### Community 116 - "Community 116"
-Cohesion: 0.21
-Nodes (7): Return deduplicated list of all available images, primary first., Return deduplicated list of all available images, primary first., TelegramSignalMessage, build_config(), ✗SL 4590 — Unicode cross/ballot prefix must not block SL extraction., Message with no prices but cluster context should get low confidence (< 0.45)., SignalParserTests
+Cohesion: 0.14
+Nodes (14): build_pipeline(), Pipeline builder — constructs a CopierPipeline from AppConfig.  Extracted from, Return deduplicated list of all available images, primary first., Return deduplicated list of all available images, primary first., TelegramSignalMessage, SignalParser, Backward-compatibility shim — build_pipeline moved to listener.builder., build_pipeline() (+6 more)
 
 ### Community 117 - "Community 117"
 Cohesion: 0.50
@@ -503,23 +545,23 @@ Nodes (6): channel mapping policy, fix implementation policy, graphify, listener
 
 ### Community 121 - "Community 121"
 Cohesion: 0.18
-Nodes (8): ImageProcessor, _payload_to_text(), Image processor — OCR and AI-based trade signal extraction from chart screenshot, _score_ocr_text(), main(), SimulatedExecutor, main(), SimulatedExecutor
+Nodes (9): ImageProcessingResult, ImageProcessor, _payload_to_text(), Image processor — OCR and AI-based trade signal extraction from chart screenshot, _score_ocr_text(), main(), SimulatedExecutor, main() (+1 more)
 
 ### Community 122 - "Community 122"
-Cohesion: 0.13
-Nodes (7): _make_dashboard(), Unit tests for SignalCopierDashboard settings dialog and event handlers., Create a dashboard instance with mocked Flet page and dependencies., Tests for on_start_listener with mocked subprocess., Tests that event handlers with unused `e` params accept Any., TestOnStartListener, TestUnusedEventHandlerParams
+Cohesion: 0.20
+Nodes (5): _make_dashboard(), Unit tests for SignalCopierDashboard settings dialog and event handlers., Create a dashboard instance with mocked Flet page and dependencies., Tests for on_start_listener with mocked subprocess., TestOnStartListener
 
 ### Community 123 - "Community 123"
-Cohesion: 0.22
-Nodes (8): PipelineOutcome, Pipeline core — orchestrates the message → parse → validate → execute flow., # NOTE: kept here as backward-compatible aliases; canonical patterns live in int, ImageProcessingResult, PipelineOutcome, Backward-compatibility shim — CopierPipeline moved to services.pipeline.core., ValidationDecision, ParseResult
+Cohesion: 0.12
+Nodes (11): ExecutionResult, PipelineOutcome, Pipeline core — orchestrates the message → parse → validate → execute flow., # NOTE: kept here as backward-compatible aliases; canonical patterns live in int, PipelineOutcome, Backward-compatibility shim — CopierPipeline moved to services.pipeline.core., ValidationDecision, ParseResult (+3 more)
 
 ### Community 124 - "Community 124"
 Cohesion: 0.15
 Nodes (7): CircuitBreaker, Per-provider circuit breaker for AI provider health management., Tracks failure state for a set of named AI providers.      Each provider entry, Return ``True`` when the provider should be skipped (circuit open)., Reset failure counters after a successful call., Increment failure counters and calculate the next trip deadline., Handle non-retriable HTTP errors (4xx).  Disable provider after 3 repeats.
 
 ### Community 125 - "Community 125"
-Cohesion: 0.21
-Nodes (7): Classify message intent before deciding how to process it.          Returns a, Extract stop-loss and take-profit levels from a chart image., Parse a trading signal from text and/or chart image(s)., image_data_url(), json_from_text(), Parse a model response that may contain fenced or embedded JSON., Encode an image file as a data URI for API payloads.
+Cohesion: 0.22
+Nodes (9): OpenAIClient, Classify message intent before deciding how to process it.          Returns a, Extract stop-loss and take-profit levels from a chart image., AI orchestration client with provider adapters, caching, rate-limiting, and circ, Parse a trading signal from text and/or chart image(s)., image_data_url(), json_from_text(), Parse a model response that may contain fenced or embedded JSON. (+1 more)
 
 ### Community 126 - "Community 126"
 Cohesion: 0.21
@@ -562,12 +604,12 @@ Cohesion: 0.22
 Nodes (5): _Page, Return a dict of field values from this page., Base class for a wizard page., Return an error message if the page is invalid, else None., WelcomePage
 
 ### Community 137 - "Community 137"
-Cohesion: 0.29
-Nodes (6): build_pipeline(), Pipeline builder — constructs a CopierPipeline from AppConfig.  Extracted from, Backward-compatibility shim — build_pipeline moved to listener.builder., build_pipeline(), _run_sample(), main()
+Cohesion: 0.19
+Nodes (6): ChannelsPanel, Channels panel — left sidebar with source list, search, toggle, and delete., Override in dashboard to show add-channel dialog., Left sidebar: channel/source list manager., Reload channels configuration into the sidebar., _parse_source_spec()
 
 ### Community 138 - "Community 138"
 Cohesion: 0.32
-Nodes (7): _env_path(), _get_config_dir(), First-run setup wizard — collects Telegram + MT5 credentials and writes .env., Show the compact launcher (when .env already exists)., Return the directory where .env should be written.      Frozen (PyInstaller) b, run_launcher(), _write_env()
+Nodes (7): _env_path(), _get_config_dir(), Backward-compatible facade — delegates to setup/ subpackage.  All imports from t, Show the compact launcher (when .env already exists)., Return the directory where .env should be written.      Frozen (PyInstaller) b, run_launcher(), _write_env()
 
 ### Community 139 - "Community 139"
 Cohesion: 0.25
@@ -588,6 +630,10 @@ Nodes (5): build_providers(), compute_cache_key(), Utility helpers shared across
 ### Community 145 - "Community 145"
 Cohesion: 0.29
 Nodes (4): Tests for on_add_channel_dialog., on_add_channel_dialog should show a dialog., on_add_channel_dialog should schedule async dialog loading., TestOnAddChannelDialog
+
+### Community 146 - "Community 146"
+Cohesion: 0.17
+Nodes (3): AIPage, FinishPage, Setup wizard pages — AI provider and Finish pages.
 
 ### Community 147 - "Community 147"
 Cohesion: 0.40
@@ -613,25 +659,145 @@ Nodes (3): _probe(), Minimal diagnostic: connect to Telegram, print any exceptio
 Cohesion: 0.67
 Nodes (3): main(), norm(), Find IDs of newly-joined Telegram groups. Uses a temporary copy of the session
 
+### Community 191 - "Community 191"
+Cohesion: 0.20
+Nodes (6): Status panel — right sidebar with connection status, metrics, lot sizing., Check Telethon session and MT5 bridge status files., Update metric displays from trade data., Right sidebar: connection status, metrics, lot sizing, TP strategy., _safe_float(), StatusPanel
+
+### Community 192 - "Community 192"
+Cohesion: 0.23
+Nodes (6): PipelineLogger, Backward-compatibility shim — PipelineLogger moved to services.pipeline.logger., Return an open file handle, rotating if the UTC date changed., Convert Pydantic models or dataclasses to plain dicts for JSON., Thread-safe JSONL pipeline event logger with daily file rotation., _serialize()
+
+### Community 201 - "Community 201"
+Cohesion: 0.29
+Nodes (3): WelcomePage, Setup wizard shell — window frame, navigation, page orchestration., SetupWizard
+
+### Community 202 - "Community 202"
+Cohesion: 0.17
+Nodes (11): fill_missing_levels_from_chart(), merge_signals(), AI payload processing and signal merging for SignalParser.  Handles: - AI pay, Fill missing SL/TP by querying the AI to analyze a chart image., Fill missing SL/TP by querying the AI to analyze a chart image., Merge AI and heuristic signals with range-aware value selection., Merge AI-parsed and heuristic-parsed signals, preferring AI values., maybe_float() (+3 more)
+
+### Community 203 - "Community 203"
+Cohesion: 0.21
+Nodes (10): extract_signal_from_image(), ocr_extract_text(), parse_ocr_signal(), preprocess_image(), Local OCR-based signal extraction — no AI API dependency.  Uses Tesseract OCR, Parse trading signal from OCR-extracted text., Main entry point: extract signal from image using local OCR., Preprocess image for better OCR accuracy on trading charts. (+2 more)
+
+### Community 204 - "Community 204"
+Cohesion: 0.22
+Nodes (3): LauncherWindow, Launcher window — shown when .env already exists (double-click EXE)., Compact launcher shown when config already exists.
+
+### Community 205 - "Community 205"
+Cohesion: 0.22
+Nodes (4): MT5Page, _Page, Setup wizard core pages — Welcome, Telegram, MT5, Groups., Base class for a wizard page.
+
+### Community 206 - "Community 206"
+Cohesion: 0.20
+Nodes (10): from_ai_payload(), Build a ParsedSignal from an AI JSON payload., Build a ParsedSignal from an AI JSON payload., Crypto entry price recovery and repair utilities.  Extracted from signal_parse, Correct an OCR-mangled crypto entry price using anchor levels (SL/TP)., Try to recover a crypto entry price from raw text when the AI got it wrong., recover_crypto_entry_from_text(), repair_crypto_entry_price() (+2 more)
+
+### Community 207 - "Community 207"
+Cohesion: 0.29
+Nodes (9): Broker-ready payload produced by the Risk & Validation Agent., ValidatedSignal, _canonical_symbol(), _fingerprint(), Risk & Validation Agent., LangGraph node: validate and enrich the extracted signal., _rr_ratio(), _strip_suffix() (+1 more)
+
+### Community 208 - "Community 208"
+Cohesion: 0.27
+Nodes (3): Dashboard orchestrator — assembles panels, wires events, runs poller., Parse MT5 File Bridge directory for trade logs., SignalCopierDashboard
+
+### Community 209 - "Community 209"
+Cohesion: 0.20
+Nodes (7): _load_dialogs_async(), GUI dialogs — add channel, settings, and Telegram group loader., Load Telegram dialogs from cache or live fetch., Show settings dialog with tabs for credentials, AI, filters, keywords., Show dialog to search/add Telegram channels., show_add_channel_dialog(), show_settings_dialog()
+
+### Community 210 - "Community 210"
+Cohesion: 0.27
+Nodes (7): _bar_color(), _format_time(), Trades panel — active trades table, P&L chart, and demo data seeding., Fill the trades table from a list of trade dicts., Draw P&L performance bars from trade outcomes., _safe_float(), _status_color()
+
+### Community 211 - "Community 211"
+Cohesion: 0.27
+Nodes (4): Generate sample trade data for dashboard display., Clear bridge trade files and refresh., Central dashboard area: trades list and performance chart., TradesPanel
+
+### Community 212 - "Community 212"
+Cohesion: 0.24
+Nodes (8): parse_cluster_context(), _first_float(), heuristic_parse(), _maybe_float(), Main heuristic signal parser — rule-based text parsing without AI.  Extracted, Parse a trading signal from text using rule-based heuristics., Extract structured levels from a [CLUSTER CONTEXT] block if present., Extract structured levels from a [CLUSTER CONTEXT] block if present.
+
+### Community 214 - "Community 214"
+Cohesion: 0.25
+Nodes (7): detect_order_type(), detect_symbol_in_text(), first_float(), Static normalizer utilities for signal parsing.  Extracted from signal_parser., Detect a trading symbol in upper-cased text.      Checks common aliases first,, _detect_order_type(), _first_float()
+
+### Community 215 - "Community 215"
+Cohesion: 0.32
+Nodes (3): _hook(), Ultra-minimal listener test: run _run_with_restarts for 60s and log everything., Tee
+
+### Community 216 - "Community 216"
+Cohesion: 0.33
+Nodes (3): _Pipeline, Sequential pipeline that routes via ``state.next_node``.      Replaces ``langg, Run the pipeline synchronously and return the final state.
+
+### Community 217 - "Community 217"
+Cohesion: 0.29
+Nodes (3): Reload channels configuration to GUI sidebar., Called when a channel's enable switch is toggled., Remove a channel from settings.json and update UI.
+
+### Community 218 - "Community 218"
+Cohesion: 0.40
+Nodes (5): build_theme(), GUI theme constants and Flet page setup helpers., Return the app-wide Flet Theme with custom color scheme., Configure page title, size, colors, and theme., setup_page_properties()
+
+### Community 219 - "Community 219"
+Cohesion: 0.47
+Nodes (5): env_path(), get_config_dir(), Setup wizard helpers — config directory, .env writing, URL opening., Return the directory where .env should be written.      Frozen (PyInstaller) b, write_env()
+
+### Community 221 - "Community 221"
+Cohesion: 0.33
+Nodes (5): minimal_config(), Shared pytest fixtures for the Telegram Signal Copier test suite., A temporary project root directory for tests that need filesystem access., A minimal :class:`AppConfig` that requires no real credentials.      Suitable, tmp_project_root()
+
+### Community 223 - "Community 223"
+Cohesion: 0.47
+Nodes (5): _check_expectations(), main(), Dry-run pipeline tester (section 14 of AGENT_SPEC.md).  Feeds pre-recorded mes, Map final AgentState to a simplified action label., _resolve_action()
+
+### Community 224 - "Community 224"
+Cohesion: 0.47
+Nodes (4): check(), fail(), ok(), Comprehensive end-to-end test for the multi-agent LangGraph pipeline.  Run:
+
+### Community 225 - "Community 225"
+Cohesion: 0.40
+Nodes (4): Approach, Output, Rules, When to use this agent
+
+### Community 226 - "Community 226"
+Cohesion: 0.40
+Nodes (4): Classification Rules, Decision Logic, Output, Rules
+
+### Community 227 - "Community 227"
+Cohesion: 0.50
+Nodes (4): create_test_message(), Create a mock TelegramSignalMessage for testing., Test OCR extraction on the 5 rejected ALGO TRADING forex. messages., test_ocr_extraction()
+
+### Community 228 - "Community 228"
+Cohesion: 0.50
+Nodes (3): Output, Rules, When to use this agent
+
+### Community 229 - "Community 229"
+Cohesion: 0.50
+Nodes (3): Telethon-based Telegram listener for the agent graph.  Extracted from graph.py, Async Telethon listener that feeds incoming messages into the graph., start_listener()
+
+### Community 230 - "Community 230"
+Cohesion: 0.67
+Nodes (3): _build_llm(), main(), Entry-point: run the LangGraph multi-agent Telegram trade copier.  Usage ----
+
+### Community 231 - "Community 231"
+Cohesion: 0.50
+Nodes (3): Output, Rules, When to use this agent
+
 ## Knowledge Gaps
-- **214 isolated node(s):** `errors`, `command`, `args`, `PYTHONPATH`, `envFile` (+209 more)
+- **228 isolated node(s):** `errors`, `command`, `args`, `PYTHONPATH`, `envFile` (+223 more)
   These have ≤1 connection - possible missing edges or undocumented components.
-- **66 thin communities (<3 nodes) omitted from report** — run `graphify query` to explore isolated nodes.
+- **72 thin communities (<3 nodes) omitted from report** — run `graphify query` to explore isolated nodes.
 
 ## Suggested Questions
 _Questions this graph is uniquely positioned to answer:_
 
-- **Why does `PATH` connect `Community 0` to `Community 1`, `Community 3`, `Community 133`, `Community 6`, `Community 7`, `Community 9`, `Community 13`, `Community 18`, `Community 146`, `Community 19`, `Community 21`, `Community 23`, `Community 27`, `Community 28`, `Community 157`, `Community 158`, `Community 33`, `Community 49`, `Community 58`, `Community 191`, `Community 192`, `Community 65`, `Community 64`, `Community 69`, `Community 70`, `Community 116`, `Community 121`?**
-  _High betweenness centrality (0.089) - this node is a cross-community bridge._
-- **Why does `AppConfig` connect `Community 15` to `Community 0`, `Community 130`, `Community 3`, `Community 133`, `Community 9`, `Community 12`, `Community 142`, `Community 18`, `Community 19`, `Community 20`, `Community 146`, `Community 25`, `Community 42`, `Community 43`, `Community 47`, `Community 79`, `Community 116`, `Community 121`, `Community 123`?**
-  _High betweenness centrality (0.083) - this node is a cross-community bridge._
-- **Why does `SignalCopierDashboard` connect `Community 42` to `Community 139`, `Community 12`, `Community 15`, `Community 145`, `Community 122`, `Community 126`, `Community 127`?**
-  _High betweenness centrality (0.049) - this node is a cross-community bridge._
-- **Are the 117 inferred relationships involving `str` (e.g. with `.validate()` and `_build_env_kwargs()`) actually correct?**
-  _`str` has 117 INFERRED edges - model-reasoned connections that need verification._
-- **Are the 62 inferred relationships involving `PATH` (e.g. with `_default_bridge_root()` and `_default_project_root()`) actually correct?**
+- **Why does `AppConfig` connect `Community 123` to `Community 0`, `Community 130`, `Community 3`, `Community 133`, `Community 6`, `Community 9`, `Community 137`, `Community 12`, `Community 142`, `Community 15`, `Community 18`, `Community 20`, `Community 42`, `Community 43`, `Community 191`, `Community 70`, `Community 79`, `Community 208`, `Community 211`, `Community 215`, `Community 216`, `Community 221`, `Community 116`, `Community 121`, `Community 125`?**
+  _High betweenness centrality (0.098) - this node is a cross-community bridge._
+- **Why does `PATH` connect `Community 70` to `Community 0`, `Community 1`, `Community 3`, `Community 133`, `Community 7`, `Community 9`, `Community 13`, `Community 18`, `Community 20`, `Community 21`, `Community 23`, `Community 27`, `Community 157`, `Community 158`, `Community 33`, `Community 49`, `Community 58`, `Community 64`, `Community 65`, `Community 192`, `Community 69`, `Community 223`, `Community 230`, `Community 116`, `Community 121`?**
+  _High betweenness centrality (0.056) - this node is a cross-community bridge._
+- **Why does `OpenAIClient` connect `Community 20` to `Community 0`, `Community 68`, `Community 5`, `Community 230`, `Community 70`, `Community 43`, `Community 155`, `Community 15`, `Community 116`, `Community 121`, `Community 26`, `Community 123`?**
+  _High betweenness centrality (0.034) - this node is a cross-community bridge._
+- **Are the 126 inferred relationships involving `str` (e.g. with `.validate()` and `_build_env_kwargs()`) actually correct?**
+  _`str` has 126 INFERRED edges - model-reasoned connections that need verification._
+- **Are the 62 inferred relationships involving `PATH` (e.g. with `from_env()` and `dynamic_symbols_path()`) actually correct?**
   _`PATH` has 62 INFERRED edges - model-reasoned connections that need verification._
-- **Are the 51 inferred relationships involving `AppConfig` (e.g. with `SignalCopierDashboard` and `OpenAIClient`) actually correct?**
-  _`AppConfig` has 51 INFERRED edges - model-reasoned connections that need verification._
-- **Are the 36 inferred relationships involving `TelegramSignalMessage` (e.g. with `_run_sample()` and `._event_to_message()`) actually correct?**
-  _`TelegramSignalMessage` has 36 INFERRED edges - model-reasoned connections that need verification._
+- **Are the 55 inferred relationships involving `AppConfig` (e.g. with `OpenAIClient` and `ProviderAdapter`) actually correct?**
+  _`AppConfig` has 55 INFERRED edges - model-reasoned connections that need verification._
+- **Are the 38 inferred relationships involving `TelegramSignalMessage` (e.g. with `_run_sample()` and `._event_to_message()`) actually correct?**
+  _`TelegramSignalMessage` has 38 INFERRED edges - model-reasoned connections that need verification._
