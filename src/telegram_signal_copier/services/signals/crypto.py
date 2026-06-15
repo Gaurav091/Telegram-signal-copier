@@ -8,8 +8,8 @@ import re
 from typing import Any
 
 from telegram_signal_copier.constants import CRYPTO_ENTRY_MIN
-from telegram_signal_copier.services.signal_normalizers import normalize_ocr_spaced_numbers
-from telegram_signal_copier.services.signal_patterns import PRICE_PATTERN
+from telegram_signal_copier.services.signals.normalizers import normalize_ocr_spaced_numbers
+from telegram_signal_copier.services.signals.patterns import ENTRY_PATTERN, PRICE_PATTERN
 
 
 def recover_crypto_entry_from_text(
@@ -36,7 +36,7 @@ def recover_crypto_entry_from_text(
         line_upper = line.upper()
         if "ENTRY" not in line_upper:
             continue
-        m = re.search(r"\bENTRY\b\s*[:=@-]?\s*(\d{1,6}(?:\.\d{1,5})?)", line_upper)
+        m = ENTRY_PATTERN.search(line_upper)
         if not m:
             continue
         try:

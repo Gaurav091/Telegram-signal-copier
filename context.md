@@ -287,6 +287,10 @@ pytesseract.pytesseract.TesseractNotFoundError
 - [x] **Combined intent+parse** — `parse_signal` system prompt now includes an
     `intent` field so a single AI round-trip returns both classification and
     extraction.
+- [x] **BTCUSD OCR parsing (7-digit prices)** — fixed: regex patterns now support
+    7-digit numbers (`\d{1,7}`) to match BTC prices like 77645.45. OCR spaced
+    number normalization integrated into `parse_ocr_signal` to fix artifacts
+    like "77 645.45" → "77645.45". Crypto entry recovery now called in OCR path.
 - [ ] **SSL** — install OpenSSL DLLs or `pyOpenSSL`; confirm warning is gone.
 - [ ] **EA round-trip** — verify `.cmd` → `.result` flow end-to-end with a
     paper-trading MT5 account.

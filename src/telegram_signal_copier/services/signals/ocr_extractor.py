@@ -35,7 +35,11 @@ from telegram_signal_copier.services.signals.patterns import (
 )
 from telegram_signal_copier.services.signals.normalizers import (
     detect_symbol_in_text,
+    normalize_ocr_spaced_numbers,
     normalize_side,
+)
+from telegram_signal_copier.services.signals.crypto import (
+    recover_crypto_entry_from_text,
 )
 
 try:
@@ -119,7 +123,9 @@ def parse_ocr_signal(
     ocr_text: str,
 ) -> ParsedSignal:
     """Parse trading signal from OCR-extracted text."""
-    combined_text = ocr_text.upper()
+    # Normalize OCR spaced numbers FIRST (e.g., "77 645.45" → "77645.45")
+    normalized_ocr = normalize_ocr_spaced_numbers(ocr_text)
+    combined_text = normalized_ocr.upper()
     
     # Detect symbol — ONLY accept if it matches allowed whitelist (strict mode for OCR)
     symbol = detect_symbol_in_text(combined_text, config.merged_allowed_symbols, strict=True)
@@ -199,6 +205,14 @@ def parse_ocr_signal(
                 except ValueError:
                     continue
     
+    # Crypto entry recovery: try to recover entry price from OCR text when missing or suspicious
+    recovery_notes = []
+    if entry_price is None or entry_price < 5000:  # BTC min is 5000, ETH min is 100
+        recovered = recover_crypto_entry_from_text(symbol, side, normalized_ocr, stop_loss, take_profits)
+        if recovered is not None:
+            entry_price = recovered
+            recovery_notes.append("Recovered crypto entry price from OCR text")
+    
     # Calculate confidence based on fields found
     fields_found = sum(
         1 for v in [symbol, side, entry_price, stop_loss, take_profits[0] if take_profits else None]
@@ -209,7 +223,7 @@ def parse_ocr_signal(
     notes = [
         "OCR-based extraction (no AI vision)",
         f"Tesseract PSM modes attempted: 3, 6, 11",
-    ]
+    ] + recovery_notes
     if not HAS_OPENCV:
         notes.append("OpenCV not available — skipped preprocessing")
     if not HAS_TESSERACT:

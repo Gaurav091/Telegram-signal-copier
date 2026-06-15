@@ -451,9 +451,17 @@ Image shows: XAUUSD, sell 0.50 ... S/L: 4575.16 ... T/P: 4491.53
 
 # Inline entry
 BUY GOLD NOW @ 2320 SL 2315 TP1 2330 TP2 2338
+
+# BTC/ETH signals (7-digit prices)
+BTCUSD BUY NOW
+Entry: 77 645.45
+S/L: 76764.84
+T/P: 78523.57
+
+# OCR spaced numbers are auto-normalized (77 645.45 → 77645.45)
 ```
 
-Symbol aliases recognised: `GOLD → XAUUSD`, `XAU → XAUUSD`, `EU → EURUSD`, `GU → GBPUSD`, `UJ → USDJPY`, `DOW/DJ30 → US30`, `NASDAQ/NDX/NQ → NAS100`
+Symbol aliases recognised: `GOLD → XAUUSD`, `XAU → XAUUSD`, `EU → EURUSD`, `GU → GBPUSD`, `UJ → USDJPY`, `DOW/DJ30 → US30`, `NASDAQ/NDX/NQ → NAS100`, `BTC → BTCUSD`
 
 ---
 

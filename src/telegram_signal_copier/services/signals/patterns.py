@@ -6,22 +6,22 @@ from __future__ import annotations
 
 import re
 
-PRICE_PATTERN = re.compile(r"\b\d{1,6}(?:\.\d{1,5})?\b")
+PRICE_PATTERN = re.compile(r"\b\d{1,7}(?:\.\d{1,5})?\b")
 SL_PATTERN = re.compile(
     r"(?:[\u274c\u26a0\ufe0f\ud83d\udeab\u274e]*\s*)?"
     r"(?:\bSL\b|\bS\s*[\\/.]\s*L\b|STOP\s*LOSS|STOPLOSS|\bSTOP\b)"
-    r"[\s:=@\-\u2026.]*\s*(\d{1,6}(?:\.\d{1,5})?)",
+    r"[\s:=@\-\u2026.]*\s*(\d{1,7}(?:\.\d{1,5})?)",
     re.IGNORECASE,
 )
 TP_PATTERN = re.compile(
     r"(?:[\u26a1\ufe0f\u2705\ud83c\udfaf\ud83d\udcb0]*\s*)?"
     r"(?:\bTP\d*\b|\bT\s*[\\/.]\s*P\d*\b|TAKE\s*PROFIT\s*\d*|\bTG\d*\b)"
-    r"[\s:=@\-\u2026.]*\s*(\d{1,6}(?:\.\d{1,5})?)",
+    r"[\s:=@\-\u2026.]*\s*(\d{1,7}(?:\.\d{1,5})?)",
     re.IGNORECASE,
 )
 TARGET_LINE_PATTERN = re.compile(r"\b(?:TARGETS?|TPS?)\b\s*[:=@-]?\s*(.+)", re.IGNORECASE)
-ENTRY_PATTERN = re.compile(r"(?:ENTRY|AT|BUY|SELL)\s*[:=@-]?\s*(\d{1,6}(?:\.\d{1,5})?)", re.IGNORECASE)
-AT_SYMBOL_PATTERN = re.compile(r"@\s*(\d{1,6}(?:\.\d{1,5})?)", re.IGNORECASE)
+ENTRY_PATTERN = re.compile(r"(?:ENTRY|AT|BUY|SELL)\s*[:=@-]?\s*(\d{1,7}(?:\.\d{1,5})?)", re.IGNORECASE)
+AT_SYMBOL_PATTERN = re.compile(r"@\s*(\d{1,7}(?:\.\d{1,5})?)", re.IGNORECASE)
 
 # MT5 open-position screenshot: "XAUUSD, sell 0.01" header line
 MT5_SCREENSHOT_HEADER_RE = re.compile(
