@@ -297,14 +297,16 @@ def heuristic_parse(
                             break
                     except Exception:
                         pass
+    if entry_price is None:
+        # Use symbol-aware minimum price to handle both XAUUSD (4000+) and forex pairs (1.0xxx)
+        _entry_min = 0.1 if symbol and symbol in {"EURUSD", "GBPUSD", "USDJPY", "AUDUSD", "USDCAD", "NZDUSD", "USDCHF"} else 100.0
+        raw_entries = ENTRY_PATTERN.findall(upper_text)
+        valid = [v for v in raw_entries if _maybe_float(v) is not None and float(v) >= _entry_min]
+        entry_price = _first_float(valid)
         if entry_price is None:
-            raw_entries = ENTRY_PATTERN.findall(upper_text)
-            valid = [v for v in raw_entries if _maybe_float(v) is not None and float(v) >= 100]
-            entry_price = _first_float(valid)
-            if entry_price is None:
-                raw_at = AT_SYMBOL_PATTERN.findall(upper_text)
-                valid_at = [v for v in raw_at if _maybe_float(v) is not None and float(v) >= 100]
-                entry_price = _first_float(valid_at)
+            raw_at = AT_SYMBOL_PATTERN.findall(upper_text)
+            valid_at = [v for v in raw_at if _maybe_float(v) is not None and float(v) >= _entry_min]
+            entry_price = _first_float(valid_at)
 
     stop_loss: float | None = None
     take_profits: list[float] = []
@@ -325,8 +327,9 @@ def heuristic_parse(
             except Exception:
                 pass
 
-    for line in combined_text.splitlines():
-        line_u = line.upper()
+    lines = combined_text.splitlines()
+    for idx, line in enumerate(lines):
+        line_u = line.upper().strip()
         if not stop_loss:
             m = SL_PATTERN.search(line_u)
             if m:
@@ -336,6 +339,30 @@ def heuristic_parse(
                         stop_loss = sl_c
                 except Exception:
                     pass
+            # Multi-line SL: label on its own line, price on next line
+            if not stop_loss and re.search(r"(?:^|\b)(?:SL|S\s*[\\/.]\s*L|STOP\s*LOSS)\s*[:=\-]?\s*$", line_u):
+                for j in range(idx + 1, min(idx + 4, len(lines))):
+                    pm = re.search(r"(\d{3,7}(?:\.\d{1,5})?)", lines[j].strip())
+                    if pm:
+                        try:
+                            sl_c = float(pm.group(1))
+                            if _in_range(sl_c):
+                                stop_loss = sl_c
+                        except Exception:
+                            pass
+                        break
+        # Multi-line TP: label on its own line, price on next line
+        if re.search(r"(?:^|\b)(?:TP\d*|T\s*[\\/.]\s*P\d*|TARGET\d*)\s*[:=\-]?\s*$", line_u):
+            for j in range(idx + 1, min(idx + 4, len(lines))):
+                pm = re.search(r"(\d{3,7}(?:\.\d{1,5})?)", lines[j].strip())
+                if pm:
+                    try:
+                        tp_val = float(pm.group(1))
+                        if _in_range(tp_val) and tp_val not in take_profits:
+                            take_profits.append(tp_val)
+                    except Exception:
+                        pass
+                    break
         for tp in TP_PATTERN.findall(line_u):
             try:
                 tp_val = float(tp)
@@ -373,11 +400,31 @@ def heuristic_parse(
     _cluster_injected = ctx and (ctx.get("sl") or ctx.get("entry") or ctx.get("tps"))
     _cluster_only = _cluster_injected and not _msg_has_prices
 
-    fields_found = sum(
-        1 for item in [symbol, side, order_type, entry_price, stop_loss, take_profits[0] if take_profits else None]
+    # Core fields: symbol, side are essential; entry, SL, TP are trade levels
+    core_fields = sum(
+        1 for item in [symbol, side]
         if item not in (None, "")
     )
-    confidence = min(0.35 if _cluster_only else 0.95, 0.25 + fields_found * 0.12)
+    level_fields = sum(
+        1 for item in [entry_price, stop_loss, take_profits[0] if take_profits else None]
+        if item not in (None, "")
+    )
+    fields_found = core_fields + level_fields
+
+    # Base confidence from field count, but penalize when critical levels are missing
+    if _cluster_only:
+        confidence = min(0.35, 0.25 + fields_found * 0.12)
+    elif core_fields >= 2 and level_fields >= 2:
+        # Good signal: has symbol + side + at least 2 of (entry, SL, TP)
+        confidence = min(0.95, 0.55 + fields_found * 0.08)
+    elif core_fields >= 2 and level_fields >= 1:
+        # Partial signal: has symbol + side + 1 level
+        confidence = min(0.75, 0.40 + fields_found * 0.08)
+    elif core_fields >= 2:
+        # Minimal signal: has symbol + side only
+        confidence = min(0.55, 0.30 + fields_found * 0.08)
+    else:
+        confidence = min(0.45, 0.25 + fields_found * 0.12)
 
     notes: list[str] = []
     if entry_range_low and entry_range_high:

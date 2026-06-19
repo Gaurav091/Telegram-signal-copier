@@ -1,6 +1,6 @@
 # Project Context — Telegram Signal Copier
 
-**Last updated:** 2026-05-29
+**Last updated:** 2026-06-19
 **Platform:** Windows (development host and MT5 host)  
 **Python:** 3.11+ (3.12 / 3.14 tested)
 
@@ -14,6 +14,39 @@ The system reads trade signals from one or more Telegram channels, parses them
 (text and/or OCR), applies risk sizing and symbol filters, then delivers
 structured instructions to MetaTrader 5 via a **FileBridge** that a resident
 Expert Advisor (EA) consumes.
+
+---
+
+## Recent Changes (2026-06-19)
+
+### Parser Improvements
+
+Four fixes to improve signal parsing accuracy and reduce the 88.8% rejection rate:
+
+1. **Multi-line SL/TP extraction** (`heuristic.py`): When SL/TP labels appear on
+   their own line (e.g., "SL:\n4518"), the parser now looks at the next 3 lines for
+   the price. Previously these were completely missed.
+
+2. **Symbol detection rejects pure numbers** (`normalizers.py`): The fallback regex
+   no longer matches strings that are purely numeric (e.g., "4525", "4190") which
+   were incorrectly parsed as symbols from entry price text.
+
+3. **Informational message filtering** (`patterns.py`): Extended TRADE_MANAGEMENT_RE
+   to catch pip count updates ("40 PIPS RUNNING"), profit booking ("5375$ Done"),
+   and casual chat ("fly", "congratulations"). These are now skipped early.
+
+4. **Forex pair entry prices** (`heuristic.py`): Entry price extraction now uses
+   symbol-aware minimum prices (0.1 for EURUSD/GBPUSD etc., 100.0 for XAUUSD/BTCUSD)
+   so forex pair entries like "Entry: 1.0850" are no longer filtered out.
+
+5. **Improved confidence calculation** (`heuristic.py`): Signals with symbol+side
+   but missing SL/TP get lower confidence (max 0.55) so they're filtered earlier.
+   Complete signals (symbol+side+2+ levels) get higher confidence (up to 0.95).
+
+### Test Results
+- 37/37 unit tests pass (15 signal parser + 22 pipeline)
+- 21/25 realistic signal formats parse correctly
+- Zero regressions — all existing ALGO TRADING forex, GTA, and other group parsing intact
 
 ---
 

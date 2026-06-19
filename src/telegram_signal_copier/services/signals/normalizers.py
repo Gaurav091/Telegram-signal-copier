@@ -113,5 +113,14 @@ def detect_symbol_in_text(upper_text: str, allowed_symbols: list[str], strict: b
             return normalized
     if strict:
         return None
-    match = re.search(r"\b([A-Z0-9]{3,10}(?:\d+|USD|EUR|JPY|GBP|AUD|CAD|NZD|CHF|XAU|XAG))\b", upper_text)
-    return match.group(1) if match else None
+    # Fallback: look for instrument-like tokens but reject pure numbers (prices)
+    for match in re.finditer(r"\b([A-Z0-9]{3,10}(?:\d+|USD|EUR|JPY|GBP|AUD|CAD|NZD|CHF|XAU|XAG))\b", upper_text):
+        candidate = match.group(1)
+        # Skip if the candidate is purely numeric — it's likely a price, not a symbol
+        if candidate.isdigit():
+            continue
+        # Skip if it looks like a date (e.g., 2026, 20260619)
+        if len(candidate) == 4 and candidate.isdigit():
+            continue
+        return candidate
+    return None

@@ -57,7 +57,14 @@ ALGO_TRADE_UPDATE_CAPTIONS = re.compile(
 TRADE_MANAGEMENT_RE = re.compile(
     r"\b(?:move\s+sl|hit\s+tp|close\s+(?:position|trade|bad)|breakeven|bep|"
     r"trail\s+stop|partial\s+close|take\s+profit\s+hit|tp\d*\s+hit|"
-    r"sl\s+to\s+(?:entry|be|breakeven)|secure\s+profit)\b",
+    r"sl\s+to\s+(?:entry|be|breakeven)|secure\s+profit|"
+    r"\d+\s*pips?\s*(?:running|done|booked|hit|achieved)|"
+    r"\d+\s*(?:usd|dollars?)\s*(?:profit|done|booked)|"
+    r"(?:profit|loss)\s*(?:booked|done|hitting|running)|"
+    r"(?:all|both)\s*(?:tp|target)s?\s*(?:hit|done|achieved|complete)|"
+    r"(?:tp|target)\s*\d?\s*(?:hit|done|achieved)|"
+    r"(?:congratulat|well\s*done|nice\s*(?:trade|call|job))|"
+    r"(?:hold|enjoy|ride|fly|flying|to\s*the\s*moon))\b",
     re.IGNORECASE,
 )
 
