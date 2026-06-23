@@ -1,0 +1,14 @@
+request_id=7005b400-f301-4914-bed3-3efa73551970
+submitted_at=2026-06-10T09:20:23.526118+00:00
+submitted_epoch=1781083223
+source_group=Neymar, Gold Trader
+message_id=5793
+symbol=XAUUSDm
+action=SELL
+order_type=SELL_LIMIT
+volume=0.01
+entry_price=4174.5
+stop_loss=4180.0
+take_profit=4170.0
+take_profit_targets=4170.0
+comment=TG|NEYMAR-GOLD-TRAD|5793

@@ -241,15 +241,7 @@ def heuristic_parse(
             notes=["Trade management message — not a new signal"],
         )
 
-    if PROMO_SPAM_RE.search(combined_text):
-        return ParsedSignal(
-            source_group=message.source_group, message_id=message.message_id,
-            symbol=None, side=None, order_type="MARKET",
-            entry_price=None, stop_loss=None, take_profits=[],
-            confidence=0.0, raw_text=combined_text,
-            image_used=bool(message.image_path), parser_name="heuristic",
-            notes=["Promo/spam message — not a trade signal"],
-        )
+    _is_promo = bool(PROMO_SPAM_RE.search(combined_text))
 
     symbol = detect_symbol_in_text(upper_text, config.merged_allowed_symbols)
 
@@ -436,6 +428,21 @@ def heuristic_parse(
     if _cluster_only:
         notes.append("WARN: message has no price numbers — cluster-context levels capped to low confidence")
 
+    # Promo/spam check: only reject if no actual signal fields were extracted
+    # (real signals sometimes appear alongside promotional text)
+    _has_signal_fields = side and (entry_price is not None or stop_loss is not None or take_profits)
+    if _is_promo and not _has_signal_fields:
+        return ParsedSignal(
+            source_group=message.source_group, message_id=message.message_id,
+            symbol=symbol, side=None, order_type="MARKET",
+            entry_price=None, stop_loss=None, take_profits=[],
+            confidence=0.0, raw_text=combined_text,
+            image_used=bool(message.image_path), parser_name="heuristic",
+            notes=["Promo/spam message — not a trade signal"],
+        )
+    if _is_promo:
+        notes.append("Promo/spam keywords detected but signal fields present — parsing as signal")
+
     return ParsedSignal(
         source_group=message.source_group, message_id=message.message_id,
         symbol=symbol, side=side, order_type=order_type,
@@ -462,22 +469,3 @@ def _first_float(values: list[str]) -> float | None:
         if f is not None:
             return f
     return None
-    if entry_price is not None:
-        notes.append(f"Entry inferred from MT5 screenshot price line: {entry_price}")
-    return ParsedSignal(
-        source_group=message.source_group,
-        message_id=message.message_id,
-        symbol=symbol,
-        side=side,
-        order_type="MARKET",
-        entry_price=entry_price,
-        entry_range_low=None,
-        entry_range_high=None,
-        stop_loss=stop_loss,
-        take_profits=take_profits,
-        confidence=confidence,
-        raw_text=combined_text,
-        image_used=bool(message.image_path),
-        parser_name="mt5_screenshot",
-        notes=notes,
-    )

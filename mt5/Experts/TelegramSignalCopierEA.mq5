@@ -20,6 +20,12 @@ input double FloatingProfitCloseAllUsd = 100.0;
 input bool FloatingProfitCloseAllOnlyManagedMagic = true;
 input int FloatingProfitCloseAllCooldownSeconds = 60;
 
+// Floating loss close-all (close positions when loss exceeds threshold)
+input bool EnableFloatingLossCloseAll = false;
+input double FloatingLossCloseAllUsd = 50.0;
+input bool FloatingLossCloseAllOnlyManagedMagic = true;
+input int FloatingLossCloseAllCooldownSeconds = 60;
+
 struct TradeCommand
 {
    string request_id;
@@ -128,6 +134,7 @@ void OnTick()
       ProcessBridgeCommands();
       ManageMultiTargetPositions();
       ManageFloatingProfitCloseAll();
+      ManageFloatingLossCloseAll();
       UpdateChartStatus();
       WriteEAStatus();
       last_process = TimeCurrent();
@@ -139,7 +146,7 @@ void OnTimer()
    ProcessBridgeCommands();
    ManageMultiTargetPositions();
    ManageFloatingProfitCloseAll();
-   ManageFloatingProfitCloseAll();
+   ManageFloatingLossCloseAll();
    UpdateChartStatus();
    WriteEAStatus();
 }
@@ -1402,6 +1409,78 @@ void ManageFloatingProfitCloseAll()
       closed_count,
       ArraySize(tickets),
       total_profit
+   );
+}
+
+// ---------------------------------------------------------------------------
+// Floating loss close-all — close all positions when floating loss exceeds threshold
+// ---------------------------------------------------------------------------
+void ManageFloatingLossCloseAll()
+{
+   if(!EnableFloatingLossCloseAll)
+      return;
+   if(FloatingLossCloseAllUsd <= 0.0)
+      return;
+
+   static datetime s_last_loss_close_all = 0;
+   if(FloatingLossCloseAllCooldownSeconds > 0 && TimeCurrent() - s_last_loss_close_all < FloatingLossCloseAllCooldownSeconds)
+      return;
+
+   double total_loss = 0.0;
+   ulong tickets[];
+   ArrayResize(tickets, 0);
+
+   for(int index = PositionsTotal() - 1; index >= 0; index--)
+   {
+      ulong position_ticket = PositionGetTicket(index);
+      if(position_ticket <= 0)
+         continue;
+
+      long pos_magic = PositionGetInteger(POSITION_MAGIC);
+      if(FloatingLossCloseAllOnlyManagedMagic && pos_magic != MagicNumber)
+         continue;
+
+      if(!PositionSelectByTicket(position_ticket))
+         continue;
+
+      double profit = PositionGetDouble(POSITION_PROFIT) + PositionGetDouble(POSITION_SWAP);
+      total_loss += profit;
+
+      int ticket_index = ArraySize(tickets);
+      ArrayResize(tickets, ticket_index + 1);
+      tickets[ticket_index] = position_ticket;
+   }
+
+   // Trigger when total loss reaches or exceeds threshold (e.g., -50 <= -50 or -60 <= -50)
+   if(total_loss > -FloatingLossCloseAllUsd)
+      return;
+
+   PrintFormat(
+      "TelegramSignalCopierEA floating loss close-all triggered: total_loss=%.2f threshold=-%.2f positions=%d",
+      total_loss,
+      FloatingLossCloseAllUsd,
+      ArraySize(tickets)
+   );
+
+   int closed_count = 0;
+   for(int i = 0; i < ArraySize(tickets); i++)
+   {
+      if(trade.PositionClose(tickets[i]))
+         closed_count++;
+      else
+         PrintFormat(
+            "TelegramSignalCopierEA floating loss close-all failed ticket=%s message=%s",
+            FormatTicket(tickets[i]),
+            trade.ResultRetcodeDescription()
+         );
+   }
+
+   s_last_loss_close_all = TimeCurrent();
+   PrintFormat(
+      "TelegramSignalCopierEA floating loss close-all completed: closed=%d/%d total_loss=%.2f",
+      closed_count,
+      ArraySize(tickets),
+      total_loss
    );
 }
 

@@ -1,0 +1,14 @@
+request_id=f2f23d87-5adc-4ec3-8268-7bcc2a249fb5
+submitted_at=2026-06-10T09:06:30.884139+00:00
+submitted_epoch=1781082390
+source_group=PAUL GOLD TRADER 🎖
+message_id=6394
+symbol=XAUUSDm
+action=BUY
+order_type=BUY_LIMIT
+volume=0.01
+entry_price=4164.5
+stop_loss=4157.0
+take_profit=4169.0
+take_profit_targets=4169.0
+comment=TG|PAUL-GOLD-TRADER|6394

@@ -237,6 +237,38 @@ class OpenAIClient:
         if not self._acquire_token():
             raise RuntimeError("AI global rate limit exceeded")
 
+        # Pre-filter: if require_vision and no vision providers, fail fast
+        if require_vision:
+            vision_providers = [p for p in self.providers if p.get("supports_vision")]
+            if not vision_providers:
+                raise RuntimeError("No vision-capable providers configured")
+
+        # Retry loop with exponential backoff for transient errors
+        max_retries = 3
+        base_delay = 1.0
+        last_error = None
+
+        for attempt in range(max_retries):
+            try:
+                result = self._call_once(path, payload, require_vision)
+                self._ai_cache.put(cache_key, result)
+                return result
+            except Exception as exc:
+                last_error = exc
+                if attempt < max_retries - 1:
+                    delay = base_delay * (2 ** attempt)
+                    time.sleep(delay)
+                    continue
+                break
+
+        raise RuntimeError(f"All AI providers failed after {max_retries} attempts: {last_error}")
+
+    def _call_once(
+        self,
+        path: str,
+        payload: dict[str, Any],
+        require_vision: bool = False,
+    ) -> dict[str, Any]:
         provider_errors: list[str] = []
 
         with self._provider_lock:
@@ -284,14 +316,13 @@ class OpenAIClient:
                         result = adapter.post(path, provider_payload)
 
                     self._circuit_breaker.record_success(provider)
-                    self._ai_cache.put(cache_key, result)
                     return result
                 except requests.exceptions.HTTPError as exc:
                     status_code = exc.response.status_code if exc.response is not None else 0
                     detail = exc.response.text if exc.response is not None else str(exc)
-                    if status_code == 429:
+                    if status_code in (429, 500, 502, 503, 504):
                         self._circuit_breaker.record_failure(provider, exc, kind="rate_limit")
-                        provider_errors.append(f"{name}: 429 {detail}")
+                        provider_errors.append(f"{name}: {status_code} {detail}")
                         continue
                     provider_errors.append(f"{name}: {status_code} {detail}")
                     self._circuit_breaker.record_hard_failure(provider, status_code, detail)

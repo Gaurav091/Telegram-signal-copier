@@ -1,0 +1,14 @@
+request_id=a7c4485d-615b-4a94-b481-250b0b4d0ee5
+submitted_at=2026-06-10T07:40:28.433076+00:00
+submitted_epoch=1781077228
+source_group=𝗙𝗢𝗥𝗘𝗫 𝗠𝗔𝗥𝗞𝗘𝗧 𝗖𝗢𝗡𝗤𝗨𝗘𝗥
+message_id=27502
+symbol=XAUUSDm
+action=BUY
+order_type=MARKET
+volume=0.01
+entry_price=
+stop_loss=4175.0
+take_profit=4190.0
+take_profit_targets=4190.0
+comment=TG|FOREX-MARKET-CON|27502

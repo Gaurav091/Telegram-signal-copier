@@ -34,7 +34,7 @@ from __future__ import annotations
 import json
 import logging
 import threading
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any, Optional
 
@@ -44,11 +44,42 @@ logger = logging.getLogger(__name__)
 class PipelineLogger:
     """Thread-safe JSONL pipeline event logger with daily file rotation."""
 
-    def __init__(self, logs_dir: str | Path) -> None:
+    def __init__(self, logs_dir: str | Path, retention_days: int = 7) -> None:
         self._logs_dir = Path(logs_dir)
         self._lock = threading.Lock()
         self._current_date: str = ""
         self._handle = None
+        self._retention_days = retention_days
+        self._cleanup_old_logs()
+
+    def _cleanup_old_logs(self) -> None:
+        """Delete pipeline logs older than retention_days."""
+        if self._retention_days <= 0:
+            return
+        cutoff = datetime.now(tz=UTC) - timedelta(days=self._retention_days)
+        cutoff_str = cutoff.strftime("%Y-%m-%d")
+        try:
+            for path in self._logs_dir.glob("pipeline_*.jsonl"):
+                # Extract date from filename: pipeline_2026-06-22.jsonl
+                match = None
+                try:
+                    # Quick check: filename format is pipeline_YYYY-MM-DD.jsonl
+                    parts = path.stem.split("_")
+                    if len(parts) >= 2:
+                        date_part = parts[-1]
+                        # Validate format
+                        datetime.strptime(date_part, "%Y-%m-%d")
+                        match = date_part
+                except Exception:
+                    pass
+                if match and match < cutoff_str:
+                    try:
+                        path.unlink(missing_ok=True)
+                        logger.info("[PIPELINE_LOG] Archived/removed old log: %s", path.name)
+                    except Exception as exc:
+                        logger.debug("[PIPELINE_LOG] Could not remove %s: %s", path.name, exc)
+        except Exception as exc:
+            logger.debug("[PIPELINE_LOG] Cleanup failed: %s", exc)
 
     # ── Public API ────────────────────────────────────────────────────────
 

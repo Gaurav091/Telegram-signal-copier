@@ -57,7 +57,12 @@ def maybe_float(value: Any) -> float | None:
 
 
 def first_float(values: list[str]) -> float | None:
-    return float(values[0]) if values else None
+    for v in values:
+        try:
+            return float(v)
+        except (TypeError, ValueError):
+            continue
+    return None
 
 
 def detect_order_type(upper_text: str) -> str:
@@ -106,6 +111,9 @@ def detect_symbol_in_text(upper_text: str, allowed_symbols: list[str], strict: b
             return symbol
     for symbol in allowed_symbols:
         normalized = str(symbol).upper()
+        # Skip purely numeric symbols — they match too broadly (years, prices, etc.)
+        if normalized.isdigit():
+            continue
         # Use word boundary to prevent substring matches on OCR garbage
         if re.search(rf"\b{re.escape(normalized)}\b", upper_text):
             return normalized
@@ -114,13 +122,8 @@ def detect_symbol_in_text(upper_text: str, allowed_symbols: list[str], strict: b
     if strict:
         return None
     # Fallback: look for instrument-like tokens but reject pure numbers (prices)
-    for match in re.finditer(r"\b([A-Z0-9]{3,10}(?:\d+|USD|EUR|JPY|GBP|AUD|CAD|NZD|CHF|XAU|XAG))\b", upper_text):
+    # and broker referral codes (long alphanumeric strings)
+    for match in re.finditer(r"\b([A-Z]{2,6}(?:USD|EUR|JPY|GBP|AUD|CAD|NZD|CHF|XAU|XAG|BTC))\b", upper_text):
         candidate = match.group(1)
-        # Skip if the candidate is purely numeric — it's likely a price, not a symbol
-        if candidate.isdigit():
-            continue
-        # Skip if it looks like a date (e.g., 2026, 20260619)
-        if len(candidate) == 4 and candidate.isdigit():
-            continue
         return candidate
     return None

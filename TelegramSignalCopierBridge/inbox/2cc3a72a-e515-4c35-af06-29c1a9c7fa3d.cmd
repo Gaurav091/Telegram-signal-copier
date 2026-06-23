@@ -1,0 +1,14 @@
+request_id=2cc3a72a-e515-4c35-af06-29c1a9c7fa3d
+submitted_at=2026-06-10T15:10:23.112551+00:00
+submitted_epoch=1781104223
+source_group=ALGO TRADING forex.
+message_id=11979
+symbol=XAUUSDm
+action=SELL
+order_type=MARKET
+volume=0.01
+entry_price=4127.52
+stop_loss=4160.33
+take_profit=4078.02
+take_profit_targets=4078.02
+comment=TG|ALGO-TRADING-FOR|11979

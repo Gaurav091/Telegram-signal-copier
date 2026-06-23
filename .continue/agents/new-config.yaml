@@ -1,0 +1,40 @@
+# Continue agent configuration for Telegram Signal Copier
+# Docs: https://docs.continue.dev/reference
+
+name: Telegram Signal Copier Config
+version: 1.0.0
+schema: v1
+
+# Models used by Continue agents.
+# Prefer local/dev-safe defaults first. Add real API keys through VS Code secrets or environment variables.
+models:
+  - name: OpenAI default
+    provider: openai
+    model: gpt-4.1-mini
+    apiKey: ${{ secrets.OPENAI_API_KEY }}
+
+  - name: BluesMinds Gateway
+    provider: openai
+    model: gpt-4o-mini
+    apiKey: sk-rZ3LfLboaiBlt5qWd6K28pSnVHWCrDDdwRgR9MPfY1ZixBS7
+    baseUrl: https://api.bluesminds.com/v1
+    contextLength: 128000
+
+  - name: Ollama local fallback
+    uses: ollama/qwen2.5-coder:7b
+
+  - name: Anthropic Claude
+    uses: anthropic/claude-4-sonnet
+    with:
+      ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+
+# MCP servers available to Continue.
+# BluesMinds MCP server placeholder (uncomment if/when available).
+mcpServers:
+  # - name: BluesMinds API
+  #   command: npx
+  #   args:
+  #     - -y
+  #     - @bluesminds/mcp-server
+  #   env:
+  #     BLUESMINDS_API_KEY: ${{ secrets.BLUESMINDS_API_KEY }}

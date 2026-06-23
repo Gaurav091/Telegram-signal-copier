@@ -1,0 +1,14 @@
+request_id=e2e_verify_1781101399
+submitted_at=2026-06-10T14:23:19.387885+00:00
+submitted_epoch=1781101399
+source_group=E2E_TEST
+message_id=99999
+symbol=XAUUSDm
+action=BUY
+order_type=MARKET
+volume=0.01
+entry_price=
+stop_loss=4100.0
+take_profit=4200.0
+take_profit_targets=4200.0
+comment=TG|E2E_VERIFY|99999

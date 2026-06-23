@@ -1,0 +1,14 @@
+request_id=9a058c41-eaa8-4475-a105-b99f43fa11fe
+submitted_at=2026-06-10T14:39:26.012205+00:00
+submitted_epoch=1781102366
+source_group=XAUUSD GOLD SIGNAL
+message_id=34047..34048
+symbol=XAUUSDm
+action=SELL
+order_type=SELL_LIMIT
+volume=0.01
+entry_price=4174.0
+stop_loss=4180.0
+take_profit=4168.0
+take_profit_targets=4168.0
+comment=TG|XAUUSD-GOLD-SIGN|7..34048

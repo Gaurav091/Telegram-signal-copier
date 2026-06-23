@@ -1,0 +1,14 @@
+request_id=0af4fb16-2976-46d9-8b74-7dad365808ff
+submitted_at=2026-06-11T03:46:33.895987+00:00
+submitted_epoch=1781149593
+source_group=TRADING AWESOME TAGLINE
+message_id=21713
+symbol=XAUUSDm
+action=BUY
+order_type=MARKET
+volume=0.01
+entry_price=4066.0
+stop_loss=4046.0
+take_profit=4069.0
+take_profit_targets=4069.0
+comment=TG|TRADING-AWESOME-|21713

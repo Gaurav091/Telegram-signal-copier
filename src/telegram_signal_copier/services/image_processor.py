@@ -29,36 +29,79 @@ class ImageProcessingResult:
 
 
 class ImageProcessor:
+    _ocr_init_done = False
+    _ocr_available_cached = False
+    _pytesseract_cached = None
+    _PILImage_cached = None
+    _PILImageOps_cached = None
+    _PILImageFilter_cached = None
+
     def __init__(self, ai_client: OpenAIClient | None) -> None:
         self.ai_client = ai_client
-        # detect optional local OCR availability (pytesseract + PIL)
+        self._ensure_ocr_init()
+
+    def _ensure_ocr_init(self) -> None:
+        if ImageProcessor._ocr_init_done:
+            return
+
         try:
             import pytesseract  # type: ignore
             from PIL import Image, ImageFilter, ImageOps  # type: ignore
 
-            self._ocr_available = True
-            self._pytesseract = pytesseract
-            self._PILImage = Image
-            self._PILImageOps = ImageOps
-            self._PILImageFilter = ImageFilter
+            ImageProcessor._pytesseract_cached = pytesseract
+            ImageProcessor._PILImage_cached = Image
+            ImageProcessor._PILImageOps_cached = ImageOps
+            ImageProcessor._PILImageFilter_cached = ImageFilter
+
             # Prefer bundled Tesseract in frozen EXE builds, then standard Windows install, then PATH.
-            configured_path = configure_pytesseract(self._pytesseract)
+            configured_path = configure_pytesseract(pytesseract)
             if configured_path is None:
                 try:
-                    self._pytesseract.get_tesseract_version()
+                    pytesseract.get_tesseract_version()
                 except Exception:
-                    self._ocr_available = False
+                    ImageProcessor._ocr_available_cached = False
+                else:
+                    ImageProcessor._ocr_available_cached = True
             else:
                 try:
-                    self._pytesseract.get_tesseract_version()
+                    pytesseract.get_tesseract_version()
                 except Exception:
-                    self._ocr_available = False
+                    ImageProcessor._ocr_available_cached = False
+                else:
+                    ImageProcessor._ocr_available_cached = True
         except Exception:
-            self._ocr_available = False
-            self._pytesseract = None
-            self._PILImage = None
-            self._PILImageOps = None
-            self._PILImageFilter = None
+            ImageProcessor._ocr_available_cached = False
+            ImageProcessor._pytesseract_cached = None
+            ImageProcessor._PILImage_cached = None
+            ImageProcessor._PILImageOps_cached = None
+            ImageProcessor._PILImageFilter_cached = None
+
+        ImageProcessor._ocr_init_done = True
+
+    @property
+    def _ocr_available(self) -> bool:
+        self._ensure_ocr_init()
+        return ImageProcessor._ocr_available_cached
+
+    @property
+    def _pytesseract(self):
+        self._ensure_ocr_init()
+        return ImageProcessor._pytesseract_cached
+
+    @property
+    def _PILImage(self):
+        self._ensure_ocr_init()
+        return ImageProcessor._PILImage_cached
+
+    @property
+    def _PILImageOps(self):
+        self._ensure_ocr_init()
+        return ImageProcessor._PILImageOps_cached
+
+    @property
+    def _PILImageFilter(self):
+        self._ensure_ocr_init()
+        return ImageProcessor._PILImageFilter_cached
 
     def extract_signal_context(
         self,

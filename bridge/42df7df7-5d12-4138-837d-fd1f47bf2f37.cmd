@@ -1,0 +1,14 @@
+request_id=42df7df7-5d12-4138-837d-fd1f47bf2f37
+submitted_at=2026-06-10T09:18:46.242548+00:00
+submitted_epoch=1781083126
+source_group=DUBAI TRADER'S ZONE
+message_id=23097..23098
+symbol=XAUUSDm
+action=SELL
+order_type=MARKET
+volume=0.01
+entry_price=4172.0
+stop_loss=4186.0
+take_profit=4168.0
+take_profit_targets=4168.0
+comment=TG|DUBAI-TRADER-S-Z|7..23098

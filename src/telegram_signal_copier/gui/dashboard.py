@@ -239,6 +239,46 @@ class SignalCopierDashboard:
         self.config = AppConfig.from_env(self.project_root)
         self.channels_panel.refresh_channels_list(self.config, self.settings_manager)
 
+    # ── Backward-compatible public aliases expected by tests ─────────────
+    # tests/test_gui_dialog.py calls these older method names directly.
+    def on_add_channel_dialog(self, e: Any = None) -> None:
+        _ = e
+        self._on_add_channel_dialog()
+
+    def on_search_channels(self, e: Any = None) -> None:
+        _ = e
+        self._on_add_channel_dialog()
+
+    def on_open_settings(self, e: Any = None) -> None:
+        self._on_open_settings(e)
+
+    def on_clear_trades(self, e: Any = None) -> None:
+        _ = e
+        # Backward compatibility: older tests call this handler expecting it
+        # to exist; TradesPanel implements on_clear_trades (not clear_trades).
+        if hasattr(self.trades_panel, "on_clear_trades"):
+            self.trades_panel.on_clear_trades()
+        elif hasattr(self.trades_panel, "clear_trades"):
+            self.trades_panel.clear_trades()  # type: ignore[attr-defined]
+        self.page.update()
+
+    def on_quick_lot_mode_change(self, e: Any = None) -> None:
+        _ = e
+        if hasattr(self.trades_panel, "on_quick_lot_mode_change"):
+            self.trades_panel.on_quick_lot_mode_change()  # type: ignore[attr-defined]
+        elif hasattr(self.trades_panel, "quick_lot_mode_change"):
+            self.trades_panel.quick_lot_mode_change()  # type: ignore[attr-defined]
+        self.page.update()
+
+    def on_save_quick_lot(self, e: Any = None) -> None:
+        _ = e
+        if hasattr(self.trades_panel, "on_save_quick_lot"):
+            self.trades_panel.on_save_quick_lot()  # type: ignore[attr-defined]
+        elif hasattr(self.trades_panel, "save_quick_lot"):
+            self.trades_panel.save_quick_lot()  # type: ignore[attr-defined]
+        self.page.update()
+
+    # ── Current internal handlers ───────────────────────────────────────────
     def _on_add_channel_dialog(self) -> None:
         show_add_channel_dialog(self.page, self.config, self.settings_manager, self._refresh_channels)
 

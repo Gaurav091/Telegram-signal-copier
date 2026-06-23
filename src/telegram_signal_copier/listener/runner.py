@@ -43,7 +43,22 @@ async def _run_listener(config: AppConfig) -> None:
         "last_trade_comment": "",
         "last_error": "",
     }
-    heartbeat_task = asyncio.create_task(_run_status_heartbeat(config, status))
+    status_heartbeat_task = asyncio.create_task(_run_status_heartbeat(config, status))
+
+    async def _run_heartbeat():
+        heartbeat_path = config.project_root / "runtime" / "heartbeat.txt"
+        heartbeat_path.parent.mkdir(parents=True, exist_ok=True)
+        while True:
+            try:
+                heartbeat_path.write_text(
+                    f"{datetime.now().isoformat()} PID={os.getpid()}\n",
+                    encoding="utf-8"
+                )
+            except Exception:
+                logger.debug("Heartbeat write failed", exc_info=True)
+            await asyncio.sleep(30)
+
+    heartbeat_task = asyncio.create_task(_run_heartbeat())
 
     async def on_message(message: TelegramSignalMessage) -> None:
         try:

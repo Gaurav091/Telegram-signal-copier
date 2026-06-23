@@ -335,6 +335,46 @@ After changing the EA source, recompile the EA in MetaEditor and attach/restart 
 
 ---
 
+## EA Floating Loss Close-All
+
+The EA includes an optional risk-control feature that closes all matching open positions when total floating loss reaches a configured USD threshold. This is useful for limiting downside risk when trades go against you.
+
+### Inputs
+
+| Parameter | Default | Description |
+|---|---|---|
+| `EnableFloatingLossCloseAll` | `false` | Enable/disable the floating-loss close-all safety feature |
+| `FloatingLossCloseAllUsd` | `50.0` | Loss threshold in account currency (absolute value), e.g. `50` USD |
+| `FloatingLossCloseAllOnlyManagedMagic` | `true` | Only close positions opened by this EA (`MagicNumber`) |
+| `FloatingLossCloseAllCooldownSeconds` | `60` | Minimum cooldown between close-all triggers |
+
+### Recommended settings
+
+For automatic close-all at `$50` floating loss, set:
+
+```text
+EnableFloatingLossCloseAll = true
+FloatingLossCloseAllUsd = 50.0
+FloatingLossCloseAllOnlyManagedMagic = true
+FloatingLossCloseAllCooldownSeconds = 60
+```
+
+The EA calculates:
+
+```text
+total floating loss = POSITION_PROFIT + POSITION_SWAP
+```
+
+When the total loss is **more negative** than the threshold (e.g., `-50` or `-60` when threshold is `50`), it closes matching open positions and writes the event to the MT5 journal.
+
+### Important
+
+This feature runs inside the MT5 EA only. It does **not** require Python listener changes, bridge command changes, or a new Python EXE build.
+
+After changing the EA source, recompile the EA in MetaEditor and attach/restart it on the chart.
+
+---
+
 ## Running the Listener
 
 ```bash

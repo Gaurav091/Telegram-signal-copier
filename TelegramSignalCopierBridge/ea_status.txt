@@ -1,0 +1,2 @@
+﻿heartbeat_epoch=0
+status=initializing

@@ -1,0 +1,43 @@
+{
+  "ai_providers": [
+    {
+      "name": "primary",
+      "base_url": "https://api.openai.com/v1",
+      "vision": true,
+      "status": "ok",
+      "probe": false
+    },
+    {
+      "name": "cloudflare",
+      "base_url": "https://api.cloudflare.com/client/v4",
+      "vision": false,
+      "status": "ok",
+      "probe": false
+    },
+    {
+      "name": "nvidia",
+      "base_url": "https://integrate.api.nvidia.com/v1",
+      "vision": false,
+      "status": "ok",
+      "probe": true
+    },
+    {
+      "name": "cerebras",
+      "base_url": "https://api.cerebras.ai/v1",
+      "vision": false,
+      "status": "ok",
+      "probe": true
+    },
+    {
+      "name": "groq",
+      "base_url": "https://api.groq.com/openai/v1",
+      "vision": true,
+      "status": "ok",
+      "probe": true
+    }
+  ],
+  "ocr": {
+    "python_packages": true,
+    "tesseract": "5.5.0.20241111"
+  }
+}

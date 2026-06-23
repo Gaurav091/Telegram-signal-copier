@@ -1,0 +1,14 @@
+request_id=a6085a25-1854-4e73-88e9-f7092c5c1c64
+submitted_at=2026-06-10T07:44:24.725427+00:00
+submitted_epoch=1781077464
+source_group=𝐆𝐎𝐋𝐃 𝐁𝐈𝐆 𝐋𝐎𝐓 𝐒𝐈𝐆𝐍𝐀𝐋𝐒
+message_id=16596
+symbol=XAUUSDm
+action=SELL
+order_type=MARKET
+volume=0.01
+entry_price=4193.0
+stop_loss=4204.0
+take_profit=4187.0
+take_profit_targets=4190.0,4187.0
+comment=TG|GOLD-BIG-LOT-SIG|16596
