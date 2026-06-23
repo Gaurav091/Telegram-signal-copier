@@ -86,7 +86,19 @@ def _parse_mt5_screenshot(
 
     clean = normalize_ocr_spaced_numbers(combined_text)
 
+    # Symbol-aware price range filter (prevents cross-symbol contamination, e.g.
+    # XAUUSD ~4xxx prices leaking into BTCUSD signals)
+    from telegram_signal_copier.constants import SYMBOL_PRICE_RANGES as _SPR
+    _sym_range = _SPR.get(symbol or "", (0.0, 999999.0))
+    _price_lo = max(0.0, _sym_range[0] * 0.3)
+    _price_hi = _sym_range[1] * 2.0
+
+    def _in_range(val: float) -> bool:
+        return _price_lo <= val <= _price_hi
+
     entry_price: float | None = None
+    entry_range_low: float | None = None
+    entry_range_high: float | None = None
     stop_loss: float | None = None
     take_profits: list[float] = []
     
@@ -101,7 +113,9 @@ def _parse_mt5_screenshot(
                 pm = re.search(r"^(\d{3,7}(?:\.\d{1,5})?)", lines[j].strip())
                 if pm:
                     try:
-                        stop_loss = float(pm.group(1))
+                        sl_c = float(pm.group(1))
+                        if _in_range(sl_c):
+                            stop_loss = sl_c
                     except ValueError:
                         pass
                     break
@@ -110,7 +124,9 @@ def _parse_mt5_screenshot(
         sl_m = re.search(r"(?:S[/\\]?L|STOP\s*LOSS)[.:\s]*(\d{3,7}(?:\.\d{1,5})?)", line_upper)
         if sl_m:
             try:
-                stop_loss = float(sl_m.group(1))
+                sl_c = float(sl_m.group(1))
+                if _in_range(sl_c):
+                    stop_loss = sl_c
             except ValueError:
                 pass
         
@@ -121,7 +137,7 @@ def _parse_mt5_screenshot(
                 if pm:
                     try:
                         tp_val = float(pm.group(1))
-                        if tp_val >= 100 and tp_val not in take_profits:
+                        if _in_range(tp_val) and tp_val not in take_profits:
                             take_profits.append(tp_val)
                     except ValueError:
                         pass
@@ -132,28 +148,30 @@ def _parse_mt5_screenshot(
         if tp_m:
             try:
                 tp_val = float(tp_m.group(1))
-                if tp_val >= 100 and tp_val not in take_profits:
+                if _in_range(tp_val) and tp_val not in take_profits:
                     take_profits.append(tp_val)
             except ValueError:
                 pass
         
         
-        # --- Entry price: range pattern first, then labels ---
-        if entry_price is None:
+        # --- Entry price: range pattern first, then labels, then first standalone price ---
+        if entry_range_low is None:
             range_m = re.search(r"(\d{3,7}(?:\.\d{1,5})?)\s*[-–—>]+\s*(\d{3,7}(?:\.\d{1,5})?)", line)
             if range_m:
                 try:
                     p1, p2 = float(range_m.group(1)), float(range_m.group(2))
-                    if p1 >= 100 and p2 >= 100:
+                    if _in_range(p1) and _in_range(p2):
+                        entry_range_low = min(p1, p2)
+                        entry_range_high = max(p1, p2)
                         entry_price = max(p1, p2)
                 except Exception:
                     pass
-            if entry_price is None:
+            if entry_range_low is None:
                 em = re.search(r"(?:ENTRY|PRICE)[:\s=]*@?\s*(\d{3,7}(?:\.\d{1,5})?)", line_upper)
                 if em:
                     try:
                         val = float(em.group(1))
-                        if val >= 100:
+                        if _in_range(val):
                             entry_price = val
                     except Exception:
                         pass
@@ -165,7 +183,9 @@ def _parse_mt5_screenshot(
                 em = re.search(r"(?:ENTRY|PRICE)[:\s=]*@?\s*(\d{3,7}(?:\.\d{1,5})?)", line, re.IGNORECASE)
                 if em:
                     try:
-                        entry_price = float(em.group(1))
+                        val = float(em.group(1))
+                        if _in_range(val):
+                            entry_price = val
                     except Exception:
                         pass
             if not stop_loss:
@@ -173,17 +193,39 @@ def _parse_mt5_screenshot(
                 if m:
                     try:
                         val = float(m.group(1))
-                        if val > 0:  # Reject negative values (swap/P&L artifacts)
+                        if val > 0 and _in_range(val):  # Reject negative + out-of-range values
                             stop_loss = val
                     except Exception:
                         pass
             for tp in TP_PATTERN.findall(line):
                 try:
                     tp_val = float(tp)
-                    if tp_val >= 100 and tp_val not in take_profits:
+                    if _in_range(tp_val) and tp_val not in take_profits:
                         take_profits.append(tp_val)
                 except Exception:
                     pass
+
+    # Final fallback: scan first few lines after header for a symbol-valid standalone
+    # entry (handles bare "63 396.77" or "77 645.45" entries from MT5 screenshots).
+    # Skip the header line itself to avoid catching lot-size/ticket values.
+    if entry_price is None and symbol and side:
+        header_line_idx = None
+        for idx, ln in enumerate(lines):
+            if header and header.group(0) in ln:
+                header_line_idx = idx
+                break
+        search_lines = lines[header_line_idx + 1: header_line_idx + 6] if header_line_idx is not None else lines[:5]
+        for ln in search_lines:
+            for m in re.finditer(r"\b(\d{3,7}(?:\.\d{1,5})?)\b", ln):
+                try:
+                    val = float(m.group(1))
+                    if _in_range(val) and val not in {stop_loss, *take_profits} and val != 0.0:
+                        entry_price = val
+                        break
+                except Exception:
+                    pass
+            if entry_price is not None:
+                break
 
     if not (symbol and side and (entry_price or stop_loss or take_profits)):
         return None
@@ -196,15 +238,23 @@ def _parse_mt5_screenshot(
     mt5_notes = ["Parsed from MT5 position screenshot format"]
     if entry_price is not None:
         mt5_notes.append(f"Recovered entry from OCR text: {entry_price}")
+    # Determine order_type from range (screenshots with entry range → LIMIT order)
+    order_type = "MARKET"
+    if entry_range_low is not None and entry_range_high is not None:
+        if side == "BUY":
+            order_type = "BUY_LIMIT"
+        elif side == "SELL":
+            order_type = "SELL_LIMIT"
+
     return ParsedSignal(
         source_group=message.source_group,
         message_id=message.message_id,
         symbol=symbol,
         side=side,
-        order_type="MARKET",
+        order_type=order_type,
         entry_price=entry_price,
-        entry_range_low=None,
-        entry_range_high=None,
+        entry_range_low=entry_range_low,
+        entry_range_high=entry_range_high,
         stop_loss=stop_loss,
         take_profits=take_profits,
         confidence=confidence,
